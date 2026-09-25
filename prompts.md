@@ -1,9 +1,7 @@
 En esta sección, se detallan los prompts principales utilizados durante la creación del proyecto, que justifican el uso de asistentes de código en todas las fases del ciclo de vida del desarrollo. Principalmente los de creación inicial o los de corrección o adición de funcionalidades que consideré más relevantes.
-Adicionalmente, las conversaciones completas se encuentran por secciones:
-- Descripción general del producto, Arquitectura del sistema y Modelo de datos: `docs/prompts-claude-fase-inicial.md`
-- 
 
-
+Para el armado de prompts se utilizó Gemini Notebook, comenzando por el armado del prompt para la generación del PRD. Luego, realizó la validación del prompt, realizo las correcciones que creo necesarias y se los paso de forma limpia a Claude Code.
+Los prompts principales son adjuntados en este documento. Adicionalmente, en `docs/prompts-claude-fase-inicial.md` se encuentran las conversaciones completas utilizadas para las secciones: Descripción general del producto, Arquitectura del sistema y Modelo de datos. 
 
 
 ## Índice

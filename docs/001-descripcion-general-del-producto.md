@@ -18,11 +18,11 @@ Según el alcance del MVP definido en el PRD:
 
 - Interfaz CLI TUI interactiva para terminal Windows.
 - Persistencia local de configuración e historial en SQLite.
-- Integración REST con la API de Jira, con fallback manual si no hay conexión.
-- Creación automática de la rama de Git (`feature/ID-123-resumen`, `bugfix/ID-123-resumen`) en el repositorio correspondiente, según la convención del equipo.
-- Procesamiento con un LLM local (Ollama) para autogenerar, a partir del texto crudo de Jira, la Descripción y Contexto, los Casos de Uso y los Criterios de Aceptación en formato Gherkin (*Given/When/Then*).
+- Integración REST con la API de Jira, autenticada mediante API Token / Personal Access Token (sin flujo OAuth con navegador). Ante fallo de red, token inválido/expirado o ticket inexistente, activa un modo fallback manual sin bloquear el flujo.
+- Creación automática de la rama de Git (`feature/ID-123-resumen`, `bugfix/ID-123-resumen`) en el repositorio correspondiente, según la convención del equipo (una ejecución por repositorio; no hay soporte multi-repo en una misma corrida).
+- Procesamiento con un LLM local (Ollama) para autogenerar, a partir del texto crudo de Jira, la Descripción y Contexto, los Casos de Uso y los Criterios de Aceptación en formato Gherkin (*Given/When/Then*). Si Ollama no está disponible, el flujo continúa igual: se genera el documento con el texto crudo sin estructurar, marcado para completar manualmente.
 - Creación automática de la estructura de carpetas local por ticket (`/ticket-ID/adjuntos/`).
-- Plantilla estandarizada en el documento generado, con secciones a completar por el desarrollador durante el ciclo de vida del ticket: Objetos Modificados, Evidencias de Pruebas e Instrucciones de Pasaje a Producción.
+- Plantilla del documento en dos fases: **Fase 1** (generada automáticamente al crear el ticket: Descripción y Contexto, Casos de Uso, Gherkin) y **Fase 2** (completada por el desarrollador durante el ciclo de vida del ticket: Objetos Modificados, Evidencias de Pruebas, Instrucciones de Pasaje a Producción).
 
 ### **1.3. Diseño y experiencia de usuario:**
 

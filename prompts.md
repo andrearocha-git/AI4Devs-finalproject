@@ -73,25 +73,213 @@ El documento debe estructurarse estrictamente así:
 ```
 
 
-**Prompt 2:**
+**Prompt 2: Prompt de Auditoría y Evaluación del PRD para después actualizar la descripción general del producto**
 
-**Prompt 3:**
+```
+Actúa como un Auditor Principal de Producto y Lead QA especializado en Herramientas de Ingeniería (DevEx).
+
+=== CONTEXTO ===
+Hemos generado la primera versión de nuestro PRD en 'docs/PRD.md' para una herramienta CLI (TUI) de Windows 10/11 que estandariza el inicio de tareas de desarrollo desde Jira, crea ramas en Git, genera carpetas locales y utiliza un LLM local (Ollama) para formatear la documentación en Markdown.
+
+=== TU MISIÓN EN ESTE TURNO ===
+Realiza una auditoría crítica y exhaustiva del documento 'docs/PRD.md'. No aplaudas el trabajo; busca vacíos, ambigüedades, riesgos de alcance (scope creep) y puntos débiles.
+
+Evalúa el documento frente a los siguientes 6 puntos de control:
+
+1. **Evaluación de Fronteras (Non-Goals):**
+   - ¿Queda 100% claro e inequívoco que Ollama NO generará código fuente (Java/Angular)?
+   - ¿Queda 100% claro que NO hay interfaz web ni GUI de escritorio?
+   - Si detectas alguna redacción ambigua que pueda confundir a un evaluador, señálala y propone la redacción exacta corregida.
+
+2. **Manejo de Fallos y Resiliencia (Edge Cases):**
+   - ¿El PRD especifica el comportamiento cuando la API de Jira no responde (ej. red caída o token inválido)?
+   - ¿Especifica qué ocurre si Ollama no está en ejecución en la PC del desarrollador (mecanismo de Fallback)?
+
+3. **Ciclo de Vida del Ticket en la Plantilla Markdown:**
+   - ¿La estructura de la plantilla diferencia claramente lo que se genera al INICIO (Contexto, Casos de Uso, Gherkin) de lo que completa el Dev al FINALIZAR (Objetos modificados, Evidencias en 'adjuntos/', Pasaje a Prod)?
+
+4. **Análisis de Fricción (DevEx):**
+   - ¿El flujo propuesto realmente elimina el cambio de contexto del desarrollador o le agrega pasos manuales innecesarios?
+
+5. **Factibilidad del MVP:**
+   - ¿Existe alguna funcionalidad 'In Scope' que consideres excesiva para una v1.0 y que debería postergarse a la v2.0?
+
+6. **Métricas de Éxito:**
+   - ¿Las métricas definidas son medibles y objetivas?
+
+=== FORMATO DE RESPUESTA ===
+Estructura tu dictamen en:
+- 🔴 **Hallazgos Críticos / Puntos Ciegos** (Lo que debe corregirse inmediatamente).
+- 🟡 **Oportunidades de Mejora** (Sugerencias para afinar la especificación).
+- 🟢 **Veredicto:** [APROBADO CON CAMBIOS / RECHAZADO].
+- 📝 **Bloque de Parches:** Texto exacto formateado en Markdown para reemplazar o añadir en 'docs/PRD.md' para solucionar cada hallazgo.
+
+```
+
+✏️ Nota: Despues de cada prompt se le pide a Claude Code que actualice los archivos PRD.md, 000, 001 y 002
 
 ---
 
 ## 2. Arquitectura del Sistema
 
+### **2.0. Documento ADR:**
+
+**Prompt 1: Prompt para evaluar módulos y generar el ADR**
+
+```
+Actúa como un Arquitecto de Software Principal especializado en Gobernanza Técnica y DevEx.
+
+=== CONTEXTO ===
+Estamos definiendo la arquitectura técnica para una herramienta CLI/TUI en Windows 10/11 que estandariza el inicio de tareas desde Jira, crea ramas en Git, genera carpetas locales de evidencias y utiliza Ollama para estructurar especificaciones Markdown.
+
+=== TU MISIÓN EN ESTE TURNO ===
+Evalúa críticamente el patrón arquitectónico modular propuesto (TUI Layer, Service Layer, Storage Layer) y genera un Registro de Decisiones de Arquitectura (ADR) formal en formato Markdown para guardarse en 'docs/ADR-001-arquitectura-inicial.md'.
+
+El documento debe seguir la plantilla estándar de ADR (MADR v3.0 / Michael Nygard) e incluir explícitamente 4 registros de decisión:
+
+1. **ADR-001.1: Interfaz CLI/TUI frente a Aplicación Gráfica (GUI/Web).**
+2. **ADR-002.1: Persistencia en SQLite embebida frente a archivos planos (JSON/YAML).**
+3. **ADR-003.1: LLM Local (Ollama) con Fallback Determinista frente a APIs Cloud (OpenAI/Anthropic).**
+4. **ADR-004.1: Almacenamiento local de evidencias en carpeta del ticket frente a Sincronización Automática con Google Drive.**
+
+Para CADA decisión, debes estructurar estrictamente los siguientes apartados:
+- **Título y Estado:** [Aprobado]
+- **Contexto y Problema:** Qué necesidad o restricción técnica motiva la decisión.
+- **Opciones Consideradas:** Alternativa A (Elegida) vs Alternativa B (Descartada).
+- **Criterios de Decisión:** Factores clave (rendimiento, simplicidad, costo, privacidad, mantenibilidad).
+- **Decisión Elegida:** Justificación clara de por qué se tomó esa opción.
+- **Consecuencias y Trade-offs:**
+  - 🟢 *Consecuencias Positivas* (Lo que ganamos).
+  - 🔴 *Consecuencias Negativas / Riesgos aceptados* (Lo que sacrificamos y cómo lo mitigamos).
+
+=== RESTRICCIONES ===
+- Lenguaje: Español técnico profesional.
+- Tono: Analítico, objetivo y sin adornos.
+- Enfócate en la justificación arquitectónica real, no en teoría genérica.
+
+```
+
+
+
 ### **2.1. Diagrama de arquitectura:**
 
-**Prompt 1:**
+**Prompt 1: Prompt para completar `002-arquitectura-del-sistema.md`**
 
-**Prompt 2:**
+```
+Actúa como un Arquitecto de Software Senior y Lead de Infraestructura/DevEx.
 
-**Prompt 3:**
+=== CONTEXTO DEL PROYECTO Y ARCHIVOS BASE ===
+Revisa detenidamente los siguientes archivos presentes en el repositorio:
+1. '001-descripcion-general-del-producto.md' (o 'docs/PRD.md')
+2. 'ADR-001-arquitectura-inicial.md' (Decisiones de arquitectura aprobadas)
+3. '002-arquitectura-del-sistema.md' (Plantilla/documento actual de arquitectura a completar)
+
+=== TU MISIÓN EN ESTE TURNO ===
+Basándote estrictamente en el PRD y en las decisiones registradas en el ADR-001 (patrón de 3 capas: TUI Layer, Service Layer, Storage Layer; SQLite embebida; Ollama con fallback a texto plano; evidencias locales en '/adjuntos/'), debes COMPLETAR y ACTUALIZAR el archivo '002-arquitectura-del-sistema.md' en las secciones correspondientes a la Entrega 1:
+
+1. **Sección 2.1 — Diagrama de arquitectura (Mermaid):**
+   - Diagrama de contexto/componentes en sintaxis Mermaid (`graph TD` o similar) representando las 3 capas (TUI, Services, Storage) y sus relaciones.
+   - Diagrama de secuencia E2E (`sequenceDiagram`) en Mermaid detallando el flujo desde que el usuario ejecuta 'dev-tool start ID-123' hasta la creación de la rama Git, invocación de Ollama (con el flujo de fallback) y generación de carpetas/Markdown.
+   - Breve justificación del patrón de 3 capas enlazando directamente con los apartados de 'ADR-001-arquitectura-inicial.md'.
+
+2. **Sección 2.2 — Descripción de componentes principales:**
+   - Explicación detallada de responsabilidades por capa y componente:
+     - **TUI Layer:** Controlador de interfaz de consola Windows.
+     - **Service Layer:** Jira REST Client, Ollama AI Transformer (con fallback), Git Manager, FileSystem Manager.
+     - **Storage Layer:** SQLite Storage Manager y sistema de archivos local.
+
+3. **Sección 2.3 — Descripción de alto nivel del proyecto y estructura de ficheros:**
+   - Árbol de directorios representativo para el repositorio de la herramienta CLI (`/src/tui`, `/src/services`, `/src/database`, `/docs`, `/tests`, etc.).
+   - Explicación breve de la responsabilidad de cada carpeta principal.
+
+4. **Sección 3 — Modelo de Datos (SQLite):**
+   - **Sección 3.1:** Diagrama ERD en sintaxis Mermaid (`erDiagram`) con entidades, claves y cardinalidades.
+   - **Sección 3.2:** Sentencias DDL de SQLite (`CREATE TABLE`) y descripción detallada de atributos para las tablas: `app_config`, `projects_config` y `ticket_logs`.
+
+=== RESTRICCIONES Y REGLAS ===
+- Modifica directamente el archivo '002-arquitectura-del-sistema.md' rellenando los bloques marcados como '[A definir]' en las secciones 2.1, 2.2, 2.3 y 3.
+- Mantén intacta la estructura general del archivo.
+- Asegúrate de que todos los bloques de código Mermaid sean sintácticamente válidos.
+- Deja indicadas como '[A definir en Entrega 2]' las secciones correspondientes a infraestructura/despliegue real, pipelines de CI/CD o ejecutables compilados.
+- Lenguaje: Español técnico profesional.
+
+```
+
+⚠️ En el prompt quedó la sección 3 - Modelo de datos, Claude code notó que por la convención ya existía el archivo 003-modelo-de-datos.md por lo que separó la información y colocó en ese archivo el diagrama ERD y las sentencias
+
+**Prompt 2: Evaluación Integración con Jira a través MCP Server Vs Jira REST Client**
+
+```
+Actúa como un Arquitecto de Software Senior y Lead de Infraestructura/DevEx.
+
+=== CONTEXTO ===
+Estamos evaluando la estrategia de integración con Jira para la herramienta 'DevFlow CLI' (Windows 10/11).
+Debemos documentar la decisión técnica de usar un 'Jira REST Client' directo (HTTP + API Token) frente a la alternativa de consumir la API a través de un 'MCP Server' (Model Context Protocol como Atlassian Rovo MCP).
+
+=== TU MISIÓN EN ESTE TURNO ===
+1. Actualiza el archivo 'docs/ADR-001-arquitectura-inicial.md' añadiendo una sub-sección o registro explícito 'ADR-005.1: Integración directa con Jira REST API frente a consumo vía MCP Server'.
+2. Justifica por qué se elige el cliente REST HTTP directo para el MVP:
+   - **Garantía de autonomía y resiliencia:** Evita flujos de autenticación OAuth2 con navegador que introducen fricción y violan los Non-Goals del PRD.
+   - **Rendimiento y determinismo:** Control preciso de timeouts y disparadores del modo fallback manual (HTTP 401, 403, 404).
+   - **Eficiencia de tokens:** El cliente REST parsea JSON directamente sin consumir presupuesto de contexto de un LLM.
+3. Actualiza el componente 'Módulo de integración con Jira' en '002-arquitectura-del-sistema.md' reflejando esta decisión.
+
+=== RESTRICCIONES ===
+- Utiliza la plantilla estándar de ADR (MADR v3.0) con Contexto, Opciones Consideradas, Decisión y Consecuencias (Pros/Cons).
+- Lenguaje: Español técnico profesional.
+```
+
 
 ### **2.2. Descripción de componentes principales:**
 
 **Prompt 1:**
+
+```
+Actúa como un Arquitecto de Software Principal y Auditor Técnico especializado en Sistemas Modulares y DevEx.
+
+=== CONTEXTO DEL PROYECTO Y ARCHIVOS DE REFERENCIA ===
+Revisa los siguientes archivos en el repositorio:
+1. '001-descripcion-general-del-producto.md' (o 'PRD.md')
+2. 'ADR-001-arquitectura-inicial.md'
+3. '002-arquitectura-del-sistema.md' (Enfócate específicamente en la Sección 2.2: "Descripción de componentes principales")
+
+=== TU MISIÓN EN ESTE TURNO ===
+Audita de manera crítica y exhaustiva la **Sección 2.2 (Descripción de componentes principales)** de '002-arquitectura-del-sistema.md'. Tu objetivo es encontrar vacíos de definición técnica, ambigüedades en las responsabilidades de cada módulo y falta de contratos/interfaces entre capas.
+
+Para cumplir tu misión, realiza las siguientes tareas:
+
+1. **Auditoría Componente por Componente:**
+   Analiza cada uno de los componentes de las 3 capas:
+   - **Capa TUI (Presentación):** Controller/View de la terminal, captura de inputs, renderizado de estados/spinners.
+   - **Capa de Servicios (Negocio e Integraciones):** Jira REST Client, Ollama AI Transformer (con fallback), Git Manager, FileSystem Manager.
+   - **Capa de Persistencia:** SQLite Storage Manager y Local File System Storage.
+
+2. **Identificación de Gaps y Definiciones Faltantes:**
+   Detecta qué falta especificar en el documento. Pon especial atención a:
+   - **Contratos e Interfaces:** ¿Está claro cómo se comunican las capas entre sí (DTOs, eventos, llamadas directas)?
+   - **Manejo de Errores y Resiliencia:** ¿Cada componente define cómo reaccionar ante fallos de sus dependencias (ej. tiempo de timeout de Jira/Ollama, repositorios Git bloqueados)?
+   - **Inyección de Dependencias y Configuración:** ¿Cómo recibe cada servicio sus parámetros (rutas, tokens, conexión a SQLite)?
+   - **Límites de Responsabilidad (*Single Responsibility*):** ¿Hay algún componente asumiendo tareas que corresponden a otra capa?
+
+3. **Matriz de Opciones y Alternativas:**
+   Por CADA punto ciego o definición faltante que encuentres, presenta entre 2 y 3 opciones técnicas claras para resolverlo.
+   Estructura las opciones indicando:
+   - **Opción A / Opción B / Opción C**
+   - 🟢 *Ventajas / Pros*
+   - 🔴 *Desventajas / Trade-offs*
+   - 💡 *Recomendación sugerida*
+
+=== FORMATO DE RESPUESTA ===
+Estructura tu reporte así:
+1. 🔍 **Diagnóstico General de la Sección 2.2**
+2. 🚨 **Gaps y Definiciones Faltantes Identificadas** (Agrupados por componente)
+3. 🛠️ **Opciones de Solución y Decisiones Pendientes** (Con pros/contras para que yo pueda elegir)
+4. 📝 **Propuesta de Parche/Redacción** (Una vez elegidas las opciones, cómo quedaría el texto mejorado para '002-arquitectura-del-sistema.md')
+
+```
+
+📝 Se tomaron decisiones según creí conveniente, algunas por recomendación otras para definir un poco más el alcance. Se deja la conversación en el archivo .docs/prompts-claude-fase-inicial.md 
+
 
 **Prompt 2:**
 

@@ -685,6 +685,52 @@ Necesitamos enriquecer los tickets técnicos añadiendo a cada una su priorizaci
 
 **Prompt 1:**
 
+```
+Actúa como un Senior Technical Lead y Release Engineer experto en Docs-as-Code y Spec-Driven Development.
+
+=== CONTEXTO Y OBJETIVO ===
+Necesito generar una descripción completa, profesional y estructurada para la Pull Request (PR) de los cambios desarrollados en la rama actual.
+
+=== TU MISIÓN EN ESTE TURNO ===
+1. Inspecciona los cambios reales en el repositorio ejecutando comandos de lectura en Git (`git status`, `git diff origin/main...HEAD` o `git log -n 10 --oneline`).
+2. Analiza los archivos creados, modificados o eliminados en esta rama.
+3. Genera el borrador del Pull Request en formato Markdown siguiendo estrictamente esta plantilla:
+
+---
+# 🚀 Pull Request: [Título descriptivo y conciso de la PR]
+
+### 📌 Resumen Ejecutivo
+- **Propósito:** Breve explicación del valor técnico o de negocio entregado en esta PR.
+- **Historias de Usuario / Tickets Relacionados:** [US-XX, TK-XX]
+
+### 🛠️ Cambios Generados por Capa
+- **🗄️ Base de Datos / Persistencia:** [Tabla/DDL, migraciones SQLite o scripts de datos]
+- **⚙️ Backend / Servicios:** [Lógica de negocio, clientes REST (Jira/Ollama), orquestadores, DTOs]
+- **🖥️ Frontend / TUI:** [Controladores CLI, interfaces de consola, spinners o pantallas de fallback]
+- **📄 Documentación / Specs:** [Especificaciones SDD, ADRs, PRD, README o diagramas]
+
+### 📂 Lista de Archivos Creados y Modificados
+- `ruta/al/archivo1.ext`: [Descripción corta del cambio]
+- `ruta/al/archivo2.ext`: [Descripción corta del cambio]
+
+### 🧪 Pruebas y Verificación (Evidencia)
+- **Comandos Ejecutados:** [ej. `npm test`, `pytest`, scripts de validación]
+- **Resultados:** [Detalle de tests en verde, builds exitosas o escenarios probados]
+
+### ✅ Checklist de Calidad (Definition of Done)
+- [x] Código compilable y libre de errores.
+- [x] Criterios de Aceptación verificados contra la especificación.
+- [x] Documentación/Specs actualizadas y alineadas con el código.
+- [x] Sin variables de entorno, claves ni tokens expuestos.
+---
+
+=== RESTRICCIONES ===
+- Básate únicamente en la evidencia real que obtengas de Git (`git diff`). No inventes archivos ni funcionalidades.
+- Si alguna capa no tuvo cambios en esta PR, indícalo explícitamente como *"N/A (sin cambios)"*.
+- Idioma: Español técnico profesional.
+```
+
+
 **Prompt 2:**
 
 **Prompt 3:**

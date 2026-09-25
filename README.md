@@ -170,7 +170,11 @@ Implementa el comando `devflow start <ID>`, la validación del ID, los prompts d
 
 > Documenta 3 de las Pull Requests realizadas durante la ejecución del proyecto
 
+> Detalle completo (cambios por capa, archivos, verificación y checklist) en [`docs/007-pull-requests.md`](docs/007-pull-requests.md).
+
 **Pull Request 1**
+
+**Entrega 1 — Especificación de producto, arquitectura, modelo de datos, historias de usuario y tickets de DevFlow CLI** (`feature/entrega-1-ANR` → `main`). PR de solo documentación: PRD, ADR-001 y ADR-006.1 (evaluación del stack), arquitectura, modelo de datos SQLite, historias de usuario US-01 a US-03 y tickets TK-01 a TK-03, que serán la fuente de verdad para implementar el MVP. Detalle en [`docs/007-pull-requests.md`](docs/007-pull-requests.md).
 
 **Pull Request 2**
 

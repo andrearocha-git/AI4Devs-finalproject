@@ -285,16 +285,142 @@ Estructura tu reporte así:
 📝 Se tomaron decisiones según creí conveniente, algunas por recomendación otras para definir un poco más el alcance. Se deja la conversación completa en el archivo `docs/prompts-claude-fase-inicial.md` 
 
 
+**Prompt 2: Auditoría de Viabilidad Técnica Pre-Código**
+
+```
+Actúa como un Arquitecto Principal de Software y Auditor de Viabilidad Técnica.
+
+=== CONTEXTO DEL PROYECTO Y FUENTES DE VERDAD ===
+Revisa los archivos de especificación en el repositorio:
+1. '001-descripcion-general-del-producto.md' (o PRD.md)
+2. 'ADR-001-arquitectura-inicial.md'
+3. '002-arquitectura-del-sistema.md' (especialmente la Sección 2.2 sobre Componentes)
+
+=== TU MISIÓN EN ESTE TURNO ===
+Agrega el sub-apartado "2.2.1. Viabilidad Técnica de Componentes e Integraciones Pre-Código" dentro del archivo '002-arquitectura-del-sistema.md' (inmediatamente después de la descripción de los componentes principales) y actualiza el resumen en 'readme.md'.
+
+El apartado '2.2.1' debe estructurarse con las siguientes sub-secciones:
+
+1. **Matriz de Viabilidad de Integraciones:**
+   - Una tabla Markdown con las columnas: `Componente` | `Mecanismo Técnico` | `Viabilidad` | `Estrategia de Fallback / Resiliencia`.
+   - Evalúa Jira REST API (HTTP Directo), Ollama Local (HTTP/JSON), Git Local Engine (CLI commands) y SQLite (DDL local).
+
+2. **Requisitos Previos del Entorno Windows:**
+   - Lista explícita de dependencias que la PC del desarrollador debe cumplir para ejecutar la herramienta (ej. puerto 11434 activo para Ollama, Git en PATH, API Token configurado).
+
+3. **Análisis de Riesgos y Puntos de Fricción:**
+   - Identificación de posibles fallos (ej. Ollama sin VRAM, timeouts de Jira, permisos de carpeta en Windows) y cómo la arquitectura los absorbe sin romper la TUI.
+
+4. **Dictamen Final de Viabilidad (Readiness Gate):**
+   - Declaración formal de que la arquitectura es [100% VIABLE Y CONSTRUIBLE DESDE CERO].
+
+=== RESTRICCIONES ===
+- Modifica directamente '002-arquitectura-del-sistema.md' insertando el apartado 2.2.1 sin borrar las secciones 2.1, 2.2 ni 2.3.
+- Utiliza lenguaje técnico profesional en español.
+
+```
 
 ### **2.3. Descripción de alto nivel del proyecto y estructura de ficheros**
 
-**Prompt 1:**
+**Prompt 1:**  
 
-**Prompt 2:**
+```
+Actúa como un Arquitecto de Software Senior y Lead de Infraestructura.
+
+=== CONTEXTO Y FUENTES DE VERDAD ===
+Revisa los archivos de especificación en el repositorio:
+1. '001-descripcion-general-del-producto.md' (o PRD.md)
+2. 'ADR-001-arquitectura-inicial.md'
+3. '002-arquitectura-del-sistema.md' (especialmente la Sección 2.3: "Descripción de alto nivel del proyecto y estructura de ficheros")
+
+=== TU MISIÓN EN ESTE TURNO ===
+Audita y actualiza la sección "2.3. Descripción de alto nivel del proyecto y estructura de ficheros" en '002-arquitectura-del-sistema.md' para garantizar que cumpla con los estándares de documentación técnica y deje 100% explícito el stack técnico.
+
+Asegúrate de cumplir y verificar los siguientes puntos:
+
+1. **Declaración Explícita del Lenguaje y Runtime:**
+   - Especifica con claridad el **lenguaje de programación y runtime** seleccionado para el proyecto (ej. TypeScript / Node.js, Go, Python, Rust, etc., según lo definido en la arquitectura/configuración).
+   - Especifica la **librería/framework elegida para la TUI** (ej. Ink, Commander, Blessed, Typer, Rich, Bubbletea, etc.) y cómo se organiza dentro de `/src/tui`.
+
+2. **Árbol de Directorios del Repositorio:**
+   - Revisa el diagrama de árbol ('tree') del repositorio y verifica que refleje fielmente la separación en 3 capas:
+     - `/docs` (PRD, ADRs, arquitectura, modelo de datos, historias, tickets)
+     - `/src/tui` (Presentación: controladores de consola, views, prompts de fallback, spinners)
+     - `/src/services` (Lógica de negocio: orquestador y clientes para Jira, Ollama, Git, FileSystem)
+     - `/src/database` (Persistencia: gestor de SQLite, esquema DDL y migraciones)
+     - `/src/shared` (Tipos compartidos, DTOs, contratos e interfaces)
+     - `/templates` y `/tests`
+
+3. **Tabla de Responsabilidades por Carpeta:**
+   - Confirma que la tabla contenga la relación `Carpeta | Propósito / Lenguaje / Módulos` detallando la responsabilidad técnica de cada directorio y las reglas de acoplamiento.
+
+4. **Sincronización:**
+   - Aplica los ajustes directamente en '002-arquitectura-del-sistema.md' y actualiza el resumen correspondiente en 'readme.md'.
+
+=== RESTRICCIONES ===
+- Lenguaje: Español técnico profesional.
+- No borres ni alteres los diagramas Mermaid ni las secciones 2.1, 2.2 o 2.2.1 ya validadas.
+
+```
+
+⚠️ En este punto, se ha definido el Stack Técnológico. El cual requiere un analisís con más profundidad porque los desarrolladores que usarán la aplicación tienen pc Windows con poco espacio y pocos recursos. Por lo que el siguiente prompt incluirá ese análisis de ese stack antes de la sección de _2.4. Infraestructura y Despliegue_ 
+
+
+**Prompt 2: Evaluación de Stack en Archivo Independiente**
+
+```
+Actúa como un Principal Software Architect y Lead Auditor de Infraestructura.
+
+=== CONTEXTO DEL ENTORNO Y RESTRICCIONES DE HARDWARE ===
+Realiza un análisis técnico comparativo para evaluar la opción de **Node.js / TypeScript** frente a otras alternativas para implementar la herramienta 'DevFlow CLI' (Windows 10/11).
+
+El análisis debe considerar las siguientes restricciones operativas reales del parque de PCs del equipo:
+1. **Recursos de Hardware Limitados:** PCs con 8 GB de RAM total y ~35 GB de espacio libre en disco.
+2. **Carga de Trabajo Existente:** Los desarrolladores mantienen abiertos simultáneamente varios IDEs y herramientas pesadas (IntelliJ IDEA, VSCode, NetBeans, DBeaver, IBM Data Studio).
+3. **Software Preinstalado:** Node.js ya está instalado y configurado en el 100% de las máquinas (requerido para proyectos Angular del equipo).
+
+=== TECNOLOGÍAS A COMPARAR VS. NODE.JS / TYPESCRIPT ===
+Compara **Node.js / TypeScript** contra las siguientes 5 alternativas:
+1. **Shell Script (Bash) + curl + jq** (ejecutado vía Git Bash / WSL)
+2. **Java CLI** (ej. Picocli sobre la JVM)
+3. **PowerShell** (nativo de Windows)
+4. **Python** (usando librerías TUI como Textual)
+5. **Go** (compilado nativo usando frameworks TUI como Bubble Tea / Charm)
+
+=== CRITERIOS DE EVALUACIÓN OBLIGATORIOS ===
+Para cada tecnología comparada frente a Node.js / TypeScript, analiza:
+- **Impacto en Disco:** Necesidad de instalar runtimes/SDKs adicionales vs. reutilizar lo existente (~35 GB libres).
+- **Consumo de Memoria RAM:** Huella de memoria en ejecución con IntelliJ / Data Studio activos (límite 8 GB RAM).
+- **Rendimiento y TUI en Windows:** Capacidad de renderizar interfaces de consola interactivas (spinners, prompts) en la terminal de Windows.
+- **Mantenibilidad y DevEx:** Tipado, manejo de errores, facilidad de pruebas unitarias/mocks y curva de aprendizaje.
+
+=== REGLA ESTRICTA DE ARCHIVO DE SALIDA ===
+- **NO modifiques ni actualices ningún archivo existente** (NO toques 'README.md', '002-arquitectura-del-sistema.md' ni ningún otro archivo ya creado).
+- Guarda todo el análisis en un **nuevo archivo independiente** ubicado en: `docs/008-evaluacion-stack-tecnologico.md`.
+
+=== ESTRUCTURA DEL DOCUMENTO DE SALIDA ===
+Organiza el archivo `docs/008-evaluacion-stack-tecnologico.md` en formato ADR / MADR v3.0 con las siguientes secciones:
+1. **Contexto y Problema de Infraestructura**
+2. **Criterios de Evaluación (Decision Drivers)**
+3. **Análisis Comparativo Detallado** (Node.js/TypeScript vs. Shell/curl/jq, Java CLI, PowerShell, Python y Go)
+4. **Tabla Resumen Comparativa** (Tecnología | Impacto Disco | Consumo RAM | TUI Windows | DevEx / Mantenibilidad)
+5. **Conclusión y Recomendación Técnica**
+
+=== IDIOMA Y ESTILO ===
+- Español técnico profesional.
+
+```
+⚠️ Claude code menciona que el mayor riesgo de RAM es Ollama, no la CLI. La idea es ir por qwen2.5:1.5b para la documentación. A evaluar en el desarrollo, o en la segunda entrega.
 
 **Prompt 3:**
 
+```
+En el archivo readme se encuentra "Stack técnico ya decidido" modifiquemos esto para que quede a evaluación en la proxima entrega, que se evalua en el documento 008.
+``` 
+
 ### **2.4. Infraestructura y despliegue**
+ 
+⚠️ Debido a verificación del stack técnico, se completará está sección para la segunda entrega.
 
 **Prompt 1:**
 
@@ -303,6 +429,9 @@ Estructura tu reporte así:
 **Prompt 3:**
 
 ### **2.5. Seguridad**
+
+Prácticas ya decididas a nivel arquitectónico (ver ADR-001)
+⚠️ Debido a verificación del stack técnico, si es necesario se completará está sección para la segunda entrega.
 
 **Prompt 1:**
 
@@ -322,11 +451,25 @@ Estructura tu reporte así:
 
 ### 3. Modelo de Datos
 
+⚠️ El armado del modelo de datos se había realizado en un paso anterior. Por lo que el siguiente prompt es para validar que cumpla con los requisitos del producto
+
 **Prompt 1:**
+```
+Actúa como un Database Architect y Auditor de Calidad de Datos especializado en SQLite.
 
-**Prompt 2:**
+=== MISIÓN ===
+Revisa y valida el archivo '003-modelo-de-datos.md' (o 'docs/003-modelo-de-datos.md') en el repositorio.
 
-**Prompt 3:**
+Verifica únicamente que:
+1. Las sentencias SQL (DDL) de SQLite sean sintácticamente correctas (tipos, PK, FK, constraints CHECK, UNIQUE, AUTOINCREMENT).
+2. El diagrama Mermaid ('erDiagram') no tenga errores de sintaxis y coincida con las tablas SQL.
+3. No existan discrepancias de nombres, tipos o nulabilidad entre el diagrama Mermaid, las tablas descriptivas en Markdown y las sentencias DDL.
+
+=== FORMATO DE RESPUESTA ===
+- Si el archivo está 100% correcto: Confirma brevemente que el modelo de datos es válido y no requiere cambios.
+- Si requiere cambios: Muestra únicamente las correcciones específicas que hacen falta (o el bloque de código/Markdown corregido), sin agregar secciones de hallazgos, matrices de diagnóstico ni explicaciones extensas.
+
+```
 
 ---
 

@@ -68,7 +68,7 @@ erDiagram
 | `branch_prefix_feature` | TEXT | NOT NULL, default `feature` | Prefijo de rama para historias/funcionalidades. |
 | `branch_prefix_bugfix` | TEXT | NOT NULL, default `bugfix` | Prefijo de rama para corrección de errores. |
 | `adjuntos_dir_name` | TEXT | NOT NULL, default `adjuntos` | Nombre de la subcarpeta de evidencias por ticket. |
-| `created_at` / `updated_at` | DATETIME | NOT NULL | Auditoría de creación/modificación. |
+| `created_at` / `updated_at` | DATETIME | NOT NULL, default `CURRENT_TIMESTAMP` | Auditoría de creación/modificación. |
 
 **`projects_config`** — mapeo entre un proyecto/componente de Jira y su repositorio local:
 
@@ -79,7 +79,7 @@ erDiagram
 | `repo_local_path` | TEXT | NOT NULL | Ruta absoluta del repositorio local correspondiente. |
 | `repo_remote_url` | TEXT | NULL | URL remota del repositorio (informativa). |
 | `default_base_branch` | TEXT | NOT NULL, default `main` | Rama base desde la que se crean las ramas de ticket. |
-| `created_at` / `updated_at` | DATETIME | NOT NULL | Auditoría de creación/modificación. |
+| `created_at` / `updated_at` | DATETIME | NOT NULL, default `CURRENT_TIMESTAMP` | Auditoría de creación/modificación. |
 
 **`ticket_logs`** — historial de tickets procesados; fuente de la métrica "tasa de éxito sin fallback" del PRD:
 
@@ -104,6 +104,8 @@ Restricción adicional: `UNIQUE (ticket_id, project_config_id)` — evita regist
 **DDL (SQLite):**
 
 ```sql
+PRAGMA foreign_keys = ON;  -- SQLite no aplica FKs sin este pragma (por conexión)
+
 -- Configuración global de la aplicación (fila única, id = 1)
 CREATE TABLE app_config (
     id                      INTEGER PRIMARY KEY CHECK (id = 1),

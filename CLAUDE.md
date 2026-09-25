@@ -8,16 +8,17 @@ This repo is the AI4Devs (LIDR) final-project deliverable for **DevFlow CLI** �
 
 **There is no application code yet.** The repo currently holds only product/architecture documentation. Do not assume a scaffold, package manager, or language exists until one is actually created (check for `finalproject-<INITIALS>/` or a `package.json` before trusting any command below).
 
-## Two parallel, non-overlapping doc sets — don't confuse them
+## Documentation layout
 
-- **`readme.md` / `prompts.md`** (lowercase, repo root): the fixed-skeleton course deliverable template (Spanish, `>` blockquotes are the grader's instructions). `readme.md`'s index links to its own internal anchors (`#1-...`), not to files.
-- **`README.md`** (uppercase, repo root) + **`docs/`**: the actual product documentation for DevFlow CLI. This is where real work happens:
-  - `docs/PRD.md` — product spec (scope, non-goals, measurable success criteria).
-  - `docs/ADR-001-arquitectura-inicial.md` — the architecture decision log (MADR-style). Contains §0 (evaluation of the 3-layer pattern) plus ADR-001.1 through ADR-005.1.
-  - `docs/000-ficha-del-proyecto.md` … `docs/007-pull-requests.md` — one file per `readme.md` section (0 through 7), kept in sync with the PRD/ADR content. **File names have no accents** (`descripcion`, not `descripción`) — an explicit repo convention; don't reintroduce them when creating new files in this numbered series.
-  - `docs/prompts-claude-fase-inicial.md` — verbatim log of the prompts used to build the docs above.
+`README.md` (repo root, single canonical file — the old lowercase `readme.md` was merged into it and deleted, since having both on a case-insensitive filesystem like Windows risks a checkout collision) carries the course's fixed-skeleton deliverable structure (sections 0-7, Spanish, `>` blockquotes are the grader's instructions where still unanswered) as its body, with a short product tagline up top. Heavy sections (2, 3, 5, 6) are kept short in `README.md` and link out to `docs/` instead of duplicating content, to avoid the two drifting apart:
 
-When a PRD/ADR decision changes something described in `docs/001-*.md` or `docs/002-*.md`, update those files too — they're meant to mirror the PRD/ADR, not drift from them.
+- `docs/PRD.md` — product spec (scope, non-goals, measurable success criteria).
+- `docs/ADR-001-arquitectura-inicial.md` — the architecture decision log (MADR-style). Contains §0 (evaluation of the 3-layer pattern) plus ADR-001.1 through ADR-005.1.
+- `docs/001-descripcion-general-del-producto.md` … `docs/007-pull-requests.md` — one file per `README.md` section (1 through 7), kept in sync with the PRD/ADR content. **File names have no accents** (`descripcion`, not `descripción`) — an explicit repo convention; don't reintroduce them when creating new files in this numbered series. Section 0 (Ficha del proyecto) has no separate `docs/000-*.md` file — its content lives only in `README.md` §0, since it was short enough not to need a dedicated file.
+- `prompts.md` — executive summary of the prompts used, one per course section, mirroring `README.md`'s own section anchors (`#1-...`) in its index — not links to `docs/` files.
+- `docs/prompts-claude-fase-inicial.md` — verbatim log of the prompts used to build the docs above.
+
+When a PRD/ADR decision changes something described in `docs/001-*.md` or `docs/002-*.md`, update those files too, **and** the corresponding short summary in `README.md` — they're meant to mirror each other, not drift.
 
 ## Architecture already decided (see ADR-001 for full rationale)
 

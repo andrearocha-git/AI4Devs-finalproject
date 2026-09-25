@@ -121,7 +121,7 @@ El diagrama de secuencia materializa el ajuste exigido en el [§0 del ADR-001](A
 
 ### **2.2. Descripción de componentes principales:**
 
-El PRD (sección "Alcance del MVP") y el ADR-001 definen los siguientes componentes funcionales, agrupados por capa, ya con su decisión tecnológica aprobada (sin especificar todavía lenguaje/framework de implementación):
+El PRD (sección "Alcance del MVP") y el ADR-001 definen los siguientes componentes funcionales, agrupados por capa, ya con su decisión tecnológica aprobada. El lenguaje/runtime de implementación está en evaluación y se cierra en la próxima entrega; la propuesta de partida es TypeScript sobre Node.js (ver §2.3 y `docs/008-evaluacion-stack-tecnologico.md`):
 
 **TUI Layer**
 
@@ -144,43 +144,97 @@ Toda la configuración que necesitan estos componentes (token de Jira, host/mode
 - **SQLite Storage Manager:** único componente del sistema con acceso a `app_config`, `projects_config` y `ticket_logs` (esquema detallado en `003-modelo-de-datos.md`) — ningún otro componente lee ni escribe SQLite directamente (ver nota del diagrama de componentes más arriba). Expone también las consultas agregadas que alimentan la métrica "tasa de éxito sin fallback" del PRD. Decisión: [ADR-002.1](ADR-001-arquitectura-inicial.md#adr-0021-persistencia-en-sqlite-embebida-frente-a-archivos-planos-jsonyaml) — SQLite embebida frente a archivos planos.
 - **Local File Storage:** capa de acceso a disco sin conocimiento del dominio del ticket — expone únicamente operaciones genéricas (`write(path, content)`, `exists(path)`) usadas por el `FileSystem Manager` de la Service Layer para persistir el documento Markdown y crear la carpeta de adjuntos. Al no conocer el dominio, mantiene la Storage Layer simétrica entre SQLite (datos estructurados) y disco (archivos), sin lógica de negocio filtrándose a esta capa.
 
-[A definir] — tecnología/lenguaje concreto de implementación de cada componente y la definición exacta de campos de `ContextoTicket` y del schema JSON validado del Ollama AI Transformer (el contrato de resultado entre capas — `Ok | FallbackManual | FallbackDeterminista | ErrorBloqueante`, comunicación por eventos de progreso, e inyección de configuración por constructor — ya quedó fijado arriba).
+Lenguaje/runtime de implementación de cada componente: **en evaluación (se cierra en la próxima entrega)**; la propuesta de partida es **TypeScript sobre Node.js** (ver §2.3, junto con el framework de TUI y el árbol de directorios completo, y `docs/008-evaluacion-stack-tecnologico.md`). [A definir] — la definición exacta de campos de `ContextoTicket` y del schema JSON validado del Ollama AI Transformer (el contrato de resultado entre capas — `Ok | FallbackManual | FallbackDeterminista | ErrorBloqueante`, comunicación por eventos de progreso, e inyección de configuración por constructor — ya quedó fijado arriba).
+
+#### **2.2.1. Viabilidad Técnica de Componentes e Integraciones Pre-Código**
+
+Antes de iniciar la implementación (TK-01, TK-02, TK-03), se audita aquí la viabilidad real de cada integración externa que la arquitectura asume, para confirmar que no existen bloqueos técnicos ocultos detrás de las decisiones ya tomadas en el ADR-001.
+
+**1. Matriz de Viabilidad de Integraciones**
+
+| Componente | Mecanismo Técnico | Viabilidad | Estrategia de Fallback / Resiliencia |
+|---|---|---|---|
+| **Jira REST Client** | HTTP directo contra la API REST de Jira, autenticado con API Token/PAT ([ADR-001.1](ADR-001-arquitectura-inicial.md#adr-0011-interfaz-clitui-frente-a-aplicación-gráfica-guiweb), [ADR-005.1](ADR-001-arquitectura-inicial.md#adr-0051-integración-directa-con-jira-rest-api-frente-a-consumo-vía-mcp-server)) | ✅ **Alta** — protocolo HTTP estándar, sin infraestructura adicional ni flujo de navegador | Reintento único con backoff corto; 4 causas de fallo clasificadas (timeout, 401/403, 404, 429) → `FallbackManual` con carga manual por TUI, sin bloquear el resto del flujo |
+| **Ollama Local** | HTTP/JSON contra el servicio local de Ollama (`ollama_host`, por defecto `http://localhost:11434`) ([ADR-003.1](ADR-001-arquitectura-inicial.md#adr-0031-llm-local-ollama-con-fallback-determinista-frente-a-apis-cloud-openaianthropic)) | ✅ **Alta**, condicionada a que el desarrollador tenga Ollama instalado y un modelo descargado — su ausencia degrada el resultado, no bloquea la herramienta | Timeout configurable (`ollama_timeout_seconds`) + validación de schema JSON de la respuesta → `FallbackDeterminista` (texto crudo sin estructurar, marcado `⚠️ Generado sin Ollama`) |
+| **Git Local Engine** | Invocación de comandos Git (`git checkout -b`) sobre el repositorio local vía CLI | ✅ **Alta** — Git ya es una dependencia asumida por el flujo de trabajo diario del equipo | Alcance mínimo deliberado (ver Git Manager, arriba): solo verifica existencia del repo y no-duplicidad de la rama → `ErrorBloqueante` si el repo no existe; rama ya existente se reporta como resultado normal, no como error |
+| **SQLite (DDL local)** | Motor embebido de archivo único, sin proceso servidor ([ADR-002.1](ADR-001-arquitectura-inicial.md#adr-0021-persistencia-en-sqlite-embebida-frente-a-archivos-planos-jsonyaml)) | ✅ **Alta** — cero infraestructura, drivers maduros disponibles en cualquier stack | Modo WAL para tolerar escrituras concurrentes (dos ejecuciones del CLI a la vez); sin red de por medio, el único fallo realista es de permisos/disco → `ErrorBloqueante` |
+
+**2. Requisitos Previos del Entorno Windows**
+
+- Git instalado y disponible en el `PATH` del sistema.
+- Ollama instalado localmente, con el servicio activo en el puerto configurado (`ollama_host`, por defecto **11434**) y al menos un modelo descargado (`ollama_model`).
+- Conectividad de red hacia la instancia de Jira del equipo (`jira_base_url`), sin requerimientos de proxy/VPN más allá de los que el desarrollador ya usa para acceder a Jira desde el navegador.
+- **API Token / Personal Access Token de Jira** válido, generado y configurado en `app_config` antes del primer uso — no hay flujo OAuth que lo resuelva automáticamente (ver [ADR-001.1](ADR-001-arquitectura-inicial.md#adr-0011-interfaz-clitui-frente-a-aplicación-gráfica-guiweb)).
+- Permisos de lectura/escritura del usuario de Windows sobre: (a) la ruta local de cada repositorio configurado en `projects_config`, y (b) la carpeta de trabajo de tickets fuera del repositorio (p. ej. `%USERPROFILE%\DevFlowCLI\tickets\`).
+- Permisos de escritura sobre `%APPDATA%\DevFlowCLI\` para el archivo `devflow.db` (SQLite).
+- **Sin requisitos de puertos entrantes** ni servidor propio expuesto — toda la comunicación de la herramienta es saliente (hacia Jira y hacia Ollama local).
+
+**3. Análisis de Riesgos y Puntos de Fricción**
+
+- **Ollama sin recursos suficientes (VRAM/RAM insuficiente, modelo no cargado):** el timeout (`ollama_timeout_seconds`) actúa como corte determinista; la arquitectura ya trata este caso como un camino de primera clase (`FallbackDeterminista`), no como una excepción sin manejar — la TUI nunca queda esperando indefinidamente, y el flujo completo (rama + carpetas + documento) se completa igual.
+- **Timeouts o caída de red hacia Jira** (VPN corporativa, firewall, instancia de Jira caída): mitigado con reintento único + clasificación explícita de la causa (`FallbackManual`), degradando a carga manual de datos por TUI sin bloquear la creación de rama/carpetas.
+- **Permisos de carpeta en Windows** (ruta de repo sin acceso, carpeta bloqueada por antivirus, o sincronizándose vía OneDrive): no tiene un camino de degradación silenciosa — se clasifica explícitamente como `ErrorBloqueante`, deteniendo únicamente ese paso y reportando a la TUI qué se alcanzó a completar, sin dejar el proceso en un estado ambiguo.
+- **Token de Jira inválido o expirado:** cubierto por el mismo camino de `FallbackManual` que la caída de red (401/403); al no existir OAuth, no hay refresco automático — el desarrollador corrige el token en su configuración y reintenta.
+- **Rama Git ya existente / repositorio no encontrado:** tratados de forma explícita y distinta entre sí (rama existente = resultado informativo, no error; repositorio no encontrado = `ErrorBloqueante`) — ninguno de los dos llega a la TUI como una excepción cruda.
+- **Ejecución concurrente del CLI** (dos terminales abiertas a la vez): mitigado a nivel de Storage Layer con SQLite en modo WAL ([ADR-002.1](ADR-001-arquitectura-inicial.md#adr-0021-persistencia-en-sqlite-embebida-frente-a-archivos-planos-jsonyaml)); no mitigado a nivel de Git — dos ejecuciones simultáneas sobre el mismo repositorio quedan fuera del alcance mínimo ya decidido para el Git Manager.
+
+El denominador común: **ningún fallo de una integración externa se propaga como una excepción no controlada hacia la TUI.** Cada paso del Orquestador retorna uno de los cuatro resultados ya tipificados (`Ok | FallbackManual | FallbackDeterminista | ErrorBloqueante`), y es la TUI —nunca el componente que falló— quien decide cómo comunicarlo al desarrollador.
+
+**4. Dictamen Final de Viabilidad (Readiness Gate)**
+
+Los cuatro mecanismos de integración evaluados (Jira REST, Ollama HTTP/JSON, Git CLI, SQLite embebida) se apoyan en protocolos y herramientas estándar, ampliamente soportados en Windows 10/11, sin infraestructura adicional propia (sin servidor expuesto, sin OAuth, sin dependencia de servicios cloud de terceros). Cada uno de sus modos de fallo conocidos ya tiene una estrategia de resiliencia definida y trazable a una decisión de arquitectura aprobada (ADR-001.1 a ADR-005.1), sin dejar ningún camino de error sin clasificar.
+
+> **Veredicto: arquitectura [100% VIABLE Y CONSTRUIBLE DESDE CERO]** para iniciar la implementación de TK-01, TK-02 y TK-03 sin bloqueos técnicos pendientes de resolución.
 
 ### **2.3. Descripción de alto nivel del proyecto y estructura de ficheros**
 
-Árbol de directorios representativo del repositorio de la herramienta, alineado a las 3 capas del ADR-001. Las extensiones de archivo (`.ts`) son ilustrativas: el lenguaje/runtime concreto aún no está decidido (ver §2.2) y quedará fijado en un ADR posterior.
+**Stack técnico en evaluación (se cierra en la próxima entrega):** la propuesta de partida es **TypeScript sobre Node.js (LTS ≥ 20.x)**. La comparación frente a Bash + curl + jq, Java CLI, PowerShell, Python y Go, según las restricciones de hardware del equipo (8 GB de RAM, ~35 GB libres, IDEs pesados abiertos a la vez), está en `docs/008-evaluacion-stack-tecnologico.md`. Justificación de la propuesta de partida: (a) las tres integraciones externas de la Service Layer son HTTP/JSON (Jira, Ollama) o invocación de procesos (Git), casos de uso nativos de Node; (b) los contratos ya definidos en §2.2 y en los tickets técnicos (`StepResult<T>`, `ContextoTicket`, `TicketRunSummary`) ya están expresados en sintaxis TypeScript, por lo que elegir TypeScript no introduciría una decisión nueva, formalizaría una ya implícita; (c) 2 de los 5 desarrolladores del equipo ya trabajan a diario con Node/npm (stack Angular), reduciendo la fricción de onboarding sobre la propia herramienta; (d) existen drivers SQLite embebidos maduros para Node (`better-sqlite3` / `node:sqlite`) que soportan modo WAL (ADR-002.1).
+
+**Framework de TUI (propuesta de partida, sujeto a la misma evaluación):** **[Ink](https://github.com/vadimdemedes/ink)** (renderizado de terminal basado en componentes, estilo React) + **Commander** para el parsing de comandos (`devflow start <ID>`, `devflow config ...`) + **`@inquirer/prompts`** para los prompts de confirmación y carga manual. Justificación: el modelo de comunicación TUI↔Orquestador ya decidido en §2.2 es **basado en eventos de progreso** (`onStep(paso, estado)`) — Ink encaja de forma natural porque cada evento se traduce en una actualización de estado de componente (React-like) que Ink vuelve a renderizar automáticamente (spinners vía `ink-spinner`, vistas de resumen/fallback como componentes), sin lógica manual de redibujado de pantalla. Se descartó Blessed por ser imperativo y de mantenimiento más limitado frente a un modelo de actualización por eventos.
+
+Árbol de directorios del repositorio, alineado a las 3 capas del ADR-001 y con el stack de la propuesta de partida (se adapta si la evaluación de `docs/008-evaluacion-stack-tecnologico.md` concluye otro stack):
 
 ```
 devflow-cli/
-├── docs/                          # PRD, ADRs, especificación de arquitectura y de datos
+├── package.json                    # Proyecto Node.js/TypeScript: dependencias, scripts (build, test, start)
+├── tsconfig.json                   # Configuración del compilador TypeScript
+├── docs/                           # PRD, ADRs, especificación de arquitectura y de datos
 │   ├── PRD.md
 │   ├── ADR-001-arquitectura-inicial.md
 │   ├── 002-arquitectura-del-sistema.md
 │   └── 003-modelo-de-datos.md
 ├── src/
-│   ├── tui/                       # TUI Layer
-│   │   ├── controller.ts          # Parseo de comandos y ciclo de vida de la sesión interactiva
-│   │   ├── prompts/                # Prompts de selección, confirmación y carga manual (fallback)
-│   │   └── views/                  # Renderizado de progreso y resumen final
-│   ├── services/                   # Service Layer
+│   ├── tui/                        # TUI Layer — TypeScript + Ink + Commander
+│   │   ├── cli.ts                  # Entry point: registro de comandos (Commander) — `devflow start`, `devflow config`
+│   │   ├── app.tsx                 # Componente raíz de Ink; monta la vista según el comando invocado
+│   │   ├── components/             # Componentes Ink: ProgressView, SummaryView, FallbackView, spinners (ink-spinner)
+│   │   ├── prompts/                # Prompts interactivos (@inquirer/prompts): carga manual, confirmación de acciones
+│   │   └── hooks/                  # Hooks de estado Ink que consumen los eventos onStep del Orquestador
+│   ├── services/                   # Service Layer — TypeScript puro, sin dependencia de Ink/Commander
 │   │   ├── orchestrator/
 │   │   │   └── ticket-orchestrator.ts   # Coordina los pasos independientes (Jira/Git/FS/Ollama)
 │   │   ├── jira/
-│   │   │   └── jira-rest-client.ts      # Cliente REST + clasificación de errores (red/token/404)
+│   │   │   └── jira-rest-client.ts      # Cliente REST + clasificación de errores (red/token/404/429)
 │   │   ├── ollama/
-│   │   │   └── ollama-ai-transformer.ts # Prompt building + parseo + fallback determinista
+│   │   │   ├── ollama-ai-transformer.ts # Prompt building + invocación HTTP + fallback determinista
+│   │   │   └── ollama-response.schema.ts # Schema de validación del JSON de respuesta del modelo
 │   │   ├── git/
-│   │   │   └── git-manager.ts           # Cálculo de nombre de rama + creación/cambio de rama
+│   │   │   └── git-manager.ts           # Verificación de repo/rama + creación de rama (alcance mínimo)
 │   │   └── filesystem/
-│   │       └── filesystem-manager.ts    # Creación de carpetas y escritura del documento Markdown
-│   ├── database/                   # Storage Layer (SQLite)
+│   │       └── filesystem-manager.ts    # Decide qué escribir y en qué ruta (documento en 2 fases)
+│   ├── database/                   # Storage Layer — TypeScript + driver SQLite embebido (better-sqlite3 / node:sqlite)
 │   │   ├── sqlite-storage-manager.ts
-│   │   ├── migrations/             # Migraciones versionadas del esquema (ver §3.2)
+│   │   ├── local-file-storage.ts        # I/O genérico de disco (write/exists), sin lógica de dominio
+│   │   ├── migrations/                  # Migraciones versionadas del esquema (ver §3.2)
 │   │   └── schema.sql
-│   └── shared/                     # Tipos, configuración y errores comunes a las 3 capas
+│   └── shared/                      # Tipos, DTOs, contratos y configuración comunes a las 3 capas
 │       ├── config/
-│       ├── errors/                 # Tipos Ok | FallbackManual | FallbackDeterminista | ErrorBloqueante
+│       │   └── app-config.provider.ts   # Resolución única de configuración e inyección por constructor
+│       ├── errors/
+│       │   └── result.types.ts          # Ok | FallbackManual | FallbackDeterminista | ErrorBloqueante
 │       └── types/
+│           ├── contexto-ticket.types.ts
+│           └── config.types.ts
 ├── templates/
 │   └── ticket-document.md.hbs      # Plantilla del documento: Fase 1 (generada) + Fase 2 (a completar)
 ├── tests/
@@ -191,15 +245,15 @@ devflow-cli/
 
 **Responsabilidad de cada carpeta principal:**
 
-| Carpeta | Responsabilidad |
-|---|---|
-| `docs/` | Fuente de verdad de producto y arquitectura (PRD, ADRs, especificaciones). No contiene código. |
-| `src/tui/` | TUI Layer: toda interacción con el desarrollador vía consola. No conoce a Jira, Git, Ollama ni SQLite directamente. |
-| `src/services/` | Service Layer: un submódulo por integración (`jira/`, `ollama/`, `git/`, `filesystem/`) más el `orchestrator/` que los coordina. Cada submódulo encapsula su propio manejo de fallos. |
-| `src/database/` | Storage Layer: acceso a SQLite y control de versiones del esquema (migraciones). |
-| `src/shared/` | Contratos (tipos de resultado, configuración, errores) usados por las tres capas, para no duplicar definiciones entre ellas. |
-| `templates/` | Plantilla del documento Markdown en sus dos fases (§ Alcance del MVP del PRD). |
-| `tests/` | Pruebas unitarias por componente e integración del flujo E2E completo. |
+| Carpeta | Propósito | Lenguaje / Librerías | Módulos principales | Reglas de acoplamiento |
+|---|---|---|---|---|
+| `docs/` | Fuente de verdad de producto y arquitectura (PRD, ADRs, especificaciones). | Markdown — sin código. | PRD, ADR-001, 002, 003 | No es consumido por `src/` en tiempo de ejecución. |
+| `src/tui/` | TUI Layer: toda interacción con el desarrollador vía consola. | TypeScript, **Ink**, **Commander**, `@inquirer/prompts` | `cli.ts`, `app.tsx`, `components/`, `prompts/`, `hooks/` | Solo puede importar de `src/services/orchestrator/` y `src/shared/`. **No** puede importar nada de `src/database/` ni clientes de `src/services/{jira,ollama,git,filesystem}/` directamente. |
+| `src/services/` | Service Layer: orquestación y lógica de negocio de cada integración. | TypeScript puro (sin Ink/Commander) | `orchestrator/`, `jira/`, `ollama/`, `git/`, `filesystem/` | Cada submódulo de integración (`jira/`, `ollama/`, `git/`, `filesystem/`) solo es invocado por `orchestrator/`, nunca directamente por `src/tui/`. Solo `orchestrator/` puede importar `src/database/sqlite-storage-manager.ts`. |
+| `src/database/` | Storage Layer: acceso a SQLite y al sistema de archivos. | TypeScript, `better-sqlite3` / `node:sqlite` | `sqlite-storage-manager.ts`, `local-file-storage.ts`, `migrations/` | Único punto de acceso a SQLite de todo el proyecto (ver §2.2). No conoce el dominio del ticket. |
+| `src/shared/` | Contratos, tipos y configuración usados por las tres capas. | TypeScript (solo tipos/interfaces + funciones puras) | `config/`, `errors/`, `types/` | No importa nada de `src/tui/`, `src/services/` ni `src/database/` — es la capa más interna, sin dependencias hacia afuera. |
+| `templates/` | Plantilla del documento Markdown en sus dos fases. | Handlebars (`.hbs`) | `ticket-document.md.hbs` | Consumida únicamente por `filesystem-manager.ts`. |
+| `tests/` | Pruebas unitarias e integración. | TypeScript (mismo runtime que `src/`) | `unit/`, `integration/` | Puede importar cualquier módulo de `src/` con fines de test; ningún módulo de `src/` importa de `tests/`. |
 
 ### **2.4. Infraestructura y despliegue**
 

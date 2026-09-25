@@ -1,5 +1,9 @@
-> Detalla en esta sección los prompts principales utilizados durante la creación del proyecto, que justifiquen el uso de asistentes de código en todas las fases del ciclo de vida del desarrollo. Esperamos un máximo de 3 por sección, principalmente los de creación inicial o  los de corrección o adición de funcionalidades que consideres más relevantes.
-Puedes añadir adicionalmente la conversación completa como link o archivo adjunto si así lo consideras
+En esta sección, se detallan los prompts principales utilizados durante la creación del proyecto, que justifican el uso de asistentes de código en todas las fases del ciclo de vida del desarrollo. Principalmente los de creación inicial o los de corrección o adición de funcionalidades que consideré más relevantes.
+Adicionalmente, las conversaciones completas se encuentran por secciones:
+- Descripción general del producto, Arquitectura del sistema y Modelo de datos: `docs/prompts-claude-fase-inicial.md`
+- 
+
+
 
 
 ## Índice
@@ -278,12 +282,9 @@ Estructura tu reporte así:
 
 ```
 
-📝 Se tomaron decisiones según creí conveniente, algunas por recomendación otras para definir un poco más el alcance. Se deja la conversación en el archivo .docs/prompts-claude-fase-inicial.md 
+📝 Se tomaron decisiones según creí conveniente, algunas por recomendación otras para definir un poco más el alcance. Se deja la conversación completa en el archivo `docs/prompts-claude-fase-inicial.md` 
 
 
-**Prompt 2:**
-
-**Prompt 3:**
 
 ### **2.3. Descripción de alto nivel del proyecto y estructura de ficheros**
 
@@ -341,11 +342,136 @@ Estructura tu reporte así:
 
 ### 5. Historias de Usuario
 
-**Prompt 1:**
+**Prompt 1: Generación de Historias de Usuario**
 
-**Prompt 2:**
+```
+Actúa como un Lead Product Owner especializado en Spec-Driven Development (SDD) y Backlogs AI-Ready.
 
-**Prompt 3:**
+=== CONTEXTO DEL PROYECTO Y FUENTES DE VERDAD ===
+Revisa detenidamente los archivos de especificación en el repositorio:
+1. '001-descripcion-general-del-producto.md' (o 'docs/PRD.md')
+2. '002-arquitectura-del-sistema.md'
+3. '003-modelo-de-datos.md'
+4. 'ADR-001-arquitectura-inicial.md'
+
+=== RESTRICCIONES ESTRICTAS DE FORMATO Y CONTENIDO ===
+1. **Archivo de Salida:** Guarda las Historias de Usuario exclusivamente en 'docs/005-historias-de-usuario.md' y sintetiza la sección correspondiente en 'readme.md'.
+2. **Cantidad:** Genera EXACTAMENTE 3 Historias de Usuario (US-01, US-02, US-03).
+3. **Marcadores Obligatorios:**
+   - Si asumes algún detalle no explícito en la documentación base, márcalo explícitamente como "(asumido)".
+   - Si encuentras alguna ambigüedad o definición pendiente, márcala explícitamente como "(ambiguo)".
+4. **Estructura Estricta de Salida:** CADA Historia de Usuario debe seguir idéntica estructura y sintaxis de criterios de aceptación (Given / When / Then / And):
+
+US-XX: [Título de la Historia]
+		**COMO** [rol del usuario]
+		**QUIERO** [acción o funcionalidad]
+		**PARA** [beneficio o valor de negocio]
+**Criterios de Aceptación:**
+		1. Given [contexto inicial], When [acción o evento], Then [resultado esperado], And [resultado adicional].
+		2. Given [contexto inicial], When [acción o evento], Then [resultado esperado], And [resultado adicional].
+		3. Given [contexto inicial], When [acción o evento], Then [resultado esperado], And [resultado adicional].
+
+=== TU MISIÓN EN ESTE TURNO ===
+Genera el archivo 'docs/005-historias-de-usuario.md' cubriendo los siguientes 3 flujos:
+
+1. **US-01: Configuración inicial de repositorios y parámetros locales en SQLite**
+   - Configurar la ruta raíz de documentación y el mapeo de repositorios locales en SQLite.
+   - Criterios de Aceptación: Registro correcto de rutas (Happy Path), manejo de rutas inexistentes o sin permisos en Windows, y actualización de parámetros existentes.
+
+2. **US-02: Consulta REST a Jira con mecanismo de Fallback Manual**
+   - Consultar el ID del ticket en la API de Jira para obtener título y descripción.
+   - Criterios de Aceptación: Consulta exitosa HTTP 200 OK, fallo por red/timeout o token inválido 401/403 (activando la carga manual por prompt TUI), y ticket no encontrado HTTP 404.
+
+3. **US-03: Automatización de Rama Git, Estructura de Carpetas y Documento Markdown con Ollama**
+   - Crear rama Git en el repo correspondiente, generar carpeta local `/ticket-ID/adjuntos/` y procesar plantilla Markdown con Ollama.
+   - Criterios de Aceptación: Ejecución completa exitosa con Ollama activo, comportamiento en caso de Ollama offline/timeout (Fallback Determinista a texto plano con aviso ⚠️), y rama Git ya existente.
+
+=== RESTRICCIONES ===
+- Respeta estrictamente la plantilla de texto y la sangría para los Criterios de Aceptación.
+- No alteres los nombres de las etiquetas (**COMO**, **QUIERO**, **PARA**, **Criterios de Aceptación:**).
+- No generes tickets técnicos ni código fuente todavía.
+```
+
+**Prompt 2: Corrección de Historias de usuario**
+
+```
+Actúa como un Lead Product Owner Senior experto en Spec-Driven Development (SDD) y el marco INVEST (Independent, Negotiable, Valuable, Estimable, Small, Testable).
+
+=== CONTEXTO Y PROBLEMA ===
+Las Historias de Usuario en 'docs/005-historias-de-usuario.md' quedaron sobrecargadas con detalles técnicos de implementación, haciéndolas complejas de leer y perdiendo el enfoque de valor para el usuario.
+
+=== TU MISIÓN EN ESTE TURNO ===
+Reformula por completo el archivo 'docs/005-historias-de-usuario.md' aplicando las mejores prácticas de redacción de User Stories e INVEST:
+
+1. **Aplica Principios INVEST:**
+   - **Valuable & User-Centric:** La narrativa (COMO / QUIERO / PARA) debe enfocarse en la necesidad funcional y el valor de negocio (eliminar fricción, estandarizar), evitando detalles internos de código o nombres de clases/funciones en la declaración de la historia.
+   - **Small & Clear:** Mantén las frases concisas, directas y fáciles de entender por cualquier miembro del equipo (Dev, QA, PO).
+   - **Testable:** Criterios de aceptación limpios y verificables en formato Gherkin.
+
+2. **Marcadores de Transparencia:**
+   - Si asumes algún detalle no especificado en la documentación base, márcalo explícitamente como "(asumido)".
+   - Si detectas un punto sin definir o ambiguo, márcalo explícitamente como "(ambiguo)".
+
+3. **Estructura Estricta e Innegociable de Salida:**
+   CADA una de las 3 Historias de Usuario (US-01, US-02, US-03) debe seguir exactamente esta plantilla de texto y sangría:
+
+US-XX: [Título corto y descriptivo]
+**COMO** [rol claro]
+**QUIERO** [acción funcional concisa]
+**PARA** [beneficio o valor de negocio directo]
+**Criterios de Aceptación:**
+		1. Given [contexto inicial], When [acción o evento], Then [resultado esperado], And [resultado adicional].
+		2. Given [contexto inicial], When [acción o evento], Then [resultado esperado], And [resultado adicional].
+		3. Given [contexto inicial], When [acción o evento], Then [resultado esperado], And [resultado adicional].
+
+=== ALCANCE DE LAS 3 HISTORIAS ===
+
+- **US-01: Configuración inicial de repositorios y rutas locales**
+  - Enfocada en que el desarrollador pueda registrar la carpeta raíz y sus repositorios locales fácilmente.
+
+- **US-02: Consulta automática de ticket de Jira con fallback manual**
+  - Enfocada en obtener el contexto del ticket desde Jira para evitar el cambio de contexto, solicitando datos manualmente solo si falla la conexión.
+
+- **US-03: Preparación automática del entorno de desarrollo (Git, carpetas y plantilla Markdown)**
+  - Enfocada en crear la rama de Git, las carpetas de evidencias y la plantilla enriquecida con Ollama (o texto plano si Ollama no está disponible) en un solo paso.
+
+=== RESTRICCIONES ===
+- Sobrescribe directamente el archivo 'docs/005-historias-de-usuario.md' y actualiza la sección correspondiente en 'readme.md'.
+- No cambies los nombres de los bloques (**COMO**, **QUIERO**, **PARA**, **Criterios de Aceptación:**).
+- Asegúrate de que los escenarios de Gherkin sean legibles, unívocos y libres de jerga técnica innecesaria.
+
+```
+
+**Prompt 3: Agregar Prioridad, Orden y Dependencias a las US**
+```
+Actúa como un Lead Product Owner Senior experto en Spec-Driven Development (SDD) y gestión de Backlogs.
+
+=== CONTEXTO ===
+Ya has creado las 3 Historias de Usuario en 'docs/005-historias-de-usuario.md'. Ahora necesitamos enriquecerlas añadiendo a cada una su priorización, secuencia lógica y dependencias técnicas.
+
+=== TU MISIÓN EN ESTE TURNO ===
+Lee el archivo 'docs/005-historias-de-usuario.md' y actualízalo en el lugar (in-place), manteniendo intactos los textos de las historias, la narrativa (**COMO**, **QUIERO**, **PARA**) y los criterios de aceptación en Gherkin.
+
+Para CADA Historia de Usuario (US-01, US-02, US-03), agrega inmediatamente debajo del título la siguiente metadata:
+
+1. **US-01 (Configuración inicial de repositorios y rutas locales):**
+   - **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 1 | **Esfuerzo:** Medio
+   - **Dependencias Previas:** Ninguna
+
+2. **US-02 (Consulta automática de ticket de Jira con fallback manual):**
+   - **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 2 | **Esfuerzo:** Medio
+   - **Dependencias Previas:** US-01
+
+3. **US-03 (Preparación automática del entorno de desarrollo: Git, carpetas y Markdown):**
+   - **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 3 | **Esfuerzo:** Alto
+   - **Dependencias Previas:** US-01, US-02
+
+=== RESTRICCIONES ===
+- Modifica directamente 'docs/005-historias-de-usuario.md' y sincroniza la sección correspondiente en 'readme.md'.
+- No modifiques ni borres los Criterios de Aceptación ni el contenido que ya redactaste, solo inyecta los campos de metadata.
+- Mantén marcados los "(asumido)" o "(ambiguo)" si los habías incluido.
+
+```
 
 ---
 
@@ -353,9 +479,64 @@ Estructura tu reporte así:
 
 **Prompt 1:**
 
+
+```
+Actúa como un Principal Software Engineer y Lead Técnico especializado en Spec-Driven Development (SDD) y Tickets AI-Ready.
+
+=== CONTEXTO DEL PROYECTO Y FUENTES DE VERDAD ===
+Revisa detenidamente los archivos de especificación en el repositorio:
+1. '001-descripcion-general-del-producto.md' (o 'docs/PRD.md')
+2. '002-arquitectura-del-sistema.md'
+3. '003-modelo-de-datos.md'
+4. 'ADR-001-arquitectura-inicial.md'
+5. 'docs/005-historias-de-usuario.md' (Historias de Usuario US-01, US-02 y US-03)
+
+=== RESTRICCIONES ESTRICTAS ===
+1. **Archivo de Salida:** Guarda los tickets técnicos exclusivamente en 'docs/006-tickets-de-trabajo.md' y sintetiza la sección correspondiente en 'readme.md'.
+2. **Cantidad:** Genera EXACTAMENTE 3 Tickets Técnicos (desglosados por capa: Base de Datos, Backend/Servicios y Frontend/TUI).
+3. **Marcadores Obligatorios:**
+   - Si asumes algún detalle no explícito en la documentación base, márcalo explícitamente como "(asumido)".
+   - Si detectas un punto ambiguo o pendiente de definición, márcalo explícitamente como "(ambiguo)".
+4. **Formato Homogéneo 'AI-Ready':** CADA ticket debe seguir exactamente la siguiente estructura de secciones:
+
+---
+### [ID-TICKET]: [Título claro del ticket]
+- **Capa / Módulo:** [Base de Datos / Backend-Servicios / Frontend-TUI]
+- **Historias de Usuario Relacionadas:** [US-01, US-02, US-03 según corresponda]
+- **Descripción y Alcance:** [Explicación técnica detallada del trabajo a realizar]
+- **Archivos a Crear / Modificar:** [Lista explícita de rutas de archivos en src/]
+- **Contratos e Interfaces (Input/Output):** [Estructuras de datos, DTOs, parámetros o firmas de funciones]
+- **Criterios de Aceptación Técnicos:** [Pruebas y validaciones unitarias/técnicas necesarias]
+- **Definition of Done (DoD):** [Lista de verificación de finalización técnica]
+---
+
+=== TU MISIÓN EN ESTE TURNO ===
+Genera el archivo 'docs/006-tickets-de-trabajo.md' redactando los siguientes 3 tickets:
+
+1. **TK-01 (Capa Base de Datos): Implementación del Esquema SQLite DDL y Módulo StorageManager**
+   - **Enfocado en:** Creación de las tablas 'app_config', 'projects_config' y 'ticket_logs', DDLs, migraciones iniciales y métodos CRUD de persistencia.
+   - **Relación:** Vinculado a US-01, US-02 y US-03.
+
+2. **TK-02 (Capa Backend / Servicios): Implementación de JiraRestClient, OllamaAITransformer y Orquestador**
+   - **Enfocado en:** Cliente REST direct HTTP para Jira, servicio de formateo con Ollama (y manejo del Fallback a texto plano), cliente GitManager para creación de ramas y FileSystemManager para carpetas/Markdown.
+   - **Relación:** Vinculado a US-02 y US-03.
+
+3. **TK-03 (Capa Frontend / TUI): Controlador CLI e Interfaz Interactiva de Terminal Windows**
+   - **Enfocado en:** Parsing de comandos CLI ('devflow start ID-123'), renderizado de vistas/prompts interactivos en terminal, spinners de progreso asíncrono y pantallas de Fallback Manual.
+   - **Relación:** Vinculado a US-01, US-02 y US-03.
+
+=== RESTRICCIONES ===
+- Respeta estrictamente la plantilla y los nombres de las secciones para cada ticket.
+- No generes código fuente de la aplicación aún (solo la especificación detallada de los tickets técnicos).
+
+```
+
 **Prompt 2:**
 
-**Prompt 3:**
+```
+Necesitamos enriquecer los tickets técnicos añadiendo a cada una su priorización, secuencia lógica y dependencias técnicas similar a las historias de usuario
+```
+
 
 ---
 

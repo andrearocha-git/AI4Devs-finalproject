@@ -102,11 +102,22 @@
 
 > Documenta 3 de las historias de usuario principales utilizadas durante el desarrollo, teniendo en cuenta las buenas prácticas de producto al respecto.
 
-**Historia de Usuario 1**
+> Detalle completo (criterios de aceptación Given/When/Then/And) en [`docs/005-historias-de-usuario.md`](docs/005-historias-de-usuario.md).
 
-**Historia de Usuario 2**
+**Historia de Usuario 1: Configuración inicial de repositorios y rutas locales**
+*Prioridad: Must Have · Secuencia: 1 · Esfuerzo: Medio · Dependencias: Ninguna*
 
-**Historia de Usuario 3**
+Como desarrollador, quiero registrar una única vez la carpeta raíz de documentación y asociar cada proyecto con su repositorio local, para que la herramienta sepa siempre dónde trabajar sin tener que indicárselo cada vez que inicio un ticket.
+
+**Historia de Usuario 2: Consulta automática de ticket de Jira con fallback manual**
+*Prioridad: Must Have · Secuencia: 2 · Esfuerzo: Medio · Dependencias: US-01*
+
+Como desarrollador, quiero que la herramienta obtenga automáticamente el título y la descripción del ticket a partir de su ID de Jira, para no tener que abrir el navegador ni copiar esa información manualmente; si la consulta falla, quiero poder cargar los datos a mano y seguir trabajando sin interrupciones.
+
+**Historia de Usuario 3: Preparación automática del entorno de desarrollo (Git, carpetas y plantilla Markdown)**
+*Prioridad: Must Have · Secuencia: 3 · Esfuerzo: Alto · Dependencias: US-01, US-02*
+
+Como desarrollador, quiero que la herramienta prepare en un solo paso la rama de trabajo, la carpeta de evidencias y el documento inicial del ticket, para empezar a trabajar de inmediato sin ejecutar cada paso manualmente ni redactar el documento desde cero.
 
 ---
 
@@ -114,11 +125,22 @@
 
 > Documenta 3 de los tickets de trabajo principales del desarrollo, uno de backend, uno de frontend, y uno de bases de datos. Da todo el detalle requerido para desarrollar la tarea de inicio a fin teniendo en cuenta las buenas prácticas al respecto. 
 
-**Ticket 1**
+> Detalle técnico completo (archivos, contratos, criterios de aceptación técnicos y Definition of Done) en [`docs/006-tickets-de-trabajo.md`](docs/006-tickets-de-trabajo.md).
 
-**Ticket 2**
+**Ticket 1 (Base de Datos) — TK-01: Implementación del Esquema SQLite (DDL) y del módulo SQLite Storage Manager**
+*Prioridad: Must Have · Secuencia: 1 · Esfuerzo: Medio · Dependencias: Ninguna*
 
-**Ticket 3**
+Crea las tablas `app_config`, `projects_config` y `ticket_logs` (con sus constraints e índices), el sistema de migraciones versionadas, y el módulo que centraliza todo el acceso a SQLite — único componente del sistema que lee/escribe la base de datos. Vinculado a US-01, US-02 y US-03.
+
+**Ticket 2 (Backend / Servicios) — TK-02: Implementación de Jira REST Client, Ollama AI Transformer, Git Manager, FileSystem Manager y Orquestador**
+*Prioridad: Must Have · Secuencia: 2 · Esfuerzo: Alto · Dependencias: TK-01*
+
+Implementa la consulta directa a Jira (con reintento y clasificación de fallos), el procesamiento con Ollama (con validación de esquema y fallback determinista sin código generado), la creación mínima de la rama Git (sin tocar nada más del repositorio) y la generación de la carpeta de evidencias y el documento Markdown en dos fases, todo coordinado por un orquestador que emite eventos de progreso. Vinculado a US-02 y US-03.
+
+**Ticket 3 (Frontend / TUI) — TK-03: Controlador CLI e Interfaz Interactiva de Terminal (Windows)**
+*Prioridad: Must Have · Secuencia: 3 · Esfuerzo: Medio · Dependencias: TK-01, TK-02*
+
+Implementa el comando `devflow start <ID>`, la validación del ID, los prompts de carga manual y confirmación, y las vistas de progreso, resumen y fallback en la terminal — la TUI nunca accede a Jira, Git, Ollama o SQLite directamente, solo al orquestador. Vinculado a US-01, US-02 y US-03.
 
 ---
 

@@ -216,4 +216,4 @@ Prácticas ya decididas a nivel arquitectónico (ver ADR-001):
 
 ### **2.6. Tests**
 
-[A definir]
+[A definir en Entrega 2]

@@ -1,0 +1,94 @@
+{
+  "porDefecto": "historia",
+  "tiposBloqueados": {
+    "Epic": {
+      "mensaje": "{{ticketId}} es una épica: las épicas no se usan para desarrollar y no tienen plantilla. Elige una historia, tarea o bug de esa épica."
+    },
+    "Épica": {
+      "mensaje": "{{ticketId}} es una épica: las épicas no se usan para desarrollar y no tienen plantilla. Elige una historia, tarea o bug de esa épica."
+    }
+  },
+  "tiposJira": {
+    "Bug": "bug",
+    "Error": "bug",
+    "Defecto": "bug",
+    "Story": "historia",
+    "Historia": "historia",
+    "Task": "historia",
+    "Tarea": "historia",
+    "Subtarea": "historia",
+    "Sub-task": "historia"
+  },
+  "plantillas": {
+    "bug": {
+      "promptVersion": "bug-v3",
+      "systemPrompt": [
+        "prompts/comun.system.md",
+        "prompts/bug.system.md"
+      ],
+      "userPrompt": "prompts/ticket.user.md",
+      "schema": "prompts/bug.schema.json",
+      "documento": "documents/bug.md.hbs",
+      "ramaTipo": "bugfix",
+      "siFalta": {
+        "pasos": {
+          "campo": "pasosParaReproducir",
+          "valor": [],
+          "pregunta": "¿Cuáles son los pasos exactos para reproducir el fallo?"
+        },
+        "esperado": {
+          "campo": "comportamientoEsperado",
+          "valor": "No especificado en el ticket.",
+          "pregunta": "¿Cuál es el comportamiento esperado?"
+        },
+        "actual": {
+          "campo": "comportamientoActual",
+          "valor": "No especificado en el ticket.",
+          "pregunta": "¿Qué ocurre exactamente? ¿Se muestra algún mensaje de error?"
+        },
+        "entorno": {
+          "campo": "entorno",
+          "valor": "No especificado en el ticket.",
+          "pregunta": "¿En qué ambiente y versión ocurre?"
+        }
+      },
+      "verificarLiterales": [
+        "comportamientoEsperado",
+        "comportamientoActual",
+        "entorno"
+      ]
+    },
+    "historia": {
+      "promptVersion": "historia-v2",
+      "systemPrompt": [
+        "prompts/comun.system.md",
+        "prompts/historia.system.md"
+      ],
+      "userPrompt": "prompts/ticket.user.md",
+      "schema": "prompts/historia.schema.json",
+      "documento": "documents/historia.md.hbs",
+      "ramaTipo": "feature",
+      "siFalta": {
+        "rol": {
+          "campo": "historiaUsuario.como",
+          "valor": "No especificado en el ticket.",
+          "pregunta": "¿Qué rol o tipo de usuario necesita esta funcionalidad?"
+        },
+        "objetivo": {
+          "campo": "historiaUsuario.quiero",
+          "valor": "No especificado en el ticket.",
+          "pregunta": "¿Qué debe poder hacer el usuario, concretamente?"
+        },
+        "beneficio": {
+          "campo": "historiaUsuario.para",
+          "valor": "No especificado en el ticket.",
+          "pregunta": "¿Qué beneficio o problema resuelve?"
+        },
+        "criteriosAceptacion": {
+          "pregunta": "¿Cuáles son los criterios de aceptación?"
+        }
+      },
+      "verificarLiterales": []
+    }
+  }
+}

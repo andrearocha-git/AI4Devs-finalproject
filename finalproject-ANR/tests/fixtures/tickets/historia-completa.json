@@ -1,0 +1,8 @@
+{
+  "key": "FACT-430",
+  "fields": {
+    "summary": "Filter invoices by due date",
+    "issuetype": { "name": "Story" },
+    "description": "As an accounts receivable analyst I want to filter the invoice list by due date range so that I can quickly find overdue invoices and follow up with customers.\n\nAcceptance criteria:\n* The invoice list has a \"Due date from\" and \"Due date to\" filter.\n* Only invoices whose due date is within the range (inclusive) are shown.\n* If \"from\" is later than \"to\", an error message \"Invalid date range\" is displayed and the list is not filtered.\n* Clearing both fields shows all invoices again."
+  }
+}

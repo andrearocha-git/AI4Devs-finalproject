@@ -1,0 +1,8 @@
+{
+  "key": "FACT-418",
+  "fields": {
+    "summary": "No anda el login",
+    "issuetype": { "name": "Bug" },
+    "description": "Los usuarios reportan que no pueden entrar."
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "key": "SCRUM-2",
+  "fields": {
+    "summary": "El botón Aceptar desaparece al actualizar el campo Importe",
+    "issuetype": {
+      "name": "Error"
+    },
+    "description": "El botón Aceptar de la pantalla Facturas → Selecciono una Factura → Botón Editar → Abre popUp para  “Modificar Factura” al borrar el importe desaparece el botón Aceptar (Guarda los cambios) "
+  }
+}

@@ -1,0 +1,111 @@
+{
+  "type": "object",
+  "properties": {
+    "presenteEnTicket": {
+      "type": "object",
+      "properties": {
+        "rol": {
+          "type": "boolean"
+        },
+        "objetivo": {
+          "type": "boolean"
+        },
+        "beneficio": {
+          "type": "boolean"
+        },
+        "criteriosAceptacion": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "rol",
+        "objetivo",
+        "beneficio",
+        "criteriosAceptacion"
+      ]
+    },
+    "resumen": {
+      "type": "string",
+      "minLength": 1
+    },
+    "historiaUsuario": {
+      "type": "object",
+      "properties": {
+        "como": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quiero": {
+          "type": "string",
+          "minLength": 1
+        },
+        "para": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "como",
+        "quiero",
+        "para"
+      ]
+    },
+    "casosDeUso": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1,
+      "maxItems": 5
+    },
+    "escenarios": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "properties": {
+          "titulo": {
+            "type": "string",
+            "minLength": 1
+          },
+          "given": {
+            "type": "string",
+            "minLength": 1
+          },
+          "when": {
+            "type": "string",
+            "minLength": 1
+          },
+          "then": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "titulo",
+          "given",
+          "when",
+          "then"
+        ]
+      }
+    },
+    "preguntasAbiertas": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "maxItems": 5
+    }
+  },
+  "required": [
+    "presenteEnTicket",
+    "resumen",
+    "historiaUsuario",
+    "casosDeUso",
+    "escenarios",
+    "preguntasAbiertas"
+  ]
+}

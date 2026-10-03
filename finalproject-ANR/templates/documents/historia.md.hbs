@@ -1,0 +1,109 @@
+# {{ticketId}} — {{titulo}}
+
+| Campo | Valor |
+|---|---|
+| Tipo | {{tipoJira}} |
+| Repositorio | {{#if repo}}{{repo}}{{else}}Sin repositorio{{/if}} |
+| Rama | {{#if rama}}`{{rama}}`{{else}}Sin rama{{/if}} |
+| Jira | {{urlJira}} |
+| Iniciado | {{fecha}} |
+| Fase 1 generada con | {{#if fallback}}⚠️ Sin Ollama ({{motivoFallback}}){{else}}{{modelo}} · prompt `{{promptVersion}}`{{/if}} |
+
+<!-- DEVFLOW:FASE1:INICIO — DevFlow CLI regenera esta sección al reprocesar el ticket; los cambios hechos aquí se pierden -->
+## Fase 1 — Análisis inicial
+
+{{#if fallback}}
+> ⚠️ **Generado sin Ollama — completar manualmente.** Abajo está el texto original del ticket; redacta a partir de él las secciones vacías.
+
+### Descripción original del ticket
+
+{{#if descripcionOriginal}}{{descripcionOriginal}}{{else}}_(El ticket no tiene descripción.)_{{/if}}
+
+### Descripción y contexto
+
+_Completar._
+
+### Historia de usuario
+
+- **Como:** _Completar._
+- **Quiero:** _Completar._
+- **Para:** _Completar._
+
+### Casos de uso
+
+- _Completar._
+
+### Criterios de aceptación
+
+```gherkin
+Scenario: _Completar_
+  Given _Completar_
+  When _Completar_
+  Then _Completar_
+```
+{{else}}
+### Descripción y contexto
+
+{{fase1.resumen}}
+
+### Historia de usuario
+
+- **Como:** {{fase1.historiaUsuario.como}}
+- **Quiero:** {{fase1.historiaUsuario.quiero}}
+- **Para:** {{fase1.historiaUsuario.para}}
+
+### Casos de uso
+
+{{#each fase1.casosDeUso}}
+- {{this}}
+{{/each}}
+
+### Criterios de aceptación
+
+```gherkin
+{{#each fase1.escenarios}}
+Scenario: {{titulo}}
+  Given {{given}}
+  When {{when}}
+  Then {{then}}
+{{#unless @last}}
+
+{{/unless}}
+{{/each}}
+```
+
+### Preguntas abiertas
+
+{{#if fase1.preguntasAbiertas.length}}
+{{#each fase1.preguntasAbiertas}}
+- [ ] {{this}}
+{{/each}}
+{{else}}
+_Sin preguntas abiertas._
+{{/if}}
+{{/if}}
+<!-- DEVFLOW:FASE1:FIN -->
+
+## Fase 2 — Desarrollo y pasaje a producción
+
+_Esta sección la completa el desarrollador durante el ciclo de vida del ticket. DevFlow CLI no la modifica._
+
+### Objetos modificados
+
+| Archivo / objeto | Tipo de cambio | Descripción |
+|---|---|---|
+| | | |
+
+### Evidencias de pruebas
+
+Adjuntar capturas, logs y archivos en [`{{adjuntosDir}}/`](./{{adjuntosDir}}/).
+
+| Escenario | Resultado | Evidencia |
+|---|---|---|
+| | | |
+
+### Instrucciones de pasaje a producción
+
+1.
+
+**Rollback:**

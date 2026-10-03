@@ -1,0 +1,135 @@
+# {{ticketId}} — {{titulo}}
+
+| Campo | Valor |
+|---|---|
+| Tipo | {{tipoJira}} |
+| Repositorio | {{#if repo}}{{repo}}{{else}}Sin repositorio{{/if}} |
+| Rama | {{#if rama}}`{{rama}}`{{else}}Sin rama{{/if}} |
+| Jira | {{urlJira}} |
+| Iniciado | {{fecha}} |
+| Fase 1 generada con | {{#if fallback}}⚠️ Sin Ollama ({{motivoFallback}}){{else}}{{modelo}} · prompt `{{promptVersion}}`{{/if}} |
+
+<!-- DEVFLOW:FASE1:INICIO — DevFlow CLI regenera esta sección al reprocesar el ticket; los cambios hechos aquí se pierden -->
+## Fase 1 — Análisis del bug
+
+{{#if fallback}}
+> ⚠️ **Generado sin Ollama — completar manualmente.** Abajo está el texto original del ticket; redacta a partir de él las secciones vacías.
+
+### Descripción original del ticket
+
+{{#if descripcionOriginal}}{{descripcionOriginal}}{{else}}_(El ticket no tiene descripción.)_{{/if}}
+
+### Resumen
+
+_Completar._
+
+### Pasos para reproducir
+
+1. _Completar._
+
+### Comportamiento esperado
+
+_Completar._
+
+### Comportamiento actual
+
+_Completar._
+
+### Entorno
+
+_Completar._
+
+### Criterios de aceptación (verificación de la corrección)
+
+```gherkin
+Scenario: _Completar_
+  Given _Completar_
+  When _Completar_
+  Then _Completar_
+```
+{{else}}
+### Resumen
+
+{{fase1.resumen}}
+
+### Pasos para reproducir
+
+{{#if fase1.pasosParaReproducir.length}}
+{{#each fase1.pasosParaReproducir}}
+1. {{this}}
+{{/each}}
+{{else}}
+_No especificado en el ticket._
+{{/if}}
+
+### Comportamiento esperado
+
+{{fase1.comportamientoEsperado}}
+
+### Comportamiento actual
+
+{{fase1.comportamientoActual}}
+
+### Entorno
+
+{{fase1.entorno}}
+
+### Criterios de aceptación (verificación de la corrección)
+
+```gherkin
+{{#each fase1.escenarios}}
+Scenario: {{titulo}}
+  Given {{given}}
+  When {{when}}
+  Then {{then}}
+{{#unless @last}}
+
+{{/unless}}
+{{/each}}
+```
+
+### Preguntas abiertas
+
+{{#if fase1.preguntasAbiertas.length}}
+{{#each fase1.preguntasAbiertas}}
+- [ ] {{this}}
+{{/each}}
+{{else}}
+_Sin preguntas abiertas._
+{{/if}}
+{{/if}}
+<!-- DEVFLOW:FASE1:FIN -->
+
+## Fase 2 — Corrección y pasaje a producción
+
+_Esta sección la completa el desarrollador durante el ciclo de vida del ticket. DevFlow CLI no la modifica._
+
+### Causa raíz
+
+_¿Por qué ocurría el fallo?_
+
+### Solución aplicada
+
+### Objetos modificados
+
+| Archivo / objeto | Tipo de cambio | Descripción |
+|---|---|---|
+| | | |
+
+### Evidencias de pruebas
+
+Adjuntar capturas, logs y archivos en [`{{adjuntosDir}}/`](./{{adjuntosDir}}/).
+
+| Prueba | Antes de la corrección | Después de la corrección |
+|---|---|---|
+| Reproducción del bug | | |
+
+### Pruebas de regresión
+
+- [ ]
+
+### Instrucciones de pasaje a producción
+
+1.
+
+**Rollback:**

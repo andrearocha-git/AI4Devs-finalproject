@@ -1,0 +1,8 @@
+{
+  "key": "SCRUM-1",
+  "fields": {
+    "summary": "Configuracion Jira ",
+    "issuetype": { "name": "Historia" },
+    "description": "Crear la conexión con Jira"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "key": "FACT-412",
+  "fields": {
+    "summary": "Error al exportar factura a PDF cuando el cliente tiene ñ o tildes en el nombre",
+    "issuetype": { "name": "Error" },
+    "description": "Al exportar una factura a PDF desde el detalle de la factura, la descarga falla si la razón social del cliente contiene caracteres como ñ o tildes.\n\n*Pasos para reproducir*\n# Ingresar al módulo Facturación.\n# Abrir la factura 000123 del cliente \"Peñalver Construcciones S.A.\".\n# Presionar \"Exportar PDF\".\n\n*Resultado esperado*\nSe descarga el PDF con la razón social correcta.\n\n*Resultado actual*\nAparece el mensaje \"Error 500 - No se pudo generar el documento\" y no se descarga nada.\n\n*Entorno*\nAmbiente de QA, versión 2.14.3. Con clientes sin caracteres especiales funciona bien."
+  }
+}

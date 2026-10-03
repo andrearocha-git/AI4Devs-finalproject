@@ -1,0 +1,8 @@
+{
+  "key": "SCRUM-10",
+  "fields": {
+    "summary": "Módulo de facturación electrónica",
+    "issuetype": { "name": "Epic" },
+    "description": "Agrupa todas las historias del módulo de facturación electrónica."
+  }
+}

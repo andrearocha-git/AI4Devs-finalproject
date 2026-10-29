@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This repo is the AI4Devs (LIDR) final-project deliverable for **DevFlow CLI** — a planned CLI/TUI tool for Windows 10/11 that eliminates context-switching when a developer starts a Jira ticket: it queries Jira, creates a standardized Git branch, creates a local ticket folder outside the repo, and uses a local LLM (Ollama) to draft the first sections of a Markdown dev document.
 
-**There is no application code yet.** The repo currently holds only product/architecture documentation. Do not assume a scaffold, package manager, or language exists until one is actually created (check for `finalproject-<INITIALS>/` or a `package.json` before trusting any command below).
+**There is no application code yet.** The repo currently holds only product/architecture documentation. Do not assume a scaffold, package manager, or language exists until one is actually created (check for a `package.json` at the repo root before trusting any command below).
 
 ## Documentation layout
 
@@ -34,7 +34,7 @@ The tool follows a **3-layer pattern**: TUI Layer → Service Layer (an *orchest
 
 ## Conventions
 
-- **Application code, when it exists, goes in a single top-level `finalproject-<INITIALS>` folder** — this user's initials are `ANR` (branch `feature/entrega-1-ANR`) → `finalproject-ANR/`.
+- **Application code, when it exists, goes at the repo root** (`src/`, `tests/`, `package.json`), alongside `docs/` — there is no separate `finalproject-<INITIALS>/` folder. Lint, typecheck and `.gitignore` must exclude `docs/` and `.claude/`.
 - **Branches:** `feature/entrega-<N>-<INITIALS>`, one per course deliverable. PRs target `main`.
 - Docs are Spanish; match that when editing them. Commit messages in this repo's history are mostly Spanish/informal.
 - Mermaid diagrams in `docs/002-*.md` and `docs/003-*.md` are the source of truth for component/sequence/ER diagrams — update them alongside prose changes, don't let them drift.

@@ -3,12 +3,12 @@
 | Campo | Detalle |
 |---|---|
 | **Fecha** | 2026-09-25 |
-| **Estado** | Propuesto — en evaluación, se cierra en la próxima entrega. Recomienda mantener la propuesta de partida de `002-arquitectura-del-sistema.md` §2.3 |
+| **Estado** | **Aceptado** (2026-10-29). Mantiene Node.js / TypeScript, con ajustes respecto de la propuesta de partida de `002-arquitectura-del-sistema.md` §2.3: Node ≥ 22.13, `node:sqlite` y sin Ink (ver §5.1) |
 | **Autores** | Andrea Rocha |
 | **Formato** | MADR v3.0 |
 | **Documentos relacionados** | `docs/PRD.md`, `docs/ADR-001-arquitectura-inicial.md`, `docs/002-arquitectura-del-sistema.md` §2.2–§2.3 |
 
-> **Nota de alcance.** Este documento no modifica ninguna decisión previa. Audita, con las restricciones reales del parque de PCs del equipo, si **Node.js / TypeScript** (ya fijado en `002` §2.3) sigue siendo la opción correcta frente a cinco alternativas. Las cifras de disco y RAM son **órdenes de magnitud de referencia** (valores típicos en Windows 10/11 x64, proceso en reposo o flujo corto), no mediciones sobre las máquinas del equipo; la sección 5 propone cómo medirlas antes de cerrar el ADR.
+> **Nota de alcance.** Este documento se redactó sin modificar ninguna decisión previa y hoy está **Aceptado**; las decisiones finales y los ajustes frente a la propuesta de partida están en §5.1, y la medición inicial de Ollama en §5.3. Audita, con las restricciones reales del parque de PCs del equipo, si **Node.js / TypeScript** (ya fijado en `002` §2.3) sigue siendo la opción correcta frente a cinco alternativas. Las cifras de disco y RAM son **órdenes de magnitud de referencia** (valores típicos en Windows 10/11 x64, proceso en reposo o flujo corto), no mediciones sobre las máquinas del equipo; la sección 5 propone cómo medirlas antes de cerrar el ADR.
 
 ---
 
@@ -62,7 +62,7 @@ Justificación de los pesos: D4 pesa más porque la herramienta la mantendrá el
 
 ### 3.1. Línea base — Node.js / TypeScript
 
-**Stack concreto (según `002` §2.3):** Node.js LTS ≥ 20, TypeScript, Commander, Ink + `@inquirer/prompts`, `better-sqlite3` o `node:sqlite`, `fetch` nativo para Jira/Ollama, `child_process` para `git.exe`.
+**Stack evaluado (propuesta de partida de `002` §2.3):** Node.js LTS ≥ 20, TypeScript, Commander, Ink + `@inquirer/prompts`, `better-sqlite3` o `node:sqlite`, `fetch` nativo para Jira/Ollama, `child_process` para `git.exe`. *El stack aceptado difiere en tres puntos (Node ≥ 22.13, `node:sqlite`, sin Ink): ver §5.1.*
 
 - **Disco (D1):** runtime **ya presente (0 MB adicionales)**. Dependencias del proyecto: ~30–80 MB en `node_modules` (Ink arrastra React y `yoga-layout`; TypeScript y Vitest son solo de desarrollo). Distribuido como paquete npm instalado globalmente o `npx`, el coste por puesto es de decenas de MB.
   - ⚠️ **Riesgo — módulos nativos:** `better-sqlite3` publica binarios precompilados para Windows x64 por versión ABI de Node; si la versión de Node del puesto no tiene *prebuild*, `npm install` intenta compilar con `node-gyp`, lo que exige **Python + Visual Studio Build Tools (varios GB)** — inaceptable con R2. Mitigación: fijar la versión de Node soportada, o usar `node:sqlite` (integrado en el runtime a partir de Node 22.x, sin compilación ni dependencia nativa; verificar su nivel de estabilidad en la versión LTS elegida).
@@ -160,7 +160,16 @@ Pesos de §2: D1 20% · D2 20% · D3 25% · D4 35%. Para Bash y PowerShell se to
 
 ### 5.1. Decisión recomendada
 
-**Se recomienda mantener Node.js / TypeScript** como stack de implementación de DevFlow CLI, ratificando `002-arquitectura-del-sistema.md` §2.3.
+**Decisión (Aceptada):** Node.js / TypeScript como stack de implementación de DevFlow CLI, ratificando `002-arquitectura-del-sistema.md` §2.3 con los siguientes ajustes sobre la propuesta de partida:
+
+| Elemento | Decisión final | Respecto de la propuesta de partida |
+|---|---|---|
+| Runtime | **Node.js ≥ 22.13** + TypeScript `strict` | Sube el mínimo (antes ≥ 20) para disponer de `node:sqlite` |
+| SQLite | **`node:sqlite`** (sin compilación nativa) | Cierra la alternativa `better-sqlite3` y su riesgo de `node-gyp` (§3.1, §5.3 punto 2) |
+| TUI | **Commander + `@inquirer/prompts` + un spinner simple**, **sin Ink** | Se descarta Ink: Ink e inquirer compiten por la entrada estándar (stdin) y el flujo es lineal, no de pantalla completa |
+| Plantillas | **Handlebars** | Sin cambios de criterio; se concreta |
+| Validación de schema | **Ajv** sobre JSON Schema (fuente de verdad) | Se descarta Zod: el schema se pasa también a Ollama en `format` |
+| Tests | **Vitest** + **msw** (mocks HTTP de Jira y Ollama) | Concreta Vitest/Jest y `msw`/`nock` |
 
 **Justificación frente a las restricciones reales:**
 
@@ -173,7 +182,7 @@ Pesos de §2: D1 20% · D2 20% · D3 25% · D4 35%. Para Bash y PowerShell se to
 
 | Alternativa | Motivo del descarte | Se reabriría si… |
 |---|---|---|
-| **Go** | Curva de aprendizaje de lenguaje + paradigma para 5 personas; re-trabajo de contratos. | La medición real (§5.3) muestra que el CLI en Node provoca paginación perceptible, o no es viable garantizar una versión de Node ≥ 20 en los puestos. **Es el plan B preferente.** |
+| **Go** | Curva de aprendizaje de lenguaje + paradigma para 5 personas; re-trabajo de contratos. | La medición real (§5.3) muestra que el CLI en Node provoca paginación perceptible, o no es viable garantizar una versión de Node ≥ 22.13 en los puestos. **Es el plan B preferente.** |
 | **Java CLI** | JVM adicional en equipos ya saturados de JVMs; arranque lento; runtime no garantizado. | El equipo decide compilar con GraalVM `native-image` en CI y la familiaridad backend pesa más que la huella. |
 | **PowerShell** | TUI pobre en 5.1, tipado dinámico, riesgo de codificación del Markdown. | Nunca como herramienta principal; aceptable para un script de instalación/diagnóstico auxiliar. |
 | **Python** | Runtime nuevo en todos los puestos; falsos positivos AV con PyInstaller; sin experiencia en el equipo. | — |
@@ -183,14 +192,26 @@ Pesos de §2: D1 20% · D2 20% · D3 25% · D4 35%. Para Bash y PowerShell se to
 
 Para que la recomendación sea válida con las restricciones de hardware, la implementación debe cumplir:
 
-1. **Versión de Node verificada:** declarar `engines.node` y comprobar la versión al arrancar, con mensaje accionable si es inferior a la soportada. Inventariar la versión de Node real de los 5 puestos **antes** de iniciar TK-01.
-2. **Cero compilación nativa en el puesto:** usar `node:sqlite` si la versión LTS elegida lo ofrece de forma estable; si se usa `better-sqlite3`, fijar una versión de Node con *prebuild* disponible para Windows x64. Nunca exigir Visual Studio Build Tools a los desarrolladores.
-3. **Presupuesto de RAM del CLI:** objetivo ≤ 100 MB RSS en el pico de ejecución. Si Ink lo supera o su valor sobre `@inquirer/prompts` + spinner simple no compensa para un flujo lineal, evaluar prescindir de Ink (decisión a registrar en su propio ADR, no aquí).
-4. **Medición real antes de cerrar este ADR:** ejecutar el flujo completo en un puesto representativo con IntelliJ + Data Studio abiertos y registrar RSS pico del CLI, RSS de Ollama con el modelo elegido, tiempo de arranque y fallos de página. Si el CLI supera el presupuesto del punto 3 de forma sistemática, reabrir con Go como plan B.
+1. **Versión de Node verificada:** declarar `engines.node` (≥ 22.13) y comprobar la versión al arrancar, con mensaje accionable si es inferior a la soportada. Inventariar la versión de Node real de los 5 puestos **antes** de iniciar TK-01. *Estado: pendiente; en el entorno de desarrollo (WSL) hay Node v24.19.*
+2. **Cero compilación nativa en el puesto:** **resuelto con `node:sqlite`** (Node ≥ 22.13). Nunca exigir Visual Studio Build Tools a los desarrolladores.
+3. **Presupuesto de RAM del CLI:** objetivo ≤ 100 MB RSS en el pico de ejecución. **Resuelto prescindiendo de Ink**: `@inquirer/prompts` + spinner simple (pico estimado ~40–60 MB, §3.1) y sin conflicto de stdin entre ambas librerías. Falta medir el RSS real.
+4. **Medición real:** ejecutar el flujo completo en un puesto representativo con IntelliJ + Data Studio abiertos y registrar RSS pico del CLI, RSS de Ollama con el modelo elegido, tiempo de arranque y fallos de página. Si el CLI supera el presupuesto del punto 3 de forma sistemática, reabrir con Go como plan B. *Estado: la medición inicial de Ollama está hecha (ver abajo); la medición en un puesto real de 8 GB sigue pendiente y no bloquea la aceptación de este ADR.*
+
+   **Medición inicial de Ollama (2026-10-02).** Entorno: WSL, 15 GB de RAM, solo CPU (sin GPU), Ollama 0.32.6, llamada a `/api/generate` con `stream: false`, `keep_alive` corto y el JSON Schema del tipo de issue en `format`. Mismo prompt y schema para ambos modelos:
+
+   | | `qwen2.5:1.5b` | **`qwen2.5:3b`** |
+   |---|---|---|
+   | RAM con el modelo cargado | ~1,2 GB | ~2,2 GB |
+   | Tiempo por ticket | 8–26 s | 41–45 s (prompt corto) · 30–105 s (prompt final) |
+   | JSON válido | Sí | Sí |
+   | Fidelidad al ticket | No: inventa contenido y se sale de tema | Sí: respeta los criterios de aceptación |
+   | Gherkin | Escenarios duplicados e incoherentes | Coherente |
+
+   Conclusiones: (a) con `format` el JSON sale válido de forma fiable; (b) el modelo mínimo viable es `qwen2.5:3b` y el 1.5b queda descartado por calidad; (c) el timeout de 15 s del diseño original es inviable y pasa a 120 s; (d) **la duración por ticket (30–105 s en una máquina de 15 GB sin carga) es el principal riesgo del producto** y en los PCs de 8 GB con IDEs será peor, de ahí el streaming para dar feedback en la TUI, la limitación de la salida y la reutilización de la Fase 1 entre repositorios del mismo ticket.
 5. **Terminal soportada:** documentar Windows Terminal (con perfil PowerShell, CMD o Git Bash) como entorno soportado; mintty standalone requiere `winpty` (§3.7).
-6. **Vigilancia de Ollama (fuera del alcance de este ADR):** el mayor consumidor de RAM del producto es el modelo local, no el CLI. Se recomienda que ADR-003.1 fije explícitamente un modelo pequeño cuantizado y un `keep_alive` corto para que Ollama libere la memoria tras cada ejecución, y que el timeout de fallback considere la lentitud de un equipo que ya pagina a disco.
+6. **Vigilancia de Ollama (fuera del alcance de este ADR):** el mayor consumidor de RAM del producto es el modelo local, no el CLI. ADR-003.1 ya fija `qwen2.5:3b`, un `keep_alive` corto para que Ollama libere la memoria tras cada ejecución y un timeout de 120 s que considera la lentitud de un equipo que ya pagina a disco.
 
 ### 5.4. Consecuencias
 
-- 🟢 Cero runtime adicional en el puesto; contratos y tickets existentes siguen siendo válidos; un solo lenguaje (TypeScript) compartido con los proyectos Angular; exhaustividad del contrato de resultado verificada por el compilador.
+- 🟢 Cero runtime adicional en el puesto; contratos y tickets existentes siguen siendo válidos (con los ajustes de TK-01 a TK-03); un solo lenguaje (TypeScript) compartido con los proyectos Angular; exhaustividad del contrato de resultado verificada por el compilador.
 - 🔴 Huella de RAM ~3–5× mayor que Go y arranque ~10× más lento (en ambos casos, magnitudes absolutas pequeñas); dependencia de la versión de Node del puesto; riesgo de compilación nativa si no se controla el driver SQLite — todos mitigados por §5.3.

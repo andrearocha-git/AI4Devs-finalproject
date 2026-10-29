@@ -96,6 +96,15 @@ Se elige Ollama local. El criterio de privacidad es determinante: el contenido d
 - 🟢 Cero exfiltración de datos internos a terceros; cero costo marginal por token/uso; funciona sin conexión saliente a internet (solo requiere red interna hacia Jira); latencia predecible, sin rate-limits externos.
 - 🔴 Calidad de estructuración inferior a un modelo cloud de última generación (riesgo de Gherkin mal formado o resúmenes menos precisos) y requisito de instalación/mantenimiento de Ollama y un modelo local en cada máquina del equipo (footprint de disco/RAM). Se mitiga con el fallback determinista (nunca bloquea, y el texto crudo sigue siendo una base de trabajo válida) y con que el desarrollador siempre revisa y edita el documento antes de darlo por completo — el LLM no es la última palabra.
 
+**Actualización tras la validación pre-código (2026-10-02/03):** la decisión de fondo (Ollama local con fallback determinista) no cambia. Se concretan, con una prueba real sobre Ollama 0.32.6 solo con CPU (WSL, 15 GB de RAM), estos puntos:
+
+- **Modelo mínimo `qwen2.5:3b`** (~2,2 GB de RAM cargado). `qwen2.5:1.5b` queda descartado: inventa contenido, se sale de tema y repite escenarios Gherkin.
+- **Salida estructurada con el JSON Schema del tipo de issue** (bug o historia) pasado en el parámetro `format` de Ollama. Con él, el JSON sale válido de forma fiable; la validación contra el mismo schema (Ajv) queda como red de seguridad y sigue siendo lo que garantiza que ningún código fuente llegue al documento. El **JSON Schema es la fuente de verdad** de los tipos (no Zod).
+- **Control de alucinaciones.** El primer campo del schema es `presenteEnTicket`: el modelo clasifica qué datos existen antes de redactar. Un **posprocesado determinista en código** sobrescribe con "No especificado en el ticket." los campos que el modelo marcó como ausentes, añade la pregunta abierta correspondiente y, en bugs, descarta números o textos entre comillas que no estén en el ticket original. Sin él, el modelo de 3B inventaba datos en los tickets escuetos.
+- **Timeout realista:** `ollama_timeout_seconds` pasa de 15 a **120**. Medido: 30–105 s por ticket solo con CPU; el timeout de 15 s hacía caer en fallback prácticamente todas las ejecuciones. Se usa *streaming* para mostrar progreso en la TUI y `keep_alive` corto para liberar la RAM tras cada uso.
+- **Prompts y plantillas como archivos versionados** de la aplicación (`templates/`), no strings en el código ni registros en SQLite; `prompt_version` se registra en `ticket_logs` para medir la tasa de éxito sin fallback por versión.
+- 🔴 Nuevo riesgo asumido: el **tiempo de generación** es el principal riesgo del producto; en los PCs del equipo (8 GB con IDEs abiertos) será peor que en la máquina de prueba. La medición en un puesto real sigue pendiente (ver ADR-006.1).
+
 ---
 
 ## ADR-004.1: Almacenamiento local de evidencias en carpeta del ticket frente a Sincronización Automática con Google Drive
@@ -148,3 +157,42 @@ Se elige el cliente REST HTTP directo, por tres razones concretas:
 **Consecuencias y Trade-offs:**
 - 🟢 Cero dependencia de un proceso MCP externo o de su disponibilidad; autenticación 100% consistente con ADR-001.1 (sin OAuth/navegador); clasificación de errores HTTP bajo control total del equipo, exactamente como la exige el fallback manual del PRD; sin costo de tokens en una operación puramente mecánica.
 - 🔴 El equipo asume directamente el mantenimiento del cliente REST ante cambios de versión de la API de Jira (Cloud vs. Data Center, versionado de endpoints), responsabilidad que un MCP Server oficial de Atlassian absorbería por su cuenta. Se mitiga aislando por completo esa responsabilidad dentro del **Jira REST Client** (Service Layer): es el único componente que conoce el contrato de la API de Jira, de modo que un cambio de versión se resuelve en un solo lugar sin propagarse al resto del sistema. Se deja explícitamente abierta la puerta a reevaluar un MCP Server en versiones futuras si el ecosistema MCP de Atlassian estabiliza una autenticación sin navegador.
+
+**Precisión tras la validación pre-código (2026-10-02/03):** la decisión no cambia, pero se concreta contra Jira Cloud real: API REST **v2** (la `description` llega en texto plano, sin necesidad de convertir ADF) con autenticación Basic **email + API token**. Jira Cloud responde **404 —no 401—** a `/issue` y `/project` cuando el token es inválido, por lo que la distinción de causas se resuelve en el Jira REST Client: ante un 404 se llama a `/myself` (401 = token inválido, 200 = el recurso no existe). Las claves de proyecto se validan con `GET /rest/api/2/project/{key}` al darlas de alta, porque la JQL ignora sin error las claves inexistentes.
+
+---
+
+## ADR-007.1: Ampliación del alcance del Git Manager — verificación del working directory y rama creada desde la base actualizada
+
+**Título y Estado:** Ampliación del alcance del Git Manager — **[Aprobado] · Cambio de decisión** (modifica el alcance mínimo del Git Manager descrito en `002-arquitectura-del-sistema.md` §2.2 y en `CLAUDE.md`; fecha de la decisión: 2026-10-03, registrada el 2026-10-29)
+
+**Contexto y Problema:**
+La validación pre-código incorporó dos requisitos que el alcance original no cubría: un ticket puede trabajarse en **varios repositorios** (una ejecución por cada uno) y cada repositorio tiene una **rama base configurable** (`main`, `develop`, `master`…). Con el alcance original, la rama se creaba desde donde estuviera parado el desarrollador, con la base posiblemente desactualizada, y `git switch -c` arrastraba a la rama nueva cualquier cambio sin commitear. Una rama nacida de una base vieja o con cambios ajenos es un problema silencioso que el desarrollador descubre tarde, al abrir el pull request.
+
+**Antes (decisión original, ya no vigente):**
+El Git Manager verificaba únicamente (a) que el repositorio existiera y (b) que la rama a crear no existiera, y la creaba (`git checkout -b feature|bugfix/ID-resumen`). No revisaba el estado del working directory, no hacía `fetch`/`pull` de la rama base ni detectaba bloqueos del repositorio: todo eso se dejaba explícitamente en manos del desarrollador. La decisión estaba fundada en mantener la herramienta lo más simple posible y en que su única escritura sobre el repositorio fuera la rama.
+
+**Opciones Consideradas:**
+- **A — Mantener el alcance mínimo (Descartada):** la herramienta crea la rama desde la rama actual, sin comprobaciones.
+- **B — Verificar el working directory y actualizar la base antes de ramificar (Elegida):** `git status`, pull de la rama base configurada y creación de la rama desde ella.
+- **C — Además guardar los cambios pendientes con `stash` automático (Descartada):** resolvería el caso de cambios pendientes, pero la herramienta pasaría a modificar el estado del desarrollador y a tener que restaurarlo, lo que contradice el principio de mínima intervención.
+
+**Criterios de Decisión:**
+Corrección de la rama resultante (base actualizada, sin cambios ajenos), previsibilidad para el desarrollador, mantener un alcance de escritura mínimo sobre el repositorio, y manejo seguro de los fallos de red o de credenciales de Git.
+
+**Decisión Elegida:**
+Se elige la opción B. El Git Manager, sobre el repositorio elegido para la ejecución:
+
+1. Verifica que el repositorio exista (`ErrorBloqueante` si no).
+2. Ejecuta `git status --porcelain`: si hay cambios pendientes (modificados, staged o sin trackear), **se detiene y los lista**. No hay `stash` automático; el desarrollador los commitea o guarda y vuelve a ejecutar.
+3. Si la rama ya existe, informa y continúa con la carpeta y el documento (sin pull ni creación).
+4. Actualiza la rama base **sin importar la rama actual**: `git pull --ff-only origin <base>` si está parado en ella, o `git fetch origin <base>:<base>` si está en otra.
+5. Crea la rama con `git switch -c <rama> <base>`.
+6. Si el pull falla (sin red, base local divergente del remoto, credenciales de Git), es un **error bloqueante**: nunca se crea la rama desde una base vieja.
+7. La rama base es la configurada por repositorio (por defecto `main`); un override puntual con `--base` no cambia la configuración.
+
+**Lo que no cambia:** el Git Manager **nunca ejecuta `commit`, `add` ni `push`** y no modifica ningún archivo versionado del repositorio. Sigue sin detectar bloqueos (`.git/index.lock`) ni resolver conflictos: esos problemas son del desarrollador.
+
+**Consecuencias y Trade-offs:**
+- 🟢 La rama siempre nace de una base actualizada y sin cambios ajenos; los fallos se detectan antes de crear nada, no al abrir el pull request.
+- 🔴 El Git Manager ahora depende de la red y de las credenciales de Git para el pull (un fallo bloquea esa ejecución) y su superficie de pruebas crece (estado del repositorio, rama base local divergente, parado en otra rama). Se mitiga con tests sobre repositorios Git temporales y con un `ErrorBloqueante` explícito, sin degradación silenciosa. Además, `git fetch origin <base>:<base>` avanza la rama base local aunque no sea la rama actual: es una escritura de referencias, no de archivos del working directory.

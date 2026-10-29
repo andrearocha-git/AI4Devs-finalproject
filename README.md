@@ -47,19 +47,20 @@ https://github.com/andrearocha-git/AI4Devs-finalproject
 
 ### **1.1. Objetivo:**
 
-DevFlow CLI elimina el cambio de contexto (*context switching*) que sufre un desarrollador al iniciar una User Story de Jira, automatizando en un solo comando la consulta a Jira, la creación de la rama Git, la estructura de carpetas local del ticket y la generación de un documento de desarrollo en Markdown. Aporta valor a tres perfiles: al **desarrollador** (un solo comando reemplaza cuatro herramientas: Jira, terminal de Git, explorador de archivos y Google Drive), a **QA/Testing** (documento con estructura idéntica en todos los tickets) y a **DevOps** (registro homogéneo y trazable de objetos modificados). Resuelve la falta de estandarización y la fricción de un equipo de 5 ingenieros que trabaja en paralelo sobre 6 proyectos (4 backend Java Spring Boot, 2 frontend Angular).
+DevFlow CLI elimina el cambio de contexto (*context switching*) que sufre un desarrollador al iniciar una User Story de Jira, automatizando en un solo comando la consulta a Jira, la creación de la rama Git, la estructura de carpetas local del ticket y la generación de un documento de desarrollo en Markdown. Aporta valor a tres perfiles: al **desarrollador** (un solo comando reemplaza cuatro herramientas: Jira, terminal de Git, explorador de archivos y Google Drive), a **QA/Testing** (documento con estructura idéntica en todos los tickets del mismo tipo) y a **DevOps** (registro homogéneo y trazable de objetos modificados). Resuelve la falta de estandarización y la fricción de un equipo de 5 ingenieros que trabaja en paralelo sobre 6 proyectos (4 backend Java Spring Boot, 2 frontend Angular).
 
 ### **1.2. Características y funcionalidades principales:**
 
 - Interfaz CLI TUI interactiva para terminal Windows.
 - Persistencia local de configuración e historial en SQLite.
-- Integración REST con la API de Jira, autenticada mediante API Token/PAT (sin OAuth con navegador), con fallback manual ante fallos de red, token inválido/expirado o ticket inexistente.
-- Creación automática de la rama de Git (`feature/ID-123-resumen`, `bugfix/ID-123-resumen`) según la convención del equipo (una ejecución por repositorio).
-- Procesamiento con un LLM local (Ollama) para autogenerar Descripción y Contexto, Casos de Uso y Criterios de Aceptación en Gherkin; si Ollama no está disponible, el flujo continúa con el texto crudo sin estructurar.
-- Creación automática de la estructura de carpetas local por ticket (`/ticket-ID/adjuntos/`), fuera del repositorio Git versionado.
-- Plantilla del documento en dos fases: Fase 1 (auto-generada al crear el ticket) y Fase 2 (completada por el desarrollador durante el ciclo de vida del ticket).
+- Alta de una o más claves de proyecto de Jira (validadas contra Jira), cada una con 0..N repositorios opcionales (nombre, ruta local y rama base) y un sufijo de usuario para las ramas.
+- Integración REST con Jira Cloud (API v2), autenticada con email + API Token (sin OAuth con navegador), con fallback manual ante fallos de red, token inválido/expirado o ticket inexistente. `devflow start` sin ID lista los tickets abiertos asignados al usuario; las épicas no generan rama ni documento.
+- Creación automática de la rama de Git `<prefijo>/<ID>-<SUFIJO>` (`features/SCRUM-1-AROCHA`, `bugs/SCRUM-2-AROCHA`) desde la rama base actualizada del repositorio elegido; se detiene si hay cambios pendientes y nunca hace commit, add ni push. Una ejecución por repositorio.
+- Procesamiento con un LLM local (Ollama, modelo mínimo `qwen2.5:3b`) con salida estructurada para autogenerar Descripción y Contexto, Casos de Uso y Criterios de Aceptación en Gherkin; si Ollama no está disponible, el flujo continúa con el texto crudo sin estructurar.
+- Creación automática de la estructura de carpetas local por ticket y repositorio (`<raíz>\ID\<repositorio>\adjuntos\`), fuera del repositorio Git versionado.
+- Plantilla del documento por tipo de issue (bug o historia), en dos fases: Fase 1 (auto-generada al crear el ticket) y Fase 2 (completada por el desarrollador durante el ciclo de vida del ticket).
 
-**Fuera de alcance en el MVP (Non-Goals):** generación de código por parte del LLM, interfaz gráfica/web, autenticación OAuth con navegador, soporte multi-repositorio en una misma ejecución, y sincronización automática con Google Drive (diferida a v2). Detalle completo en [`docs/PRD.md`](docs/PRD.md#4-límites-explícitos-out-of-scope--non-goals).
+**Fuera de alcance en el MVP (Non-Goals):** generación de código por parte del LLM, interfaz gráfica/web, autenticación OAuth con navegador, soporte multi-repositorio en una misma ejecución (un ticket con varios repositorios se ejecuta una vez por cada uno), y sincronización automática con Google Drive (diferida a v2). Detalle completo en [`docs/PRD.md`](docs/PRD.md#4-límites-explícitos-out-of-scope--non-goals).
 
 ### **1.3. Diseño y experiencia de usuario:**
 
@@ -84,7 +85,7 @@ Detalle de cada componente por capa (Controlador CLI/TUI, Orquestador de Ticket,
 
 ### **2.3. Descripción de alto nivel del proyecto y estructura de ficheros**
 
-**Stack técnico en evaluación (se cierra en la próxima entrega):** la propuesta de partida es **TypeScript sobre Node.js (LTS ≥ 20.x)**, con **Ink** (TUI basada en componentes) + **Commander** (parsing de comandos) + **`@inquirer/prompts`** para la interfaz de terminal. La comparación frente a Bash + curl + jq, Java CLI, PowerShell, Python y Go, según las restricciones de hardware del equipo (8 GB de RAM, ~35 GB libres, IDEs pesados abiertos a la vez), está en `docs/008-evaluacion-stack-tecnologico.md`. Árbol de directorios completo (`/src/tui`, `/src/services`, `/src/database`, `/src/shared`, `/docs`, `/templates`, `/tests`) y tabla de responsabilidad/lenguaje/reglas de acoplamiento por carpeta en `docs/002-arquitectura-del-sistema.md`, §2.3.
+**Stack técnico (ADR-006.1, aceptado):** **TypeScript `strict` sobre Node.js ≥ 22.13**, con `node:sqlite` (sin compilación nativa), **Commander** + **`@inquirer/prompts`** + un spinner simple para la interfaz de terminal (sin Ink), Handlebars, Ajv, Vitest y msw. La comparación frente a Bash + curl + jq, Java CLI, PowerShell, Python y Go, según las restricciones de hardware del equipo (8 GB de RAM, ~35 GB libres, IDEs pesados abiertos a la vez), está en `docs/008-evaluacion-stack-tecnologico.md`. Árbol de directorios completo (`/src/tui`, `/src/services`, `/src/database`, `/src/shared`, `/docs`, `/templates` con prompts, schemas y plantillas versionados, `/tests`) y tabla de responsabilidad/lenguaje/reglas de acoplamiento por carpeta en `docs/002-arquitectura-del-sistema.md`, §2.3.
 
 ### **2.4. Infraestructura y despliegue**
 
@@ -106,11 +107,11 @@ Prácticas ya decididas (autenticación contra Jira sin navegador vía API Token
 
 ### **3.1. Diagrama del modelo de datos:**
 
-Diagrama ERD (Mermaid) de `app_config`, `projects_config` y `ticket_logs`, con claves y cardinalidades, en `docs/003-modelo-de-datos.md`, §3.1.
+Diagrama ERD (Mermaid) de `app_config`, `jira_projects`, `repositories` y `ticket_logs`, con claves y cardinalidades, en `docs/003-modelo-de-datos.md`, §3.1.
 
 ### **3.2. Descripción de entidades principales:**
 
-Atributos, tipos, restricciones (`CHECK`, `UNIQUE`, `FOREIGN KEY`) y DDL completo de SQLite para las 3 entidades en `docs/003-modelo-de-datos.md`, §3.2.
+Atributos, tipos, restricciones (`CHECK`, `UNIQUE`, `FOREIGN KEY`) y DDL completo de SQLite para las 4 entidades en `docs/003-modelo-de-datos.md`, §3.2.
 
 ---
 
@@ -126,20 +127,20 @@ Detalle completo en [`docs/004-especificacion-de-la-api.md`](docs/004-especifica
 
 > Detalle completo (criterios de aceptación Given/When/Then/And) en [`docs/005-historias-de-usuario.md`](docs/005-historias-de-usuario.md).
 
-**Historia de Usuario 1: Configuración inicial de repositorios y rutas locales**
+**Historia de Usuario 1: Configuración inicial de claves de proyecto, repositorios y sufijo de usuario**
 *Prioridad: Must Have · Secuencia: 1 · Esfuerzo: Medio · Dependencias: Ninguna*
 
-Como desarrollador, quiero registrar una única vez la carpeta raíz de documentación y asociar cada proyecto con su repositorio local, para que la herramienta sepa siempre dónde trabajar sin tener que indicárselo cada vez que inicio un ticket.
+Como desarrollador, quiero dar de alta una o más claves de proyecto de Jira, asociarles opcionalmente mis repositorios locales (con su rama base) y fijar mi sufijo de usuario para las ramas, para que la herramienta sepa siempre con qué tickets y repositorios trabajar sin tener que indicárselo cada vez que inicio un ticket.
 
-**Historia de Usuario 2: Consulta automática de ticket de Jira con fallback manual**
+**Historia de Usuario 2: Selección y consulta de ticket de Jira con fallback manual**
 *Prioridad: Must Have · Secuencia: 2 · Esfuerzo: Medio · Dependencias: US-01*
 
-Como desarrollador, quiero que la herramienta obtenga automáticamente el título y la descripción del ticket a partir de su ID de Jira, para no tener que abrir el navegador ni copiar esa información manualmente; si la consulta falla, quiero poder cargar los datos a mano y seguir trabajando sin interrupciones.
+Como desarrollador, quiero elegir de una lista mis tickets abiertos (o indicar el ID de uno) y que la herramienta obtenga automáticamente su título, su descripción y su tipo, para no tener que abrir el navegador ni copiar esa información manualmente; si la consulta falla, quiero poder cargar los datos a mano y seguir trabajando sin interrupciones.
 
 **Historia de Usuario 3: Preparación automática del entorno de desarrollo (Git, carpetas y plantilla Markdown)**
 *Prioridad: Must Have · Secuencia: 3 · Esfuerzo: Alto · Dependencias: US-01, US-02*
 
-Como desarrollador, quiero que la herramienta prepare en un solo paso la rama de trabajo, la carpeta de evidencias y el documento inicial del ticket, para empezar a trabajar de inmediato sin ejecutar cada paso manualmente ni redactar el documento desde cero.
+Como desarrollador, quiero que la herramienta prepare en un solo paso, para el repositorio que elijo, la rama de trabajo, la carpeta de evidencias y el documento inicial del ticket, para empezar a trabajar de inmediato sin ejecutar cada paso manualmente ni redactar el documento desde cero.
 
 ---
 
@@ -152,17 +153,17 @@ Como desarrollador, quiero que la herramienta prepare en un solo paso la rama de
 **Ticket 1 (Base de Datos) — TK-01: Implementación del Esquema SQLite (DDL) y del módulo SQLite Storage Manager**
 *Prioridad: Must Have · Secuencia: 1 · Esfuerzo: Medio · Dependencias: Ninguna*
 
-Crea las tablas `app_config`, `projects_config` y `ticket_logs` (con sus constraints e índices), el sistema de migraciones versionadas, y el módulo que centraliza todo el acceso a SQLite — único componente del sistema que lee/escribe la base de datos. Vinculado a US-01, US-02 y US-03.
+Crea las tablas `app_config`, `jira_projects`, `repositories` y `ticket_logs` (con sus constraints e índices), el sistema de migraciones versionadas, y el módulo que centraliza todo el acceso a SQLite (`node:sqlite`) — único componente del sistema que lee/escribe la base de datos. Vinculado a US-01, US-02 y US-03.
 
 **Ticket 2 (Backend / Servicios) — TK-02: Implementación de Jira REST Client, Ollama AI Transformer, Git Manager, FileSystem Manager y Orquestador**
 *Prioridad: Must Have · Secuencia: 2 · Esfuerzo: Alto · Dependencias: TK-01*
 
-Implementa la consulta directa a Jira (con reintento y clasificación de fallos), el procesamiento con Ollama (con validación de esquema y fallback determinista sin código generado), la creación mínima de la rama Git (sin tocar nada más del repositorio) y la generación de la carpeta de evidencias y el documento Markdown en dos fases, todo coordinado por un orquestador que emite eventos de progreso. Vinculado a US-02 y US-03.
+Implementa la consulta directa a Jira (con reintento, clasificación de fallos y la regla del 404 con `/myself`), el procesamiento con Ollama (salida estructurada validada con Ajv, posprocesado determinista y fallback sin código generado), la creación de la rama Git desde la base actualizada (con `git status` previo y sin commit, add ni push) y la generación de la carpeta de evidencias y el documento Markdown en dos fases, todo coordinado por un orquestador que emite eventos de progreso. Vinculado a US-02 y US-03.
 
 **Ticket 3 (Frontend / TUI) — TK-03: Controlador CLI e Interfaz Interactiva de Terminal (Windows)**
 *Prioridad: Must Have · Secuencia: 3 · Esfuerzo: Medio · Dependencias: TK-01, TK-02*
 
-Implementa el comando `devflow start <ID>`, la validación del ID, los prompts de carga manual y confirmación, y las vistas de progreso, resumen y fallback en la terminal — la TUI nunca accede a Jira, Git, Ollama o SQLite directamente, solo al orquestador. Vinculado a US-01, US-02 y US-03.
+Implementa los comandos `devflow start [ID]` y `devflow config`, la validación del ID, los prompts de selección de ticket y repositorio, carga manual y confirmación, y las vistas de progreso (spinner simple, sin Ink), resumen y fallback en la terminal — la TUI nunca accede a Jira, Git, Ollama o SQLite directamente, solo al orquestador. Vinculado a US-01, US-02 y US-03.
 
 ---
 

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This repo is the AI4Devs (LIDR) final-project deliverable for **DevFlow CLI** — a planned CLI/TUI tool for Windows 10/11 that eliminates context-switching when a developer starts a Jira ticket: it queries Jira, creates a standardized Git branch, creates a local ticket folder outside the repo, and uses a local LLM (Ollama) to draft the first sections of a Markdown dev document.
 
-**There is no application code yet.** The repo currently holds only product/architecture documentation. Do not assume a scaffold, package manager, or language exists until one is actually created (check for a `package.json` at the repo root before trusting any command below).
+**There is no application code yet.** The repo holds the product/architecture documentation plus the project scaffold from TK-00 (`package.json`, `tsconfig.json`, Vitest, ESLint — see "Build / test commands"). Do not assume any module under `src/` exists until it is actually created (check the tree before trusting a path in the docs).
 
 ## Documentation layout
 
@@ -16,6 +16,7 @@ This repo is the AI4Devs (LIDR) final-project deliverable for **DevFlow CLI** �
 - `docs/ADR-001-arquitectura-inicial.md` — the architecture decision log (MADR-style). Contains §0 (evaluation of the 3-layer pattern) plus ADR-001.1 through ADR-005.1 and ADR-007.1 (Git Manager scope change); the stack decision is ADR-006.1 in `docs/008-evaluacion-stack-tecnologico.md` (Accepted).
 - `docs/001-descripcion-general-del-producto.md` … `docs/007-pull-requests.md` (plus `docs/008-evaluacion-stack-tecnologico.md`) — one file per `README.md` section (1 through 7), kept in sync with the PRD/ADR content. **File names have no accents** (`descripcion`, not `descripción`) — an explicit repo convention; don't reintroduce them when creating new files in this numbered series. Section 0 (Ficha del proyecto) has no separate `docs/000-*.md` file — its content lives only in `README.md` §0, since it was short enough not to need a dedicated file.
 - `docs/009-flujo-funcional.md` — living document of the end-to-end functional flow (install → ticket → Git/folders → Ollama → Fase 2 + `ticket_logs`), with a per-step status (`Especificado` / `En desarrollo` / `Implementado`) and the open gaps H-01…H-06 cross-referenced to US/TK. Not tied to a `README.md` section (deliberately not linked from it). Update it whenever a step is implemented or a gap is resolved, and keep it in sync with `docs/002-*.md` and `docs/005-*.md`/`docs/006-*.md`.
+- `docs/changes/<ID>.md` — one lightweight "spec contract" per US/TK (e.g. `docs/changes/TK-01.md`), created by `/03-refinar-historia` **before** any code and read by `/04-tdd-pair` and `/05-verificar-y-revisar`. Holds the BDD scenarios traced to the source acceptance criteria, affected files, tasks and a status (`Borrador` → `Aprobado` → `En implementación` → `Implementado`). `/04-tdd-pair` refuses to start without an approved contract and only touches its status, task checkboxes, traceability table and "Decisiones y desvíos". **Every scenario needs a test:** the traceability table's Test column holds a test path or `Sin test: <motivo>` (status `Hecho sin test`), the latter only with the developer's approval and a note in "Decisiones y desvíos"; `/05-verificar-y-revisar` fails an undeclared missing test and reports declared ones as observations. The folder does not exist until the first contract is written; these are working documents, not tied to a `README.md` section.
 - `prompts.md` — executive summary of the prompts used, one per course section, mirroring `README.md`'s own section anchors (`#1-...`) in its index — not links to `docs/` files.
 - `docs/prompts-claude-fase-inicial.md` — verbatim log of the prompts used to build the docs above.
 
@@ -49,11 +50,20 @@ Restricciones técnicas ya decididas (ADR-006.1 aceptado, ADR-003.1, ADR-007.1) 
 
 ## Conventions
 
-- **Application code, when it exists, goes at the repo root** (`src/`, `tests/`, `package.json`), alongside `docs/` — there is no separate `finalproject-<INITIALS>/` folder. Lint, typecheck and `.gitignore` must exclude `docs/` and `.claude/`.
+- **Application code, when it exists, goes at the repo root** (`src/`, `tests/`, `package.json`), alongside `docs/` — there is no separate `finalproject-<INITIALS>/` folder. Lint and typecheck must exclude `docs/` and `.claude/`; `.gitignore` must **not** (both folders are versioned).
 - **Branches:** `feature/entrega-<N>-<INITIALS>`, one per course deliverable. PRs target `main`.
 - Docs are Spanish; match that when editing them. Commit messages in this repo's history are mostly Spanish/informal.
 - Mermaid diagrams in `docs/002-*.md` and `docs/003-*.md` are the source of truth for component/sequence/ER diagrams — update them alongside prose changes, don't let them drift.
 
 ## Build / test commands
 
-None yet — no scaffold exists. When one is created, replace this section with the real install/dev/build/lint/test/single-test commands.
+The scaffold exists (TK-00: `package.json`, `tsconfig.json`, `vitest.config.ts`, `eslint.config.js`), but there is still no application code. Run everything from the repo root, with Node ≥ 22.13:
+
+- Install: `npm install`
+- Typecheck: `npm run typecheck` (`tsc --noEmit`, covers `src/`, `tests/` and `vitest.config.ts`)
+- Lint: `npm run lint` (`eslint .`, **no `--fix`**; excludes `docs/` and `.claude/`; enforces the layer-coupling import rules)
+- Test (whole suite): `npm test` (`vitest run`)
+- Single test file: `npm test -- tests/unit/smoke.test.ts`
+- Single test by name: `npm test -- -t "<name pattern>"`
+
+There is no `dev`, `build` or `start` script yet — add them when an entry point (`src/tui/cli.ts`) exists, and update this section.

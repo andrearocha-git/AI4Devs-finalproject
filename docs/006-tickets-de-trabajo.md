@@ -4,10 +4,57 @@
 
 ---
 
+### TK-00: Scaffold del proyecto Node.js + TypeScript (herramientas de build, tests y lint)
+
+- **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 0 | **Esfuerzo:** Bajo
+- **Dependencias Previas:** Ninguna
+
+- **Capa / Módulo:** Infraestructura del proyecto (transversal a las 3 capas)
+
+- **Historias de Usuario Relacionadas:** Ninguna directa — habilita la implementación de US-01, US-02 y US-03 (TK-01 a TK-03).
+
+- **Descripción y Alcance:**
+  Crear el armazón mínimo del proyecto en la **raíz del repositorio**, junto a `docs/`, para poder ejecutar `typecheck`, `lint` y `test` antes de escribir cualquier código de la aplicación. Es configuración mecánica: **sin lógica de negocio**. Stack aceptado en el ADR-006.1: Node.js ≥ 22.13 + TypeScript `strict`, Vitest y msw para los tests. Incluye las reglas de lint que hacen verificables las reglas de acoplamiento de capas de `002-arquitectura-del-sistema.md` §2.3 (p. ej. solo `SQLiteStorageManager` puede importar `node:sqlite`; la TUI no importa de `src/database/` ni de los clientes de `src/services/{jira,ollama,git,filesystem}/`). Instala solo las herramientas de desarrollo; las librerías de ejecución (Commander, `@inquirer/prompts`, Handlebars, Ajv) las agrega el ticket que las usa por primera vez *(asumido: evita instalar dependencias sin uso — YAGNI)*. Este ticket existe por separado porque `/04-tdd-pair` no crea el scaffold dentro del ciclo TDD.
+
+- **Archivos a Crear / Modificar:**
+  - `package.json` *(`engines.node >= 22.13`, `"type": "module"` *(asumido)*, scripts `typecheck`, `lint`, `test`)*
+  - `tsconfig.json` *(`strict: true`; incluye `src/`, `tests/` y `vitest.config.ts`)*
+  - `vitest.config.ts`
+  - `eslint.config.js` *(asumido: ESLint con `typescript-eslint`; incluye las reglas de importación restringida)*
+  - `.gitignore` *(`node_modules/`, `dist/`, `coverage/`)*
+  - `tests/unit/smoke.test.ts`
+  - `tests/unit/lint-rules.test.ts` *(prueba las reglas de lint con la API de ESLint)*
+  - `tests/unit/gitignore.test.ts` *(prueba el `.gitignore` con `git check-ignore`)*
+  - `src/.gitkeep` *(para versionar `src/` vacía)*
+  - `CLAUDE.md` *(reemplazar la sección "Build / test commands" por los comandos reales)*
+
+- **Contratos e Interfaces (Input/Output):**
+  - `npm run typecheck` → `tsc --noEmit`
+  - `npm run lint` → ESLint **sin `--fix`** (las skills `/05-verificar-y-revisar` no ejecutan un lint que modifique archivos)
+  - `npm test` → `vitest run`
+  - Dependencias de desarrollo *(asumido)*: `typescript`, `vitest`, `msw`, `eslint`, `typescript-eslint`, `@types/node`.
+
+- **Criterios de Aceptación Técnicos:**
+  1. `npm install` termina sin errores y `package.json` declara `engines.node >= 22.13`.
+  2. `npm run typecheck` termina con código 0 sobre el proyecto sin código de aplicación.
+  3. `npm test` ejecuta Vitest y pasa con el test de humo `tests/unit/smoke.test.ts`, que verifica que la versión de Node en ejecución es ≥ 22.13 (requisito de `node:sqlite`).
+  4. `npm run lint` termina con código 0 y **excluye** `docs/` y `.claude/` (regla de `CLAUDE.md`).
+  5. Importar `node:sqlite` fuera de `src/database/sqlite-storage-manager.ts`, o importar de `src/database/` o de los clientes de `src/services/{jira,ollama,git,filesystem}/` desde `src/tui/`, **hace fallar** la regla de lint; verificado de forma automática en `tests/unit/lint-rules.test.ts` con la API de ESLint (sin archivos temporales).
+  6. `.gitignore` excluye `node_modules/`, `dist/` y `coverage/` (sin ignorar `src/`, `tests/` ni `docs/`), verificado en `tests/unit/gitignore.test.ts`.
+
+- **Definition of Done (DoD):**
+  - [ ] Los tres scripts (`typecheck`, `lint`, `test`) existen y funcionan desde la raíz del repo.
+  - [ ] Ningún archivo bajo `docs/` ni `.claude/` se modifica, salvo el contrato `docs/changes/TK-00.md`, la sincronización de este ticket en `docs/006` y la sección de comandos de `CLAUDE.md`.
+  - [ ] No hay código de aplicación ni dependencias de ejecución todavía.
+  - [ ] Sección "Build / test commands" de `CLAUDE.md` actualizada con los comandos reales.
+  - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
+
+---
+
 ### TK-01: Implementación del Esquema SQLite (DDL) y del módulo SQLite Storage Manager
 
 - **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 1 | **Esfuerzo:** Medio
-- **Dependencias Previas:** Ninguna
+- **Dependencias Previas:** TK-00
 
 - **Capa / Módulo:** Base de Datos (Storage Layer)
 

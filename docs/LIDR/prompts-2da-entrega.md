@@ -112,7 +112,7 @@ Estructura el comportamiento en las siguientes etapas cronológicas:
 
 ```
 
-Después de solicitar el flujo funcional se le solicita a Claude que lo documente en el archivo  [`docs/009-flujo-funcional.md`](docs/009-flujo-funcional.md).
+Después de solicitar el flujo funcional se le solicita a Claude que lo documente en el archivo  [`docs/009-flujo-funcional.md`](../009-flujo-funcional.md).
 
 ---
 

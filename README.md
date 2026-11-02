@@ -185,4 +185,4 @@ Implementa los comandos `devflow start [ID]` y `devflow config`, la validación 
 
 ---
 
-> Registro de los prompts utilizados durante el desarrollo con asistencia de IA: [`prompts.md`](prompts.md) (resumen ejecutivo, un prompt por sección) y [`docs/prompts-claude-fase-inicial.md`](docs/prompts-claude-fase-inicial.md) (registro completo, verbatim).
+> Registro de los prompts utilizados durante el desarrollo con asistencia de IA: [`docs/LIDR/prompts.md`](docs/LIDR/prompts.md) (resumen ejecutivo, un prompt por sección) y [`docs/LIDR/prompts-claude-fase-inicial.md`](docs/LIDR/prompts-claude-fase-inicial.md) (registro completo, verbatim).

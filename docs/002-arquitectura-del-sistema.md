@@ -118,6 +118,13 @@ sequenceDiagram
         ORCH-->>TUI: aviso: las épicas no tienen plantilla (sin rama ni documento)
         TUI-->>Dev: elegir una historia, tarea o bug
     else Tipo con plantilla (bug o historia)
+        ORCH->>TUI: ask(confirmActions, resumen: rama, base, carpeta)
+        TUI->>Dev: ¿Continuar? (muestra rama, base y carpeta)
+        Dev-->>TUI: sí | no
+        TUI-->>ORCH: confirmación
+        break El desarrollador cancela
+            ORCH-->>TUI: ejecución cancelada (sin rama, carpeta, documento ni ticket_logs)
+        end
         opt Se eligió un repositorio
             ORCH->>GITM: crearRama(repositorio, rama, base)
             GITM->>GITM: verificar repo y git status --porcelain

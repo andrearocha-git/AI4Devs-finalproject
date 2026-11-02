@@ -113,3 +113,118 @@ Estructura el comportamiento en las siguientes etapas cronológicas:
 ```
 
 Después de solicitar el flujo funcional se le solicita a Claude que lo documente en el archivo  [`docs/009-flujo-funcional.md`](docs/009-flujo-funcional.md).
+
+---
+
+## Bitácora en el desarrollo TK-00 y TK-01
+
+### Bitácora de Trabajo con Agente
+
+#### **Gobierno, Arquitectura y Flujo Guiado (Entrega 2)**
+
+El desarrollo de esta etapa se abordó utilizando a Claude Code como agente ejecutor en terminal, bajo un esquema estricto de supervisión activa y revisión humana en el bucle (Human-in-the-Loop). El objetivo no fue delegar ciegamente la programación, sino auditar sus propuestas, restringir sus contextos y adaptar las herramientas para asegurar calidad técnica y alineación con los principios aprendidos.
+
+##### **Gobierno del Agente y Adaptación de Workflows (.claude/skills)**
+
+En lugar de permitir generaciones descontroladas, se estructuró el trabajo mediante sub-agentes y skills especializadas, introduciendo mejoras clave detectadas durante la iteración:
+
+- Flujo por contratos livianos (docs/changes/<ID>.md): Adopción de una convención inspirada en especificaciones estructuradas. La skill /03-refinar-historia define el contrato funcional, /04-tdd-pair implementa exclusivamente contra ese alcance y /05-verificar-y-revisar audita el cumplimiento.
+- Chequeo INVEST: Se detectó la falta de validación de granularidad en las historias de usuario y se forzó a la skill de refinamiento a evaluar el principio INVEST antes de descomponer tareas.
+- Cobertura estricta por escenario: Se restringió el contrato para exigir que cada escenario declare explícitamente su archivo de test (tests/...) o justifique técnicamente su omisión (Sin test: <motivo>), impidiendo huecos de cobertura.
+- Estandarización de documentación viva (TSDoc): Se detectó que el agente omitía documentación formal en el código generado. Se fijó la convención en CLAUDE.md, obligando al agente a documentar contratos públicos en fase de refactor y a verificarlo en la revisión final.
+
+##### **Decisiones de Arquitectura e Intervenciones**
+
+Durante la ejecución de los tickets TK-00 (Scaffold inicial) y TK-01 (SQLite Storage Manager), la supervisión técnica impidió desvíos funcionales y malas prácticas:
+
+- Control de alcance en Scaffold (TK-00): Se delimitó la configuración base (TypeScript, Vitest, ESLint) fuera del flujo habitual de TDD para no contaminar la raíz, validando manualmente las exclusiones correctas en .gitignore y linters.
+- Resolución de ambigüedades arquitectónicas (TK-01): Se fijó por diseño que el constructor reciba la ruta de la base de datos (inyección de dependencias) y se utilizó PRAGMA user_version para evitar complejidad innecesaria en el versionado de migraciones.
+- Detección de código muerto o sin cobertura: Durante la Tarea 4 de TK-01, el agente pretendía dar por finalizados métodos de persistencia sin pruebas asociadas. Se auditó el contrato y se exigió la creación de escenarios y tests específicos para cada método.
+- Integridad referencial y pruebas de límites: Se realizó una prueba manual aislada (scratchpad) donde se detectó el comportamiento ante borrados de proyectos con historial vinculado (ticket_logs). Se decidió explícitamente respetar la restricción de integridad referencial sin borrado en cascada, protegiendo el diseño mediante un test automatizado negativo.
+
+##### **Resultados de Calidad Obtenidos**
+
+- Suite de pruebas: 43 tests unitarios y de integración en verde bajo metodología TDD.
+- Análisis estático: Reglas de linting de capas estrictas (aislando la base de datos del resto del sistema) y typechecking sin errores.
+- Trazabilidad: Historial de Git estructurado con commits atómicos, reflejando contratos, código probado y refactorizaciones documentadas.
+
+#### Prompt utilizado para la bitácora
+
+```text
+Generame una bitácora detallada de la sesión que refleje mi rol de supervisión y el trabajo realizado. Incluí: lo que estuvimos viendo, los hallazgos que detecté (como la falta de TSDoc), las mejoras que incorporamos en las skills y cómo fui procediendo y decidiendo en cada ticket.
+```
+
+#### Respuesta de Claude
+
+```text
+Bitácora de la sesión
+
+1. Documentación y herramientas
+
+- Flujo funcional: creé docs/009-flujo-funcional.md, un documento vivo con las 5 etapas y los huecos H-01 a H-06 referenciados a US/TK. Quedaron resueltos H-01 (cierre de la Fase 2 fuera del MVP) y H-05 en parte (token en claro en el MVP).
+- Hook de markdownlint: lo extendí de Write a Write|Edit, y solo avisa de las líneas que cambiaste sin commitear.
+- Entrega 2: se creó prompts-2da-entrega.md, y se corrigieron sus errores de lint.
+
+2. Mejoras a las skills (detectadas por vos)
+
+┌─────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│               Mejora                │                                                      Qué cambió                                                       │
+├─────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Contrato único docs/changes/<ID>.md │ Adoptamos un flujo liviano tipo OpenSpec. La 03 escribe el contrato, la 04 lo implementa con TDD y la 05 lo verifica. │
+├─────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ INVEST (lo notaste vos)             │ La 03 ahora tiene un paso corto de chequeo INVEST, solo como alerta.                                                  │
+├─────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Un test por escenario               │ La columna Test solo admite una ruta de test o Sin test: <motivo>. Un faltante sin declarar es una falla.             │
+├─────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ TSDoc (lo notaste vos)              │ Convención en CLAUDE.md, la 04 lo aplica al refactorizar y la 05 lo revisa como observación.                          │
+└─────────────────────────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+3. TK-00: scaffold
+
+- Por qué: faltaba el armazón (package.json, TypeScript, Vitest, ESLint), así que lo agregamos como ticket propio antes de TK-01.
+- Cómo procedí: lo refiné con /03 y lo implementé escenario por escenario, validando cada uno con vos. Lo hice fuera de /04-tdd-pair (opción A), porque esa skill no puede crear configuración en la raíz.
+- Decisiones tuyas: un test automatizado para la regla de lint de CA5, y otro para el .gitignore de CA6.
+- Resultado: /05 dio veredicto positivo y se commiteó en 4 grupos.
+
+4. TK-01: SQLite Storage Manager
+
+- Refinado: 3 escenarios, 8 criterios cubiertos y 5 tareas. Resolviste 3 ambigüedades:
+  - Se ejecuta la migración y un test comprueba que schema.sql coincide.
+  - No hay umbral de cobertura en este ticket.
+  - La ruta de la base la recibe el constructor.
+- Implementado con /04 en TDD: E1 (esquema), E2 (proyectos y repositorios) y E3 (historial de tickets), cada uno cerrado con tu validación.
+- Tarea 4: preguntaste si los métodos quedaban sin test. Tenías razón, eran 5 sin cobertura de ningún escenario. Elegiste implementarlos con tests propios.
+- /05: veredicto "Aprobada con observaciones". Todo pasa y los hallazgos son menores.
+
+5. Hallazgos
+
+Detectados por vos:
+- Falta de INVEST en la skill 03.
+- Falta de TSDoc en el código.
+- Métodos sin test por no tener escenario.
+- Pedido de una prueba manual antes de commitear.
+
+Míos, durante el trabajo:
+- db público en el manager, porque la regla de lint impide a los tests importar node:sqlite.
+- Migraciones con PRAGMA user_version, para no sumar una quinta tabla.
+- upsertAppConfig sin ON CONFLICT: SQLite valida NOT NULL antes de resolver el conflicto.
+- Borrado con historial: lo encontró la prueba manual. No se puede borrar un proyecto o repositorio con ticket_logs, porque no hay ON DELETE CASCADE. Elegiste dejarlo así y documentarlo, y lo fija un test que verifiqué rompiéndolo a propósito.
+
+6. Estado final
+
+- Rama: feature/entrega-2-ANR, árbol limpio, sin push.
+- Calidad: 43 tests, typecheck y lint en verde.
+- Commits de hoy: 64e1531 (código de TK-01), 79333da (contrato), 8ecd59c (convención TSDoc y skills), 4e3b40c (CLAUDE.md y README), 5fe31ba (borrado con historial).
+
+7. Pendiente
+
+1. Tuyo: push, PR a main y, tras el merge, tildar el DoD de TK-00 y TK-01 en docs/006.
+2. Prueba manual: el script está en /tmp/claude-1000/-home-andredev-ai4devs-AI4Devs-finalproject/335e8bca-2479-47f9-a453-d776ec0fc258/scratchpad/prueba-manual-storage.ts, y lo corrés con node. Ese archivo es temporal y no está en el repo.
+3. TK-02: es muy grande (Jira, Ollama, Git, FileSystem y Orquestador), probablemente haya que dividirlo. Empezar con /03-refinar-historia TK-02.
+4. Umbral de cobertura: decidirlo en TK-02, con propuesta de 80 %.
+5. Lint del Orquestador: regla para que solo el Orquestador importe sqlite-storage-manager.ts.
+6. Mensajes de error: TK-02 o TK-03 deben traducir el error de borrado con historial.
+7. Huecos de docs/009: H-02, H-03, H-04, H-06 y la parte pendiente de H-05.
+8. Lint viejo: hay errores de markdownlint anteriores en README y otros docs que no toqué.
+9. Skills y hook: pueden necesitar reiniciar la sesión para recargarse.
+```

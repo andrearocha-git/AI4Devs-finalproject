@@ -363,7 +363,7 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
 - **Archivos a Crear / Modificar:**
   - `src/tui/cli.ts`
   - `src/tui/commands/start.command.ts`
-  - `src/tui/commands/config.command.ts` *(asumido: nombre de este comando — ningún documento base define cómo se ejecuta la configuración inicial de US-01; `devflow config` y `devflow config proyectos` son la propuesta, porque sin él las tablas de configuración no podrían poblarse nunca)*
+  - `src/tui/commands/config.command.ts` *(nombres decididos el 2026-11-02, H-06: `devflow config` y `devflow config proyectos`; ningún documento base los definía, y sin ellos las tablas de configuración no podrían poblarse nunca)*
   - `src/tui/prompts/ticket-selection.prompt.ts`
   - `src/tui/prompts/repository-selection.prompt.ts`
   - `src/tui/prompts/manual-ticket-entry.prompt.ts`
@@ -398,7 +398,7 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
   - [ ] La TUI no importa clientes de Jira/Git/Ollama ni el storage manager — solo invoca al Orquestador (verificable por revisión de imports).
   - [ ] Los 4 estados de resultado tienen una pantalla/mensaje distinguible para el usuario.
   - [ ] Progreso en vivo (spinner) funcional sin llamada bloqueante única y sin dependencia de Ink.
-  - [ ] Comandos y flags reales de configuración inicial (`config.command.ts`) validados con el equipo antes de cerrar el ticket — pendiente por la marca (asumido) arriba.
+  - [ ] Los nombres `devflow config` y `devflow config proyectos` están decididos (H-06); los flags y subcomandos concretos se fijan al refinar TK-03a y se validan antes de cerrar el ticket.
   - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---

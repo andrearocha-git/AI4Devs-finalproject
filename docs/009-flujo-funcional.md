@@ -57,7 +57,7 @@ Ref.: `002` §2.2.1.
 2. El Orquestador llama a `GET /myself`, toma el `displayName` y propone el sufijo: inicial del nombre + último apellido, sin acentos y en mayúsculas (p. ej. `AROCHA`).
 3. El usuario confirma o edita; se guarda como `branch_user_suffix`.
 
-> El nombre del comando `devflow config` es *asumido* (ver hueco **H-06**). El token se guarda en claro en `app_config` en el MVP (H-05, decidido; ver `002` §2.5).
+> Los nombres de los comandos `devflow config` y `devflow config proyectos` están decididos (hueco **H-06**, resuelto). El token se guarda en claro en `app_config` en el MVP (H-05, decidido; ver `002` §2.5).
 
 ### 1.4 `devflow config proyectos` — claves y repositorios — `📄 Especificado` · US-01 CA1-3, CA5-6 · TK-02/TK-03
 
@@ -233,7 +233,7 @@ Detectados al cruzar las fuentes (análisis pre-código, 2026-11-01). Cada uno i
 | **H-03** | **`ConfirmActionsPrompt` no está en el diagrama de secuencia.** TK-03 define una confirmación única antes de actuar (*ambiguo*), pero el diagrama E2E de `002` §2.1 no la incluye, ni dice si se puede cancelar. | **TK-03** (contrato `ConfirmActionsPrompt`) y diagrama Mermaid de `002` §2.1 (actualizar ambos juntos). | 🔴 Abierto |
 | **H-04** | **Rama ya existente: sin acción adicional.** US-03 CA5 queda *ambiguo*: solo informa y continúa. No se define qué pasa con el checkout (¿queda en la rama actual?), ni si se ofrece cambiar a esa rama. | **US-03 CA5** y **TK-02** (`GitManager.createBranch`, CA3). | 🟢 Resuelto (2026-11-02): solo informa y continúa; **no hay checkout** — el repositorio queda en la rama en la que estaba y no se ofrece ninguna acción adicional. |
 | **H-05** | **Instalación y manejo del token sin definir.** `001` §1.4 y README §1.4 están `[A definir]`; tampoco se decide si el API Token se guarda en claro o cifrado (DPAPI) ni su rotación (`002` §2.5). | **TK-01** (columna `jira_api_token` de `app_config`), **`001` §1.4 / README §1.4**, **`002` §2.5**. Posible ADR nuevo. | 🟡 Parcial: el token se guarda **en claro** en el MVP (decisión 2026-11-01, `002` §2.5 y `003`); falta redactar las instrucciones de instalación (`001` §1.4 / README §1.4). |
-| **H-06** | **Comandos de configuración *asumidos*.** `devflow config` / `devflow config proyectos` son una propuesta de TK-03; ningún documento base define cómo se ejecuta US-01. Pendiente de validar con el equipo (DoD de TK-03). | **TK-03** (`config.command.ts`) y **US-01** (agregar el comando a los criterios). | 🔴 Abierto |
+| **H-06** | **Comandos de configuración *asumidos*.** `devflow config` / `devflow config proyectos` son una propuesta de TK-03; ningún documento base define cómo se ejecuta US-01. Pendiente de validar con el equipo (DoD de TK-03). | **TK-03** (`config.command.ts`) y **US-01** (agregar el comando a los criterios). | 🟢 Resuelto (2026-11-02): se mantienen `devflow config` (token, sufijo, datos de Jira) y `devflow config proyectos` (claves y repositorios). Los flags y subcomandos concretos se fijan al refinar TK-03a. |
 
 ---
 
@@ -246,3 +246,4 @@ Detectados al cruzar las fuentes (análisis pre-código, 2026-11-01). Cada uno i
 | 2026-11-01 | Nuevo ticket TK-00 (scaffold del proyecto) en `006`; TK-01 pasa a depender de TK-00. No cambia el flujo funcional: es un prerrequisito de implementación. | TK-00 |
 | 2026-11-02 | TK-02 dividido en TK-02a … TK-02g en `006` (a: base compartida · b: Jira · c: Git · d: FileSystem · e: Ollama · f: flujo del Orquestador · g: gestión de configuración). Las referencias a «TK-02» en este documento se leen como el conjunto; no cambia el flujo. | TK-02a…g |
 | 2026-11-02 | H-04 resuelto: rama existente → solo informar, sin checkout. Actualizado `005` US-03 CA5. | H-04 · US-03 · TK-02c |
+| 2026-11-02 | H-06 resuelto: nombres `devflow config` y `devflow config proyectos` confirmados. Actualizado `006` (TK-03). | H-06 · US-01 · TK-03a |

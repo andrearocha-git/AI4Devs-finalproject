@@ -136,7 +136,7 @@ Restricción adicional: `UNIQUE (jira_project_id, name)`.
 | `started_at` | DATETIME | NOT NULL | Inicio de la ejecución (para la métrica de tiempo de arranque del PRD). |
 | `finished_at` | DATETIME | NULL | Fin de la ejecución. |
 
-Restricción adicional: `UNIQUE (ticket_id, repository_id)` — una fila por ticket y repositorio. En SQLite, `UNIQUE` no impide duplicados cuando `repository_id` es `NULL`; el *upsert* del `SQLite Storage Manager` trata ese caso (clave sin repositorios) aparte. Las ejecuciones que se cortan en Git (`pending_changes`, o `error` por pull fallido) sí registran fila, con `folder_path`, `document_path` y `ollama_status` en `NULL`; las épicas no generan documento ni rama y no registran fila.
+Restricción adicional: `UNIQUE (ticket_id, repository_id)` — una fila por ticket y repositorio. En SQLite, `UNIQUE` no impide duplicados cuando `repository_id` es `NULL`; el *upsert* del `SQLite Storage Manager` trata ese caso (clave sin repositorios) aparte. Las referencias de `ticket_logs` a `jira_projects` y a `repositories` no llevan `ON DELETE CASCADE`: un proyecto o un repositorio con historial **no se puede eliminar** (el historial se protege a propósito) y el *SQLite Storage Manager* lanza el error de clave foránea; la capa que llame debe traducirlo a un mensaje claro. Las ejecuciones que se cortan en Git (`pending_changes`, o `error` por pull fallido) sí registran fila, con `folder_path`, `document_path` y `ollama_status` en `NULL`; las épicas no generan documento ni rama y no registran fila.
 
 **DDL (SQLite):**
 

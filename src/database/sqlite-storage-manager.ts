@@ -189,7 +189,12 @@ export class SQLiteStorageManager {
    * Elimina un proyecto y, en cascada (`ON DELETE CASCADE`), sus repositorios.
    * No falla si la clave no existe.
    *
+   * Un proyecto con historial no se puede eliminar: `ticket_logs` lo referencia sin `ON DELETE CASCADE`
+   * (el historial se protege a propósito). Quien llame debe traducir ese error a un mensaje claro.
+   *
    * @param jiraProjectKey Clave del proyecto a eliminar.
+   * @throws Si el proyecto o alguno de sus repositorios tiene filas en `ticket_logs`
+   * (`FOREIGN KEY constraint failed`); no se borra nada.
    */
   removeJiraProject(jiraProjectKey: string): void {
     this.db.prepare("DELETE FROM jira_projects WHERE jira_project_key = ?").run(jiraProjectKey);
@@ -289,7 +294,10 @@ export class SQLiteStorageManager {
   /**
    * Elimina un repositorio. No falla si el `id` no existe.
    *
+   * Un repositorio con historial no se puede eliminar: `ticket_logs` lo referencia sin `ON DELETE CASCADE`.
+   *
    * @param repositoryId `id` del repositorio.
+   * @throws Si el repositorio tiene filas en `ticket_logs` (`FOREIGN KEY constraint failed`).
    */
   removeRepository(repositoryId: number): void {
     this.db.prepare("DELETE FROM repositories WHERE id = ?").run(repositoryId);

@@ -288,3 +288,46 @@ describe("Tarea 4 — lecturas y operaciones restantes del ticket", () => {
     expect(manager.listRepositories(b.id)).toHaveLength(1);
   });
 });
+
+describe("Borrado con historial (ticket_logs sin ON DELETE CASCADE)", () => {
+  function setupWithHistory(): { manager: SQLiteStorageManager; projectId: number; repositoryId: number } {
+    const manager = newMigrated();
+    const project = manager.upsertJiraProject({ jiraProjectKey: "SCRUM", jiraProjectName: "Mi Team" });
+    const repo = manager.upsertRepository({ jiraProjectId: project.id, name: "backend", repoLocalPath: "C:\\a" });
+    manager.upsertTicketLog({
+      ticketId: "SCRUM-1",
+      jiraProjectId: project.id,
+      repositoryId: repo.id,
+      issueType: "Historia",
+      branchType: "feature",
+      branchName: "features/SCRUM-1-AROCHA",
+      baseBranch: "main",
+      branchStatus: "created",
+      jiraFetchStatus: "ok",
+      ollamaStatus: "ok",
+      folderPath: "C:\\tickets\\SCRUM-1",
+      documentPath: "C:\\tickets\\SCRUM-1\\backend\\SCRUM-1.md",
+      startedAt: "2026-01-01T00:00:00Z",
+    });
+    return { manager, projectId: project.id, repositoryId: repo.id };
+  }
+
+  it("removeJiraProject falla y no borra nada si el proyecto tiene historial", () => {
+    const { manager, projectId } = setupWithHistory();
+
+    expect(() => manager.removeJiraProject("SCRUM")).toThrow(/FOREIGN KEY constraint failed/);
+
+    expect(manager.getJiraProject("SCRUM")).not.toBeNull();
+    expect(manager.listRepositories(projectId)).toHaveLength(1);
+    expect(manager.db.prepare("SELECT COUNT(*) AS n FROM ticket_logs").get()).toEqual({ n: 1 });
+  });
+
+  it("removeRepository falla y no borra nada si el repositorio tiene historial", () => {
+    const { manager, projectId, repositoryId } = setupWithHistory();
+
+    expect(() => manager.removeRepository(repositoryId)).toThrow(/FOREIGN KEY constraint failed/);
+
+    expect(manager.listRepositories(projectId)).toHaveLength(1);
+    expect(manager.db.prepare("SELECT COUNT(*) AS n FROM ticket_logs").get()).toEqual({ n: 1 });
+  });
+});

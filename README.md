@@ -160,10 +160,10 @@ Crea las tablas `app_config`, `jira_projects`, `repositories` y `ticket_logs` (c
 **Ticket 2 (Backend / Servicios) — TK-02: Implementación de Jira REST Client, Ollama AI Transformer, Git Manager, FileSystem Manager y Orquestador**
 *Prioridad: Must Have · Secuencia: 2 · Esfuerzo: Alto · Dependencias: TK-01*
 
-Implementa la consulta directa a Jira (con reintento, clasificación de fallos y la regla del 404 con `/myself`), el procesamiento con Ollama (salida estructurada validada con Ajv, posprocesado determinista y fallback sin código generado), la creación de la rama Git desde la base actualizada (con `git status` previo y sin commit, add ni push) y la generación de la carpeta de evidencias y el documento Markdown en dos fases, todo coordinado por un orquestador que emite eventos de progreso. Vinculado a US-02 y US-03.
+Implementa la consulta directa a Jira (con reintento, clasificación de fallos y la regla del 404 con `/myself`), el procesamiento con Ollama (salida estructurada validada con Ajv, posprocesado determinista y fallback sin código generado), la creación de la rama Git desde la base actualizada (con `git status` previo y sin commit, add ni push) y la generación de la carpeta de evidencias y el documento Markdown en dos fases, todo coordinado por un orquestador que emite eventos de progreso. Vinculado a US-02 y US-03. Por su tamaño se dividió en siete sub-tickets (TK-02a a TK-02g: base compartida, Jira, Git, FileSystem, Ollama, flujo del Orquestador y gestión de configuración), cada uno con su contrato en `docs/changes/`.
 
 **Ticket 3 (Frontend / TUI) — TK-03: Controlador CLI e Interfaz Interactiva de Terminal (Windows)**
-*Prioridad: Must Have · Secuencia: 3 · Esfuerzo: Medio · Dependencias: TK-01, TK-02*
+*Prioridad: Must Have · Secuencia: 3 · Esfuerzo: Medio · Dependencias: TK-01, TK-02f, TK-02g*
 
 Implementa los comandos `devflow start [ID]` y `devflow config`, la validación del ID, los prompts de selección de ticket y repositorio, carga manual y confirmación, y las vistas de progreso (spinner simple, sin Ink), resumen y fallback en la terminal — la TUI nunca accede a Jira, Git, Ollama o SQLite directamente, solo al orquestador. Vinculado a US-01, US-02 y US-03.
 

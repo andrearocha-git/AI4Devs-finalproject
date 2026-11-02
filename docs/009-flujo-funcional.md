@@ -244,3 +244,4 @@ Detectados al cruzar las fuentes (análisis pre-código, 2026-11-01). Cada uno i
 | 2026-11-01 | Creación del documento a partir del análisis del flujo pre-código (fuentes: 001, 002, 005, 006, PRD, README). Se registran H-01 a H-06. | — |
 | 2026-11-01 | H-01 resuelto (cierre de Fase 2 fuera del MVP) y H-05 parcial (token en claro en el MVP; falta la instalación). Actualizados `PRD` §4, `002` §2.5 y `003` (`jira_api_token`). | H-01, H-05 · TK-01 |
 | 2026-11-01 | Nuevo ticket TK-00 (scaffold del proyecto) en `006`; TK-01 pasa a depender de TK-00. No cambia el flujo funcional: es un prerrequisito de implementación. | TK-00 |
+| 2026-11-02 | TK-02 dividido en TK-02a … TK-02g en `006` (a: base compartida · b: Jira · c: Git · d: FileSystem · e: Ollama · f: flujo del Orquestador · g: gestión de configuración). Las referencias a «TK-02» en este documento se leen como el conjunto; no cambia el flujo. | TK-02a…g |

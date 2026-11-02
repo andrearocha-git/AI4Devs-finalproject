@@ -43,11 +43,11 @@
   6. `.gitignore` excluye `node_modules/`, `dist/` y `coverage/` (sin ignorar `src/`, `tests/` ni `docs/`), verificado en `tests/unit/gitignore.test.ts`.
 
 - **Definition of Done (DoD):**
-  - [ ] Los tres scripts (`typecheck`, `lint`, `test`) existen y funcionan desde la raíz del repo.
-  - [ ] Ningún archivo bajo `docs/` ni `.claude/` se modifica, salvo el contrato `docs/changes/TK-00.md`, la sincronización de este ticket en `docs/006` y la sección de comandos de `CLAUDE.md`.
-  - [ ] No hay código de aplicación ni dependencias de ejecución todavía.
-  - [ ] Sección "Build / test commands" de `CLAUDE.md` actualizada con los comandos reales.
-  - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
+  - [x] Los tres scripts (`typecheck`, `lint`, `test`) existen y funcionan desde la raíz del repo.
+  - [x] Ningún archivo bajo `docs/` ni `.claude/` se modifica, salvo el contrato `docs/changes/TK-00.md`, la sincronización de este ticket en `docs/006` y la sección de comandos de `CLAUDE.md`.
+  - [x] No hay código de aplicación ni dependencias de ejecución todavía.
+  - [x] Sección "Build / test commands" de `CLAUDE.md` actualizada con los comandos reales.
+  - [x] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---
 
@@ -97,85 +97,253 @@
   8. `upsertTicketLog` acepta una ejecución cortada en Git (`branchStatus: 'pending_changes'`, con `folderPath`, `documentPath` y `ollamaStatus` en `null`) y la reejecución posterior del mismo ticket y repositorio actualiza esa misma fila.
 
 - **Definition of Done (DoD):**
-  - [ ] Las 4 tablas + índices creados exactamente como el DDL de `003-modelo-de-datos.md`, sin desviaciones no documentadas.
-  - [ ] `SQLiteStorageManager` es el único módulo que importa `node:sqlite` (verificable por regla de lint/búsqueda estática).
-  - [ ] Modo WAL habilitado; ruta del archivo configurable, con default `%APPDATA%\DevFlowCLI\devflow.db`.
-  - [ ] Migraciones versionadas y documentadas en `src/database/migrations/`.
-  - [ ] Umbral de cobertura de tests en la Service Layer: **(ambiguo)** — propuesta de 80 %, a confirmar con el equipo antes de dar el ticket por cerrado.
+  - [x] Las 4 tablas + índices creados exactamente como el DDL de `003-modelo-de-datos.md`, sin desviaciones no documentadas.
+  - [x] `SQLiteStorageManager` es el único módulo que importa `node:sqlite` (verificable por regla de lint/búsqueda estática).
+  - [ ] Modo WAL habilitado; ruta del archivo configurable, con default `%APPDATA%\DevFlowCLI\devflow.db`. *(WAL y ruta configurable están hechos; el valor por defecto lo calcula quien instancia el manager y se resuelve en TK-02a, por eso sigue abierta)*
+  - [x] Migraciones versionadas y documentadas en `src/database/migrations/`.
+  - [ ] Umbral de cobertura de tests en la Service Layer: **decidido (2026-11-02): 80 %**; se configura y verifica en TK-02a, cuando exista la Service Layer. Esta casilla se cierra con ese ticket.
+  - [x] Revisión de código aprobada y mergeada a la rama del ticket.
+
+---
+
+### TK-02: Service Layer — Jira, Ollama, Git, FileSystem y Orquestador (ticket paraguas dividido en TK-02a … TK-02g)
+
+- **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 2 | **Esfuerzo total:** Alto
+- **Dependencias Previas:** TK-01
+- **Capa / Módulo:** Backend / Servicios (Service Layer)
+- **Historias de Usuario Relacionadas:** US-02, US-03
+
+> **División (2026-11-02).** El TK-02 original (Jira REST Client, Ollama AI Transformer, Git Manager, FileSystem Manager y Orquestador en un solo ticket) tenía 5 componentes, 5 criterios técnicos y unos 17 archivos: no cabía en un contrato de 2-3 escenarios y 5 tareas (`/03-refinar-historia`, chequeo INVEST: fallaban S y T). Se divide en siete sub-tickets, cada uno con su propio contrato en `docs/changes/TK-02x.md`. **TK-02 deja de implementarse como unidad**: es solo el paraguas; se considera cerrado cuando TK-02a … TK-02g lo están. Los criterios técnicos originales CA1-CA5 se conservan dentro del sub-ticket que los cubre.
+
+| Sub-ticket | Alcance | CA originales | Esfuerzo | Depende de |
+|---|---|---|---|---|
+| **TK-02a** | Base compartida: `StepResult`, `AppConfigProvider`, resolutor de tipo de issue, fixtures, regla de lint | Soporte (DoD) | Bajo | TK-01 |
+| **TK-02b** | Jira REST Client | CA1 | Medio | TK-02a |
+| **TK-02c** | Git Manager | CA3 | Medio | TK-02a |
+| **TK-02d** | FileSystem Manager y plantillas de documento | CA4 | Medio | TK-02a |
+| **TK-02e** | Ollama AI Transformer, prompts, schemas y posprocesado | CA2 | Medio-Alto | TK-02a |
+| **TK-02f** | Orquestador: flujo `startTicket` y `ticket_logs` | CA5 | Alto | TK-02b, c, d, e |
+| **TK-02g** | Orquestador: gestión de configuración, proyectos y repositorios para la TUI | Contrato TUI | Medio | TK-02b, TK-02c |
+
+Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02f → TK-02g. TK-03 depende de TK-02f y TK-02g.
+
+**Reglas comunes a todos los sub-tickets** (Decisiones 1, 3 y 4 de la auditoría): toda configuración (credenciales, host, timeouts, sufijo de rama, raíz de tickets) se resuelve una única vez y se inyecta por constructor; ningún componente de la Service Layer accede a SQLite directamente (solo el Orquestador, vía `SQLiteStorageManager` de TK-01); todo paso devuelve `StepResult` y ninguna falla de una integración llega a la TUI como excepción cruda.
+
+---
+
+#### TK-02a: Base compartida de la Service Layer (tipos de resultado, configuración, tipo de issue y fixtures)
+
+- **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 2 (1.º) | **Esfuerzo:** Bajo
+- **Dependencias Previas:** TK-01
+- **Historias de Usuario Relacionadas:** US-02, US-03
+
+- **Descripción y Alcance:**
+  Define lo que comparten los demás sub-tickets para que puedan avanzar en paralelo: el contrato `StepResult`, el proveedor de configuración inyectable, la resolución del tipo de issue con `templates/issue-types.json` (épica → bloqueada; Bug/Error/Defecto → `bug`; el resto → `historia`; prefijo de rama `features/` o `bugs/`; `promptVersion` por tipo), los fixtures de tickets en formato Jira v2 y la regla de lint que restringe quién importa `sqlite-storage-manager.ts`. Toma además las decisiones que TK-01 dejó abiertas (ver "Decisiones a cerrar").
+
+- **Archivos a Crear / Modificar:**
+  - `src/shared/errors/result.types.ts`
+  - `src/shared/config/app-config.provider.ts` *(ambiguo: alcance exacto; se propone una función/clase que, a partir de un `AppConfig` ya leído por el Orquestador, valida los campos obligatorios y calcula los valores por defecto —p. ej. la ruta de la base `%APPDATA%\DevFlowCLI\devflow.db`— y devuelve una configuración inmutable)*
+  - `src/services/orchestrator/issue-type-resolver.ts` *(asumido: nombre del módulo que aplica `templates/issue-types.json`)*
+  - `templates/README.md`, `templates/issue-types.json`
+  - `tests/fixtures/tickets/*.json` (tickets en formato Jira v2: bug y historia, completos y escuetos, y una épica)
+  - `tests/unit/shared/*.test.ts`, `tests/unit/services/orchestrator/issue-type-resolver.test.ts`
+  - `eslint.config.js` (modificar)
+
+- **Contratos e Interfaces (Input/Output):**
+  - `type StepResult<T> = { kind: 'Ok'; value: T } | { kind: 'FallbackManual'; reason: 'network_timeout' | 'invalid_token' | 'not_found' } | { kind: 'FallbackDeterminista'; rawText: string } | { kind: 'ErrorBloqueante'; subtype: 'RepositorioNoEncontrado' | 'CambiosPendientes' | 'PullFallido' | 'TipoIssueBloqueado' | 'PermisosInsuficientes' | 'ErrorInesperado'; message: string }`
+  - `ContextoTicket { ticketId: string; title: string; description: string; issueType: string; source: 'jira' | 'manual' }`
+  - Resolutor de tipo: dado el `issueType` de Jira devuelve `{ tipo: 'bug' | 'historia'; prefijoRama: 'features' | 'bugs'; promptVersion: string }` o `ErrorBloqueante('TipoIssueBloqueado')` para épicas *(asumido: forma exacta del retorno)*.
+
+- **Decisiones a cerrar en este ticket** (heredadas de TK-01):
+  - Umbral de cobertura de la Service Layer: **80 %** (decidido 2026-11-02); aquí solo se configura y se hace cumplir.
+  - Regla de lint para que solo el Orquestador importe `sqlite-storage-manager.ts`.
+  - Dónde se calcula el valor por defecto de la ruta de la base y dónde se validan los campos obligatorios del primer `upsertAppConfig`.
+
+- **Criterios de Aceptación Técnicos** *(derivados del DoD y de las decisiones del ticket original; no tienen CA numerado en la versión previa)*:
+  1. Los 4 tipos de `StepResult` están definidos y son discriminables por `kind` (verificado por el compilador y por un test de tipos o de estrechamiento).
+  2. El resolutor clasifica Epic/Épica como bloqueada, Bug/Error/Defecto como `bug` y cualquier otro tipo como `historia`, con el prefijo de rama y la `promptVersion` del tipo leídos de `templates/issue-types.json`.
+  3. El proveedor de configuración rechaza una configuración con campos obligatorios ausentes y completa los valores por defecto; es inmutable y se inyecta por constructor.
+  4. `npm run lint` falla si un archivo distinto del Orquestador (o de los tests) importa `src/database/sqlite-storage-manager.ts`.
+
+- **Definition of Done (DoD):**
+  - [ ] Los fixtures cubren bug y historia (completos y escuetos) y una épica.
+  - [ ] Umbral de cobertura del 80 % configurado en `vitest.config.ts` para la Service Layer y registrado en `docs/changes/TK-02a.md`.
+  - [ ] Regla de lint verificada con un caso que la viola.
   - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---
 
-### TK-02: Implementación de Jira REST Client, Ollama AI Transformer, Git Manager, FileSystem Manager y Orquestador
+#### TK-02b: Jira REST Client
 
-- **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 2 | **Esfuerzo:** Alto
-- **Dependencias Previas:** TK-01
-
-- **Capa / Módulo:** Backend / Servicios (Service Layer)
-
-- **Historias de Usuario Relacionadas:** US-02, US-03
+- **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 2 (2.º) | **Esfuerzo:** Medio
+- **Dependencias Previas:** TK-02a
+- **Historias de Usuario Relacionadas:** US-02
 
 - **Descripción y Alcance:**
-  Implementar el **Orquestador de Ticket** (coordina Jira → Git → FileSystem → Ollama → FileSystem para **un repositorio por ejecución**, emitiendo un evento de progreso por paso — Decisión 1 de la auditoría; resuelve el tipo de issue con `templates/issue-types.json` y corta el flujo en las épicas; reutiliza la Fase 1 entre repositorios del mismo ticket; único escritor de `ticket_logs` — Decisión 4) y sus cuatro pasos independientes:
-  - **Jira REST Client** (API REST **v2** de Jira Cloud, HTTP directo con Basic email + API Token, sin MCP Server — ADR-005.1; un reintento con backoff corto; clasifica `401/403`, `404`, timeout y `429` con `Retry-After` como `FallbackManual` con motivo; **ante un 404 llama a `/myself`**: 401 = `invalid_token`, 200 = `not_found`; valida claves con `GET /rest/api/2/project/{key}`; lista los tickets asignados con la JQL `project in (…) AND assignee = currentUser() AND statusCategory != Done AND issuetype != Epic ORDER BY updated DESC`; obtiene el `displayName` de `/myself` — ADR-001.1).
-  - **Ollama AI Transformer** (arma el prompt con los archivos de `templates/prompts/` según el tipo de issue; invoca Ollama local con *streaming* y el JSON Schema del tipo en `format`; valida con Ajv —el JSON Schema es la fuente de verdad, no Zod—; aplica el posprocesado determinista `siFalta` / `verificarLiterales`; cualquier respuesta inválida, con código embebido, o timeout/no disponible cae a `FallbackDeterminista` — ADR-003.1).
-  - **Git Manager** (secuencia de [ADR-007.1](ADR-001-arquitectura-inicial.md#adr-0071-ampliación-del-alcance-del-git-manager--verificación-del-working-directory-y-rama-creada-desde-la-base-actualizada): verifica el repo; `git status --porcelain` y se detiene listando los cambios pendientes; si la rama ya existe informa y continúa; actualiza la rama base con `git pull --ff-only origin <base>` o `git fetch origin <base>:<base>` según la rama actual; crea la rama con `git switch -c <rama> <base>`; si el pull falla es error bloqueante; override puntual con `--base`; **nunca** `commit`, `add` ni `push`).
-  - **FileSystem Manager** (crea `<raíz>\ID\<repositorio>\adjuntos\` y el documento **fuera del repositorio Git**; documento en dos fases con idempotencia de Fase 1; guarda y lee `ID\.devflow\fase1.json` para la reutilización; renderiza con Handlebars la plantilla del tipo — ADR-004.1).
-
-  Toda configuración (credenciales, host, timeouts, sufijo de rama, raíz de tickets) se resuelve una única vez y se inyecta por constructor (Decisión 3 de la auditoría); ningún componente de este ticket accede a SQLite directamente (esa responsabilidad es exclusiva de TK-01, vía el Orquestador).
+  Cliente de la API REST **v2** de Jira Cloud, HTTP directo con Basic email + API Token, sin MCP Server (ADR-005.1). Un reintento con backoff corto; clasifica `401/403`, `404`, timeout y `429` con `Retry-After` como `FallbackManual` con motivo; **ante un 404 llama a `/myself`**: 401 = `invalid_token`, 200 = `not_found`. Valida claves con `GET /rest/api/2/project/{key}`; lista los tickets asignados con la JQL `project in (…) AND assignee = currentUser() AND statusCategory != Done AND issuetype != Epic ORDER BY updated DESC`; obtiene el `displayName` de `/myself` (ADR-001.1). Recibe credenciales, host y timeouts por constructor.
 
 - **Archivos a Crear / Modificar:**
-  - `src/services/orchestrator/ticket-orchestrator.ts`
-  - `src/services/orchestrator/issue-type-resolver.ts` *(asumido: nombre del módulo que aplica `templates/issue-types.json`)*
   - `src/services/jira/jira-rest-client.ts`
-  - `src/services/ollama/ollama-ai-transformer.ts`
-  - `src/services/ollama/postprocess.ts` *(asumido: nombre del módulo del posprocesado determinista)*
-  - `src/services/git/git-manager.ts`
-  - `src/services/filesystem/filesystem-manager.ts`
-  - `src/database/local-file-storage.ts` *(ambiguo: `002-arquitectura-del-sistema.md` §2.2 describe el "Local File Storage" como parte de la Storage Layer; se ubica junto a `sqlite-storage-manager.ts` por pertenecer ambos a la Storage Layer)*
-  - `src/shared/errors/result.types.ts`
-  - `src/shared/config/app-config.provider.ts`
-  - `templates/README.md`, `templates/issue-types.json`
-  - `templates/prompts/{comun.system.md, bug.system.md, historia.system.md, ticket.user.md, bug.schema.json, historia.schema.json}`
-  - `templates/documents/{bug.md.hbs, historia.md.hbs}`
-  - `tests/fixtures/tickets/*.json` (tickets en formato Jira v2: bug y historia, completos y escuetos, y una épica)
-  - `tests/unit/services/{jira,ollama,git,filesystem,orchestrator}/*.test.ts`
-  - `tests/integration/ticket-flow.e2e.test.ts`
+  - `tests/unit/services/jira/*.test.ts` (HTTP simulado con msw)
 
 - **Contratos e Interfaces (Input/Output):**
-  - `type StepResult<T> = { kind: 'Ok'; value: T } | { kind: 'FallbackManual'; reason: 'network_timeout' | 'invalid_token' | 'not_found' } | { kind: 'FallbackDeterminista'; rawText: string } | { kind: 'ErrorBloqueante'; subtype: 'RepositorioNoEncontrado' | 'CambiosPendientes' | 'PullFallido' | 'TipoIssueBloqueado' | 'PermisosInsuficientes' | 'ErrorInesperado'; message: string }`
-  - `JiraRestClient.fetchTicket(ticketId: string): Promise<StepResult<ContextoTicket>>` — `ContextoTicket { ticketId: string; title: string; description: string; issueType: string; source: 'jira' | 'manual' }`
+  - `JiraRestClient.fetchTicket(ticketId: string): Promise<StepResult<ContextoTicket>>`
   - `JiraRestClient.validateProjectKey(key: string): Promise<StepResult<{ key: string; name: string }>>`
   - `JiraRestClient.listAssignedTickets(projectKeys: string[]): Promise<StepResult<Array<{ ticketId: string; title: string; issueType: string }>>>`
   - `JiraRestClient.getMyDisplayName(): Promise<StepResult<string>>`
-  - `OllamaAITransformer.processContext(ctx: ContextoTicket, tipo: 'bug' | 'historia', onToken?: (chars: number) => void): Promise<StepResult<DocumentoFase1>>` — `DocumentoFase1` es la respuesta del JSON Schema del tipo, ya posprocesada, más `generatedByOllama: boolean` y `promptVersion: string`. Ambos schemas empiezan por `presenteEnTicket` y incluyen `resumen`, `escenarios[] { titulo, given, when, then }` y `preguntasAbiertas[]`; el de **bug** suma `pasosParaReproducir[]`, `comportamientoEsperado`, `comportamientoActual` y `entorno`; el de **historia**, `historiaUsuario { como, quiero, para }` y `casosDeUso[]`. Sin bloques de código.
+
+- **Criterios de Aceptación Técnicos:**
+  1. (CA1 original) `JiraRestClient`: mock HTTP 200 → `Ok(ContextoTicket)` con mapeo correcto (`description` en texto plano); timeout persistente (tras 1 reintento) → `FallbackManual('network_timeout')`; 401/403 → `FallbackManual('invalid_token')`; 404 en `/issue` seguido de `/myself` 401 → `FallbackManual('invalid_token')`, y seguido de `/myself` 200 → `FallbackManual('not_found')`; 429 con `Retry-After` → respetado antes de fallar. `validateProjectKey` aplica la misma regla del 404.
+
+- **Definition of Done (DoD):**
+  - [ ] Todas las credenciales, el host y los timeouts llegan por constructor.
+  - [ ] Hay al menos un test para `Ok` y para cada motivo de `FallbackManual`.
+  - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
+
+---
+
+#### TK-02c: Git Manager
+
+- **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 2 (3.º) | **Esfuerzo:** Medio
+- **Dependencias Previas:** TK-02a
+- **Historias de Usuario Relacionadas:** US-03
+
+- **Descripción y Alcance:**
+  Secuencia de [ADR-007.1](ADR-001-arquitectura-inicial.md#adr-0071-ampliación-del-alcance-del-git-manager--verificación-del-working-directory-y-rama-creada-desde-la-base-actualizada): verifica el repo; `git status --porcelain` y se detiene listando los cambios pendientes; si la rama ya existe informa y continúa; actualiza la rama base con `git pull --ff-only origin <base>` o `git fetch origin <base>:<base>` según la rama actual; crea la rama con `git switch -c <rama> <base>`; si el pull falla es error bloqueante; override puntual con `--base`; **nunca** `commit`, `add` ni `push`. Toda ejecución pasa por un runner de comandos Git inyectable (permite el spy y los tests sin red).
+
+- **Archivos a Crear / Modificar:**
+  - `src/services/git/git-manager.ts`
+  - `tests/unit/services/git/*.test.ts` (repositorios Git temporales)
+
+- **Contratos e Interfaces (Input/Output):**
   - `GitManager.validateRepository(input: { repoLocalPath: string; baseBranch: string }): Promise<StepResult<void>>` — usado al dar de alta un repositorio: verifica que sea un repositorio Git con remoto `origin` y que la rama base exista en el remoto.
   - `GitManager.createBranch(input: { repoLocalPath: string; branchName: string; baseBranch: string }): Promise<StepResult<{ branchName: string; baseBranch: string; alreadyExisted: boolean }>>` — los cambios pendientes se reportan como `ErrorBloqueante('CambiosPendientes')` con la lista de archivos en `message`.
+
+- **Criterios de Aceptación Técnicos:**
+  1. (CA3 original) `GitManager` (sobre repositorios Git temporales): repo inexistente → `ErrorBloqueante('RepositorioNoEncontrado')`; cambios pendientes → `ErrorBloqueante('CambiosPendientes')` sin ejecutar pull ni creación; rama ya existente → `Ok({ alreadyExisted: true })` sin pull ni creación; parado en la rama base → `git pull --ff-only origin <base>`; parado en otra rama → `git fetch origin <base>:<base>`; pull fallido → `ErrorBloqueante('PullFallido')` sin crear la rama; caso feliz → crea la rama exactamente una vez con `git switch -c <rama> <base>`; en ningún path se ejecuta `commit`, `add` ni `push` (verificable con spy sobre el runner de comandos Git).
+
+- **Definition of Done (DoD):**
+  - [ ] `GitManager` no ejecuta `commit`, `add` ni `push` en ningún path de código.
+  - [ ] Hay al menos un test para `Ok` y para cada subtipo de `ErrorBloqueante` que produce.
+  - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
+
+---
+
+#### TK-02d: FileSystem Manager y plantillas de documento
+
+- **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 2 (4.º) | **Esfuerzo:** Medio
+- **Dependencias Previas:** TK-02a
+- **Historias de Usuario Relacionadas:** US-03
+
+- **Descripción y Alcance:**
+  Crea `<raíz>\ID\<repositorio>\adjuntos\` y el documento **fuera del repositorio Git**; documento en dos fases con idempotencia de Fase 1; guarda y lee `ID\.devflow\fase1.json` para la reutilización; renderiza con Handlebars la plantilla del tipo (ADR-004.1). Sin repositorio (clave sin repositorios) crea solo el documento.
+
+- **Archivos a Crear / Modificar:**
+  - `src/services/filesystem/filesystem-manager.ts`
+  - `src/database/local-file-storage.ts` *(ambiguo: `002-arquitectura-del-sistema.md` §2.2 describe el "Local File Storage" como parte de la Storage Layer; se ubica junto a `sqlite-storage-manager.ts` por pertenecer ambos a la Storage Layer)*
+  - `templates/documents/{bug.md.hbs, historia.md.hbs}`
+  - `tests/unit/services/filesystem/*.test.ts` (directorios temporales)
+
+- **Contratos e Interfaces (Input/Output):**
   - `FileSystemManager.createTicketWorkspace(input: { ticketId: string; repositoryName?: string; ticketsRootPath: string; adjuntosDirName: string }): Promise<StepResult<{ folderPath: string }>>`
   - `FileSystemManager.readFase1(ticketId: string): Promise<StepResult<DocumentoFase1 | null>>` / `saveFase1(ticketId: string, fase1: DocumentoFase1): Promise<StepResult<void>>`
   - `FileSystemManager.writeDocument(input: { documentPath: string; tipo: 'bug' | 'historia'; fase1: DocumentoFase1 | { rawText: string }; repo?: string; rama?: string; regenerateFase1Only: boolean }): Promise<StepResult<{ documentPath: string }>>`
-  - **Contrato de la TUI con el Orquestador** (la TUI no accede a Jira, Git ni SQLite; todo pasa por estos métodos):
-    - `TicketOrchestrator.listAssignedTickets(): Promise<StepResult<Array<{ ticketId: string; title: string; issueType: string }>>>` — usa las claves dadas de alta.
-    - `TicketOrchestrator.listRepositoriesForTicket(ticketId: string): StepResult<Repository[]>` — deriva la clave del ID; falla antes de llamar a Jira si la clave no está configurada, con las claves disponibles en el mensaje.
-    - `TicketOrchestrator.listProjects(): JiraProject[]` / `addProject(key: string): Promise<StepResult<JiraProject>>` (valida contra Jira) / `removeProject(key: string): void`
-    - `TicketOrchestrator.addRepository(input: { jiraProjectKey: string; name: string; repoLocalPath: string; defaultBaseBranch?: string }): Promise<StepResult<Repository>>` (valida con `GitManager.validateRepository`) / `updateRepository(...)` / `removeRepository(repositoryId: number): void`
-    - `TicketOrchestrator.suggestBranchSuffix(): Promise<StepResult<string>>` (desde el `displayName` de `/myself`) / `getConfig(): AppConfig | null` / `saveConfig(config: Partial<AppConfig>): void`
-  - `type AskRequest = { kind: 'manualTicket'; ticketId: string; reason: 'network_timeout' | 'invalid_token' | 'not_found' }` y `type AskCallback = (request: AskRequest) => Promise<{ title: string; description: string }>` — único punto en el que el Orquestador pide datos al usuario durante un flujo (carga manual ante `FallbackManual` de Jira). La elección del repositorio **no** se pide a mitad del flujo: la TUI la resuelve antes con `listRepositoriesForTicket` y pasa `repositoryId`.
+  - `DocumentoFase1` es el tipo que produce TK-02e; en este ticket se define su interfaz mínima (ver TK-02e) para no bloquear el desarrollo en paralelo *(asumido: el tipo vive en `src/shared/types/`)*.
+
+- **Criterios de Aceptación Técnicos:**
+  1. (CA4 original) `FileSystemManager`: re-ejecutar sobre un ticket ya iniciado regenera solo el bloque de Fase 1 (delimitado por los marcadores `<!-- DEVFLOW:FASE1:INICIO -->` / `<!-- DEVFLOW:FASE1:FIN -->`), preservando intacto el contenido de Fase 2 ya escrito por el desarrollador; ejecutar el mismo ticket con un segundo repositorio crea una carpeta y un documento propios y copia la Fase 1 guardada en `fase1.json`.
+
+- **Definition of Done (DoD):**
+  - [ ] Ningún archivo se crea dentro del repositorio Git del desarrollador.
+  - [ ] Un documento renderizado con `{ rawText }` lleva el aviso `⚠️ Generado sin Ollama`.
+  - [ ] Hay al menos un test para `Ok` y para `ErrorBloqueante('PermisosInsuficientes')`.
+  - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
+
+---
+
+#### TK-02e: Ollama AI Transformer (prompts, schemas y posprocesado)
+
+- **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 2 (5.º) | **Esfuerzo:** Medio-Alto
+- **Dependencias Previas:** TK-02a
+- **Historias de Usuario Relacionadas:** US-03
+
+- **Descripción y Alcance:**
+  Arma el prompt con los archivos de `templates/prompts/` según el tipo de issue; invoca Ollama local con *streaming* y el JSON Schema del tipo en `format`; valida con Ajv —el JSON Schema es la fuente de verdad, no Zod—; aplica el posprocesado determinista `siFalta` / `verificarLiterales`; cualquier respuesta inválida, con código embebido, o timeout/no disponible cae a `FallbackDeterminista` (ADR-003.1). Modelo mínimo `qwen2.5:3b`, `ollama_timeout_seconds` = 120 y `keep_alive` corto, todo por constructor.
+
+- **Archivos a Crear / Modificar:**
+  - `src/services/ollama/ollama-ai-transformer.ts`
+  - `src/services/ollama/postprocess.ts` *(asumido: nombre del módulo del posprocesado determinista)*
+  - `templates/prompts/{comun.system.md, bug.system.md, historia.system.md, ticket.user.md, bug.schema.json, historia.schema.json}`
+  - `tests/unit/services/ollama/*.test.ts` (Ollama simulado con msw)
+
+- **Contratos e Interfaces (Input/Output):**
+  - `OllamaAITransformer.processContext(ctx: ContextoTicket, tipo: 'bug' | 'historia', onToken?: (chars: number) => void): Promise<StepResult<DocumentoFase1>>` — `DocumentoFase1` es la respuesta del JSON Schema del tipo, ya posprocesada, más `generatedByOllama: boolean` y `promptVersion: string`. Ambos schemas empiezan por `presenteEnTicket` y incluyen `resumen`, `escenarios[] { titulo, given, when, then }` y `preguntasAbiertas[]`; el de **bug** suma `pasosParaReproducir[]`, `comportamientoEsperado`, `comportamientoActual` y `entorno`; el de **historia**, `historiaUsuario { como, quiero, para }` y `casosDeUso[]`. Sin bloques de código.
+
+- **Criterios de Aceptación Técnicos:**
+  1. (CA2 original) `OllamaAITransformer`: JSON válido contra el schema del tipo → `Ok`; JSON con un bloque de código Markdown embebido (fenced code block) → `FallbackDeterminista` (verifica el Non-Goal "cero código generado" del PRD); sin respuesta dentro de `ollama_timeout_seconds` → `FallbackDeterminista`. El posprocesado sobrescribe con "No especificado en el ticket." los campos marcados como ausentes en `presenteEnTicket` y agrega la pregunta abierta; en bugs descarta literales ausentes del ticket (verificable con los fixtures escuetos de TK-02a).
+
+- **Definition of Done (DoD):**
+  - [ ] Al cambiar un prompt o un schema se sube `promptVersion` del tipo en `templates/issue-types.json`.
+  - [ ] Hay al menos un test para `Ok` y para `FallbackDeterminista`.
+  - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
+
+---
+
+#### TK-02f: Orquestador — flujo `startTicket` y registro en `ticket_logs`
+
+- **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 2 (6.º) | **Esfuerzo:** Alto
+- **Dependencias Previas:** TK-02b, TK-02c, TK-02d, TK-02e
+- **Historias de Usuario Relacionadas:** US-02, US-03
+
+- **Descripción y Alcance:**
+  **Orquestador de Ticket**: coordina Jira → Git → FileSystem → Ollama → FileSystem para **un repositorio por ejecución**, emitiendo un evento de progreso por paso (Decisión 1 de la auditoría); resuelve el tipo de issue con `templates/issue-types.json` y corta el flujo en las épicas; reutiliza la Fase 1 entre repositorios del mismo ticket; es el **único escritor de `ticket_logs`** (Decisión 4), con *upsert* por `(ticket_id, repository_id)` y tratamiento aparte de `repository_id = NULL`; registra `prompt_version`. Recibe los cuatro pasos y el `SQLiteStorageManager` por constructor.
+
+- **Archivos a Crear / Modificar:**
+  - `src/services/orchestrator/ticket-orchestrator.ts`
+  - `tests/unit/services/orchestrator/*.test.ts`
+  - `tests/integration/ticket-flow.e2e.test.ts`
+
+- **Contratos e Interfaces (Input/Output):**
+  - `type AskRequest = { kind: 'manualTicket'; ticketId: string; reason: 'network_timeout' | 'invalid_token' | 'not_found' }` y `type AskCallback = (request: AskRequest) => Promise<{ title: string; description: string }>` — único punto en el que el Orquestador pide datos al usuario durante un flujo (carga manual ante `FallbackManual` de Jira). La elección del repositorio **no** se pide a mitad del flujo: la TUI la resuelve antes con `listRepositoriesForTicket` (TK-02g) y pasa `repositoryId`.
   - `TicketOrchestrator.startTicket(input: { ticketId: string; repositoryId?: number; baseBranchOverride?: string }, hooks: { onStep: (step: 'jira' | 'git' | 'filesystem' | 'ollama', status: 'started' | 'ok' | 'fallback' | 'error', detail?: string) => void; ask: AskCallback }): Promise<TicketRunSummary>` — `TicketRunSummary { ticketId: string; repositoryId: number | null; issueType: string; branchName: string | null; branchStatus: 'created' | 'already_existed' | 'pending_changes' | 'error' | null; folderPath: string | null; documentPath: string | null; jiraFetchStatus: 'ok' | 'fallback_manual'; ollamaStatus: 'ok' | 'fallback_deterministic' | 'reused' | null; promptVersion?: string; blocked?: { subtype: string; message: string } }` — `folderPath`, `documentPath` y `ollamaStatus` son `null` cuando el flujo se cortó en Git; el Orquestador igualmente registra la ejecución en `ticket_logs`.
 
 - **Criterios de Aceptación Técnicos:**
-  1. `JiraRestClient`: mock HTTP 200 → `Ok(ContextoTicket)` con mapeo correcto (`description` en texto plano); timeout persistente (tras 1 reintento) → `FallbackManual('network_timeout')`; 401/403 → `FallbackManual('invalid_token')`; 404 en `/issue` seguido de `/myself` 401 → `FallbackManual('invalid_token')`, y seguido de `/myself` 200 → `FallbackManual('not_found')`; 429 con `Retry-After` → respetado antes de fallar. `validateProjectKey` aplica la misma regla del 404.
-  2. `OllamaAITransformer`: JSON válido contra el schema del tipo → `Ok`; JSON con un bloque de código Markdown embebido (fenced code block) → `FallbackDeterminista` (verifica el Non-Goal "cero código generado" del PRD); sin respuesta dentro de `ollama_timeout_seconds` → `FallbackDeterminista`. El posprocesado sobrescribe con "No especificado en el ticket." los campos marcados como ausentes en `presenteEnTicket` y agrega la pregunta abierta; en bugs descarta literales ausentes del ticket (verificable con los fixtures escuetos).
-  3. `GitManager` (sobre repositorios Git temporales): repo inexistente → `ErrorBloqueante('RepositorioNoEncontrado')`; cambios pendientes → `ErrorBloqueante('CambiosPendientes')` sin ejecutar pull ni creación; rama ya existente → `Ok({ alreadyExisted: true })` sin pull ni creación; parado en la rama base → `git pull --ff-only origin <base>`; parado en otra rama → `git fetch origin <base>:<base>`; pull fallido → `ErrorBloqueante('PullFallido')` sin crear la rama; caso feliz → crea la rama exactamente una vez con `git switch -c <rama> <base>`; en ningún path se ejecuta `commit`, `add` ni `push` (verificable con spy sobre el runner de comandos Git).
-  4. `FileSystemManager`: re-ejecutar sobre un ticket ya iniciado regenera solo el bloque de Fase 1 (delimitado por los marcadores `<!-- DEVFLOW:FASE1:INICIO -->` / `<!-- DEVFLOW:FASE1:FIN -->`), preservando intacto el contenido de Fase 2 ya escrito por el desarrollador; ejecutar el mismo ticket con un segundo repositorio crea una carpeta y un documento propios y copia la Fase 1 guardada en `fase1.json`.
-  5. Test de integración del Orquestador: ejecución cortada por cambios pendientes → resumen con `blocked`, `folderPath`/`documentPath`/`ollamaStatus` en `null` y una fila en `ticket_logs` con `branch_status = 'pending_changes'`; Jira fallback → se invoca `ask({ kind: 'manualTicket' })` y el flujo continúa con los datos devueltos; Jira OK + Ollama OK → rama + carpeta + documento + un único registro en `ticket_logs` (SQLite mockeada) con `prompt_version`; Jira fallback + Ollama fallback → el flujo completa igual sin detenerse, documento marcado `⚠️ Generado sin Ollama`; épica → aviso sin rama, carpeta, documento ni registro; segunda ejecución con otro repositorio → `ollamaStatus: 'reused'` sin invocar a Ollama; clave sin repositorios → solo documento, `repositoryId: null` y sin pasos de Git.
+  1. (CA5 original) Test de integración del Orquestador: ejecución cortada por cambios pendientes → resumen con `blocked`, `folderPath`/`documentPath`/`ollamaStatus` en `null` y una fila en `ticket_logs` con `branch_status = 'pending_changes'`; Jira fallback → se invoca `ask({ kind: 'manualTicket' })` y el flujo continúa con los datos devueltos; Jira OK + Ollama OK → rama + carpeta + documento + un único registro en `ticket_logs` (SQLite mockeada) con `prompt_version`; Jira fallback + Ollama fallback → el flujo completa igual sin detenerse, documento marcado `⚠️ Generado sin Ollama`; épica → aviso sin rama, carpeta, documento ni registro; segunda ejecución con otro repositorio → `ollamaStatus: 'reused'` sin invocar a Ollama; clave sin repositorios → solo documento, `repositoryId: null` y sin pasos de Git.
 
 - **Definition of Done (DoD):**
-  - [ ] Ningún componente de este ticket importa `node:sqlite` — toda persistencia pasa por el Orquestador → `SQLiteStorageManager` (TK-01).
-  - [ ] `GitManager` no ejecuta `commit`, `add` ni `push` en ningún path de código.
-  - [ ] Toda configuración llega por constructor, resuelta una única vez por el Orquestador.
-  - [ ] Los 4 tipos de `StepResult` (`Ok`, `FallbackManual`, `FallbackDeterminista`, `ErrorBloqueante`) tienen al menos un test por componente que puede producirlos.
-  - [ ] Al cambiar un prompt o un schema se sube `promptVersion` del tipo en `templates/issue-types.json`.
+  - [ ] Solo el Orquestador escribe `ticket_logs`.
+  - [ ] Los 4 tipos de `StepResult` tienen al menos un test en el Orquestador que los maneja.
+  - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
+
+---
+
+#### TK-02g: Orquestador — gestión de configuración, proyectos y repositorios para la TUI
+
+- **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 2 (7.º) | **Esfuerzo:** Medio
+- **Dependencias Previas:** TK-02b, TK-02c
+- **Historias de Usuario Relacionadas:** US-01, US-02
+
+- **Descripción y Alcance:**
+  Métodos del Orquestador que la TUI usa fuera del flujo `startTicket`, para que no acceda a Jira, Git ni SQLite (US-01). Validan contra Jira (`validateProjectKey`) y contra Git (`validateRepository`) al dar de alta, y traducen el error `FOREIGN KEY constraint failed` al quitar un proyecto o repositorio con historial a un mensaje claro (hallazgo de TK-01).
+
+- **Archivos a Crear / Modificar:**
+  - `src/services/orchestrator/ticket-orchestrator.ts` (modificar; o un módulo de gestión separado si el archivo crece *(asumido)*)
+  - `tests/unit/services/orchestrator/*.test.ts`
+
+- **Contratos e Interfaces (Input/Output):**
+  - `TicketOrchestrator.listAssignedTickets(): Promise<StepResult<Array<{ ticketId: string; title: string; issueType: string }>>>` — usa las claves dadas de alta.
+  - `TicketOrchestrator.listRepositoriesForTicket(ticketId: string): StepResult<Repository[]>` — deriva la clave del ID; falla antes de llamar a Jira si la clave no está configurada, con las claves disponibles en el mensaje.
+  - `TicketOrchestrator.listProjects(): JiraProject[]` / `addProject(key: string): Promise<StepResult<JiraProject>>` (valida contra Jira) / `removeProject(key: string): void`
+  - `TicketOrchestrator.addRepository(input: { jiraProjectKey: string; name: string; repoLocalPath: string; defaultBaseBranch?: string }): Promise<StepResult<Repository>>` (valida con `GitManager.validateRepository`) / `updateRepository(...)` / `removeRepository(repositoryId: number): void`
+  - `TicketOrchestrator.suggestBranchSuffix(): Promise<StepResult<string>>` (desde el `displayName` de `/myself`) / `getConfig(): AppConfig | null` / `saveConfig(config: Partial<AppConfig>): void`
+
+- **Criterios de Aceptación Técnicos** *(derivados del contrato de la TUI del ticket original; no tenían CA numerado)*:
+  1. `addProject` y `addRepository` solo persisten si la validación externa devuelve `Ok`; ante `FallbackManual` o `ErrorBloqueante` no escriben nada y devuelven el resultado.
+  2. `listRepositoriesForTicket` con una clave no configurada devuelve un error con las claves disponibles, sin llamar a Jira.
+  3. `removeProject` / `removeRepository` con historial en `ticket_logs` lanzan o devuelven un error con un mensaje claro, no el texto crudo de SQLite.
+
+- **Definition of Done (DoD):**
+  - [ ] La TUI (TK-03) puede cubrir todo US-01 usando solo estos métodos.
   - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---
@@ -183,14 +351,14 @@
 ### TK-03: Controlador CLI e Interfaz Interactiva de Terminal (Windows)
 
 - **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 3 | **Esfuerzo:** Medio
-- **Dependencias Previas:** TK-01, TK-02
+- **Dependencias Previas:** TK-01, TK-02f, TK-02g (el TK-02 original se dividió; ver la tabla en TK-02)
 
 - **Capa / Módulo:** Frontend / TUI (TUI Layer)
 
 - **Historias de Usuario Relacionadas:** US-01, US-02, US-03
 
 - **Descripción y Alcance:**
-  Implementar el punto de entrada de línea de comandos con Commander — `devflow start [ID] [--base <rama>]` y `devflow config` (sufijo de usuario y `devflow config proyectos`: agregar, listar, editar y quitar claves y repositorios) —, el parsing/validación del ID antes de invocar al Orquestador, los prompts interactivos con `@inquirer/prompts` (elección de ticket en la lista de asignados, elección de repositorio —preseleccionado si la clave tiene uno solo—, carga manual de datos de Jira ante `FallbackManual`, confirmación de acciones, alta de claves y repositorios) y el renderizado de progreso en vivo mediante un spinner simple que consume los eventos `onStep` emitidos por el Orquestador (TK-02), incluido el progreso del *streaming* de Ollama — comunicación asíncrona basada en eventos, no una llamada bloqueante única (Decisión 1 de la auditoría de arquitectura). **Sin Ink**: Ink e inquirer compiten por stdin. Incluye las pantallas de resultado final y las de aviso de `FallbackManual` / `FallbackDeterminista` / `ErrorBloqueante` (listado de cambios pendientes, fallo del pull, aviso de épica), cada una con un mensaje distinguible para el usuario. La TUI nunca accede directamente a Jira, Git, Ollama, SQLite o al sistema de archivos — todo pasa por el Orquestador.
+  Implementar el punto de entrada de línea de comandos con Commander — `devflow start [ID] [--base <rama>]` y `devflow config` (sufijo de usuario y `devflow config proyectos`: agregar, listar, editar y quitar claves y repositorios) —, el parsing/validación del ID antes de invocar al Orquestador, los prompts interactivos con `@inquirer/prompts` (elección de ticket en la lista de asignados, elección de repositorio —preseleccionado si la clave tiene uno solo—, carga manual de datos de Jira ante `FallbackManual`, confirmación de acciones, alta de claves y repositorios) y el renderizado de progreso en vivo mediante un spinner simple que consume los eventos `onStep` emitidos por el Orquestador (TK-02f), incluido el progreso del *streaming* de Ollama — comunicación asíncrona basada en eventos, no una llamada bloqueante única (Decisión 1 de la auditoría de arquitectura). **Sin Ink**: Ink e inquirer compiten por stdin. Incluye las pantallas de resultado final y las de aviso de `FallbackManual` / `FallbackDeterminista` / `ErrorBloqueante` (listado de cambios pendientes, fallo del pull, aviso de épica), cada una con un mensaje distinguible para el usuario. La TUI nunca accede directamente a Jira, Git, Ollama, SQLite o al sistema de archivos — todo pasa por el Orquestador.
 
 - **Archivos a Crear / Modificar:**
   - `src/tui/cli.ts`
@@ -208,7 +376,7 @@
 
 - **Contratos e Interfaces (Input/Output):**
   - Entrada: `devflow start [TICKET_ID] [--base <rama>]` → sin `TICKET_ID`, la TUI obtiene la lista con `TicketOrchestrator.listAssignedTickets()` y presenta `TicketSelectionPrompt`; con el ID resuelto, obtiene los repositorios con `listRepositoriesForTicket(ticketId)`, presenta `RepositorySelectionPrompt` si hay más de uno y llama a `TicketOrchestrator.startTicket({ ticketId, repositoryId, baseBranchOverride }, { onStep, ask })` (contratos definidos en TK-02), donde `ask` abre `ManualTicketEntryPrompt`.
-  - `onStep(step: 'jira' | 'git' | 'filesystem' | 'ollama', status: 'started' | 'ok' | 'fallback' | 'error', detail?: string): void` y `ask: AskCallback` (TK-02)
+  - `onStep(step: 'jira' | 'git' | 'filesystem' | 'ollama', status: 'started' | 'ok' | 'fallback' | 'error', detail?: string): void` y `ask: AskCallback` (TK-02f)
   - `TicketSelectionPrompt.ask(tickets: Array<{ ticketId: string; title: string; issueType: string }>): Promise<string>`
   - `RepositorySelectionPrompt.ask(repositories: Array<{ id: number; name: string; repoLocalPath: string }>): Promise<number>`
   - `ManualTicketEntryPrompt.ask(): Promise<{ ticketId: string; title: string; description: string }>`

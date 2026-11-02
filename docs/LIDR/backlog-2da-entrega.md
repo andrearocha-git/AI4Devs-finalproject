@@ -82,7 +82,7 @@ Estado: TK-00 y TK-01 implementados y verificados (43 tests, typecheck y lint en
 |---|---|---|
 | 3.1 | Cierre de **US-01 CA6** y comprobación de **US-02 CA3** | Aviso «primero configura una clave» al iniciar sin claves |
 | 3.2 | Instalación: `bin` en `package.json`, script `build`/`start`, instrucciones en `docs/001` §1.4 y README §1.4 | Cierra **H-05**; actualizar «Build / test commands» en `CLAUDE.md` |
-| 3.3 | Ya decididos **H-02**, **H-03** y **H-04** | Mejor decidirlos **antes** de refinar los tickets que tocan (ver §5) |
+| 3.3 | ~~Decidir H-02, H-03 y H-04~~ | Decididos el 2026-11-02 |
 | 3.4 | ~~Validar **H-06** (nombres de `devflow config`)~~ | Decidido 2026-11-02 |
 | 3.5 | Prueba de aceptación completa sobre Windows 10/11 | Rutas, `%APPDATA%`, terminales; el desarrollo corre en WSL |
 | 3.6 | Cobertura y revisión final | Umbral definido en TK-02a; `/code-review` del diff completo |

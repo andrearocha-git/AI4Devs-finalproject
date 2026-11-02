@@ -44,6 +44,7 @@ Trabaja un escenario del contrato a la vez, en el orden de la tabla de Trazabili
 
 3. **FASE REFACTOR**:
    - Mejora la legibilidad y estructura del código respetando los principios KISS y YAGNI.
+   - Documenta con TSDoc en español (`/** … */`, con `@param`, `@returns` y `@throws` donde apliquen) todo export público nuevo de `src/` (clases, métodos públicos, funciones y tipos), según la convención de `CLAUDE.md`. Explica el comportamiento no obvio (qué devuelve si no encuentra, cuándo lanza, efectos secundarios), no repitas el nombre. Los tests no lo necesitan.
    - Verifica que las reglas de acoplamiento de capas pasen ejecutando `npm run lint`.
 
 4. **Actualizar el Contrato** (al cerrar cada escenario):

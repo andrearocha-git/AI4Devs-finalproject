@@ -53,6 +53,7 @@ Restricciones técnicas ya decididas (ADR-006.1 aceptado, ADR-003.1, ADR-007.1) 
 - **Application code, when it exists, goes at the repo root** (`src/`, `tests/`, `package.json`), alongside `docs/` — there is no separate `finalproject-<INITIALS>/` folder. Lint and typecheck must exclude `docs/` and `.claude/`; `.gitignore` must **not** (both folders are versioned).
 - **Branches:** `feature/entrega-<N>-<INITIALS>`, one per course deliverable. PRs target `main`.
 - Docs are Spanish; match that when editing them. Commit messages in this repo's history are mostly Spanish/informal.
+- **Code documentation:** every public export in `src/` (classes, public methods, exported functions and types) carries **TSDoc in Spanish** (`/** … */`) with `@param`, `@returns` and `@throws` where they apply, stating the non-obvious behavior (what it returns on "not found", when it throws, side effects) rather than restating the name. Private helpers only need a comment when the *why* is not obvious. Tests don't need TSDoc.
 - Mermaid diagrams in `docs/002-*.md` and `docs/003-*.md` are the source of truth for component/sequence/ER diagrams — update them alongside prose changes, don't let them drift.
 
 ## Build / test commands

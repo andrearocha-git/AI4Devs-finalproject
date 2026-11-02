@@ -41,6 +41,7 @@ Ejecutar la suite completa de calidad y auditar las diferencias contra la especi
      - **Sin test no declarado:** Estado `Hecho` con la columna Test en `_pendiente_`, vacía o con una ruta inexistente, o `Hecho sin test` sin decisión registrada. Es una falla.
      - Que la suite pase no basta si faltan escenarios cubiertos.
    - **Criterios de aceptación:** comprueba que todo criterio de origen esté cubierto por algún escenario o declarado fuera del cambio con motivo.
+   - **Documentación del código:** revisa con Read/Grep que los exports públicos nuevos o modificados de `src/` (clases, métodos públicos, funciones y tipos) tengan TSDoc en español con `@param`, `@returns` y `@throws` donde apliquen (convención de `CLAUDE.md`). Lista los que no lo tengan: es una observación, no una falla.
    - **Tareas:** señala las tareas del contrato que sigan sin marcar.
    - **Decisiones y desvíos:** lista los registrados; son una observación a revisar, no una falla.
 
@@ -51,7 +52,7 @@ Ejecutar la suite completa de calidad y auditar las diferencias contra la especi
 
 4. **Veredicto**:
    - **Aprobada**: typecheck, lint y tests pasan; todos los escenarios tienen test (ninguno `Sin test`); sin cambios inesperados.
-   - **Aprobada con observaciones**: pasa todo, pero hay hallazgos menores (ej. archivos residuales, Estado del contrato distinto de `Implementado`, desvíos registrados, escenarios `Sin test` declarados y aprobados, posible scope creep). Lístalos, indicando cada escenario sin test con su motivo.
+   - **Aprobada con observaciones**: pasa todo, pero hay hallazgos menores (ej. archivos residuales, Estado del contrato distinto de `Implementado`, desvíos registrados, escenarios `Sin test` declarados y aprobados, exports públicos sin TSDoc, posible scope creep). Lístalos, indicando cada escenario sin test con su motivo.
    - **No aprobada**: algo falló, falta un escenario o hay un escenario sin test no declarado. Reporta el error exacto.
    - Si corresponde, sugiere el texto para marcar la historia como **Completada** en el backlog, pero NO lo apliques: lo hace el desarrollador.
 

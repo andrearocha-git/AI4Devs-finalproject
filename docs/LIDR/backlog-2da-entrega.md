@@ -8,12 +8,12 @@
 
 | Archivo | Contenido |
 |---|---|
-| `docs/005-historias-de-usuario.md` | 3 historias: **US-01** (configurar, 6 CA), **US-02** (elegir y consultar el ticket en Jira, 6 CA), **US-03** (preparar rama, carpeta y documento con Ollama, 8 CA). |
+| `docs/005-historias-de-usuario.md` | 3 historias: **US-01** (configurar, 6 CA), **US-02** (elegir y consultar el ticket en Jira, 6 CA), **US-03** (preparar rama, carpeta y documento con Ollama, 9 CA). |
 | `docs/006-tickets-de-trabajo.md` | **TK-00** y **TK-01** (hechos), **TK-02** (paraguas dividido en **TK-02a … TK-02g**), **TK-03** (TUI). |
 
 Estado: TK-00 y TK-01 implementados y verificados (43 tests, typecheck y lint en verde). Todo lo demás está especificado y sin código.
 
-**Observación INVEST (sin modificar nada).** US-03 falla S (Small): 8 CA y esfuerzo Alto. TK-03 también es grande (dos comandos, cuatro prompts y todas las pantallas de resultado). Por eso el orden de abajo entrega las historias **por criterios de aceptación**, no de una vez, y la §4 sugiere dividir TK-03.
+**Observación INVEST (sin modificar nada).** US-03 falla S (Small): 9 CA y esfuerzo Alto. TK-03 también es grande (dos comandos, cuatro prompts y todas las pantallas de resultado). Por eso el orden de abajo entrega las historias **por criterios de aceptación**, no de una vez, y la §4 sugiere dividir TK-03.
 
 ## 2. Principio de orden
 
@@ -66,7 +66,7 @@ Estado: TK-00 y TK-01 implementados y verificados (43 tests, typecheck y lint en
 
 *Nota de orden:* 2.1 y 2.2 son independientes (se pueden paralelizar). Si Ollama se retrasa, 2.2 puede entrar con solo el camino de fallback determinista y completarse después sin bloquear 2.3, siempre que el contrato del ticket lo apruebe.
 
-**Historias cubiertas:** US-02 CA1-CA6 y US-03 CA1-CA8 (con el reproceso H-02 pendiente de decidir).
+**Historias cubiertas:** US-02 CA1-CA6 y US-03 CA1-CA9.
 
 **Verificación del hito**
 
@@ -82,7 +82,7 @@ Estado: TK-00 y TK-01 implementados y verificados (43 tests, typecheck y lint en
 |---|---|---|
 | 3.1 | Cierre de **US-01 CA6** y comprobación de **US-02 CA3** | Aviso «primero configura una clave» al iniciar sin claves |
 | 3.2 | Instalación: `bin` en `package.json`, script `build`/`start`, instrucciones en `docs/001` §1.4 y README §1.4 | Cierra **H-05**; actualizar «Build / test commands» en `CLAUDE.md` |
-| 3.3 | Decidir **H-02** (reproceso de Fase 1); ya decididos **H-03** y **H-04** | Mejor decidirlos **antes** de refinar los tickets que tocan (ver §5) |
+| 3.3 | Ya decididos **H-02**, **H-03** y **H-04** | Mejor decidirlos **antes** de refinar los tickets que tocan (ver §5) |
 | 3.4 | ~~Validar **H-06** (nombres de `devflow config`)~~ | Decidido 2026-11-02 |
 | 3.5 | Prueba de aceptación completa sobre Windows 10/11 | Rutas, `%APPDATA%`, terminales; el desarrollo corre en WSL |
 | 3.6 | Cobertura y revisión final | Umbral definido en TK-02a; `/code-review` del diff completo |
@@ -117,6 +117,7 @@ Estado: TK-00 y TK-01 implementados y verificados (43 tests, typecheck y lint en
 | US-03 CA6 | Segundo repositorio y Fase 1 reutilizada | 02d · 02f | 2 |
 | US-03 CA7 | Clave sin repositorios: solo documento | 02f | 2 |
 | US-03 CA8 | `--base` de una sola vez | 02c · 02f · 03b | 2 |
+| US-03 CA9 | Reprocesar la Fase 1 (`--reprocesar`) | 02d · 02e · 02f · 03b | 2 |
 
 ## 6. Dependencias entre tickets
 
@@ -135,7 +136,7 @@ TK-00 ─► TK-01 ─► TK-02a ─┬─► TK-02b ─┬─► TK-02g ─► 
 | ~~Umbral de cobertura de la Service Layer~~ — **decidido (2026-11-02): 80 %**, se aplica en TK-02a | — | TK-01 |
 | ~~Nombres de `devflow config` y `devflow config proyectos` (**H-06**)~~ — **decidido (2026-11-02)** | — | `009` |
 | ~~Comportamiento del checkout con la rama ya existente (**H-04**)~~ — **decidido (2026-11-02): solo informar, sin checkout** | — | `009` |
-| Cómo se pide reprocesar la Fase 1 (**H-02**) | refinar TK-02f y TK-03b | `009` |
+| ~~Cómo se pide reprocesar la Fase 1 (**H-02**)~~ — **decidido (2026-11-02): `--reprocesar`** | — | `009` |
 | ~~`ConfirmActionsPrompt` en el diagrama de secuencia (**H-03**)~~ — **decidido (2026-11-02): confirmación única, cancelable** | — | `009` |
 | Aprobación de las sugerencias de la §4 | `/03-refinar-historia TK-03a` | este documento |
 

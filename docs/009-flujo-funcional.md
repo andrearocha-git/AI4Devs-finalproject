@@ -74,7 +74,7 @@ Ref.: `002` §2.2.1.
 
 **Historias:** US-02 · **Tickets:** TK-02 (Jira/Orquestador), TK-03 (prompts)
 
-### 2.1 Entrada — `devflow start [ID] [--base rama]` — `📄 Especificado` · TK-03
+### 2.1 Entrada — `devflow start [ID] [--base rama] [--reprocesar]` — `📄 Especificado` · TK-03
 
 - **Sin ID:** la TUI llama a `TicketOrchestrator.listAssignedTickets()`. El cliente Jira ejecuta
   `project in (…) AND assignee = currentUser() AND statusCategory != Done AND issuetype != Epic ORDER BY updated DESC` y el usuario elige uno (US-02 CA1).
@@ -147,10 +147,12 @@ Rama: `<prefijo>/<ID>-<SUFIJO>` (p. ej. `features/SCRUM-1-AROCHA`).
 
 **Historias:** US-03 · **Tickets:** TK-02
 
-### 4.1 Reutilización de Fase 1 — `📄 Especificado` · US-03 CA6 · TK-02
+### 4.1 Reutilización y reproceso de Fase 1 — `📄 Especificado` · US-03 CA6, CA9 · TK-02
 
 - Si existe `ID\.devflow\fase1.json` (el ticket ya se ejecutó con otro repositorio) → se reutiliza, `ollama_status = 'reused'`, **no se invoca a Ollama**.
 - Si es la primera ejecución del ticket → 4.2.
+- Si el `fase1.json` existente fue generado en **fallback** (`generatedByOllama: false`), no se reutiliza: se reintenta con Ollama (4.2) automáticamente.
+- Con **`--reprocesar`** (H-02) se ignora el `fase1.json` y se vuelve a invocar a Ollama (4.2). Si el nuevo intento es válido, sobrescribe `fase1.json` y reemplaza solo el bloque de Fase 1 del documento del repositorio elegido; si cae en fallback, **se conserva la Fase 1 válida anterior**. Los documentos de otros repositorios del ticket no se tocan.
 
 ### 4.2 Ollama AI Transformer — `📄 Especificado` · ADR-003.1 · TK-02
 
@@ -203,7 +205,7 @@ El desarrollador abre el documento en su IDE y completa: **Objetos Modificados**
 
 ### 5.4 Reejecución e idempotencia — `📄 Especificado` · TK-02 CA4
 
-- Reprocesar un ticket regenera **solo** el bloque entre los marcadores de Fase 1; el contenido de Fase 2 ya escrito se preserva intacto.
+- Reprocesar un ticket (`--reprocesar`) regenera **solo** el bloque entre los marcadores de Fase 1; el contenido de Fase 2 ya escrito se preserva intacto.
 - Con otro repositorio del mismo ticket se repite el flujo en secuencia: carpeta, documento y fila de `ticket_logs` propios, con la Fase 1 copiada de `fase1.json`.
 
 ---
@@ -231,7 +233,7 @@ Detectados al cruzar las fuentes (análisis pre-código, 2026-11-01). Cada uno i
 | ID | Hueco | Dónde resolverlo | Estado |
 |---|---|---|---|
 | **H-01** | **Las métricas se registran antes de la Fase 2.** `ticket_logs` se escribe al cerrar la Fase 1; ningún evento registra cuándo el desarrollador completa la Fase 2, por lo que la herramienta no puede medir "documentación completada". Decidir: fuera del MVP, o un comando/estado de cierre (¿nueva columna en `ticket_logs`?). | **TK-01** (esquema `ticket_logs`, `003-modelo-de-datos.md`) y **TK-02** (Orquestador). Posible nueva US si se incorpora. | 🟢 Resuelto (2026-11-01): fuera del MVP; registrado como no objetivo en `PRD` §4. `ticket_logs` no cambia. |
-| **H-02** | **No hay mecanismo para pedir el reproceso de la Fase 1.** `002` §2.2 dice que se regenera "si el usuario lo pide" o si la primera vez cayó en fallback, pero ni TK-02 ni TK-03 definen flag o prompt (`--reprocesar`, confirmación…). Tampoco qué pasa con `fase1.json` previo. | **TK-03** (comando/flags de `start`) y **TK-02** (`writeDocument` con `regenerateFase1Only`, `FileSystemManager.saveFase1`). Revisar **US-03** (falta un criterio de reproceso). | 🔴 Abierto |
+| **H-02** | **No hay mecanismo para pedir el reproceso de la Fase 1.** `002` §2.2 dice que se regenera "si el usuario lo pide" o si la primera vez cayó en fallback, pero ni TK-02 ni TK-03 definen flag o prompt (`--reprocesar`, confirmación…). Tampoco qué pasa con `fase1.json` previo. | **TK-03** (comando/flags de `start`) y **TK-02** (`writeDocument` con `regenerateFase1Only`, `FileSystemManager.saveFase1`). Revisar **US-03** (falta un criterio de reproceso). | 🟢 Resuelto (2026-11-02): flag `--reprocesar` en `devflow start` (`reprocessFase1` en `startTicket`); regenera la Fase 1, sobrescribe `fase1.json` solo si el intento es válido y reemplaza únicamente el bloque de Fase 1 del documento del repositorio elegido. Una Fase 1 previa en fallback se reintenta sola. Nuevo US-03 CA9; actualizados `002`, `005` y `006`. |
 | **H-03** | **`ConfirmActionsPrompt` no está en el diagrama de secuencia.** TK-03 define una confirmación única antes de actuar (*ambiguo*), pero el diagrama E2E de `002` §2.1 no la incluye, ni dice si se puede cancelar. | **TK-03** (contrato `ConfirmActionsPrompt`) y diagrama Mermaid de `002` §2.1 (actualizar ambos juntos). | 🟢 Resuelto (2026-11-02): una única confirmación con resumen (rama, base, carpeta), pedida por el Orquestador vía `ask` después de resolver el tipo de issue y antes de tocar Git/disco/Ollama; cancelable, sin efectos ni `ticket_logs`. Actualizados `002` §2.1 y `006` (TK-02f, TK-03b). |
 | **H-04** | **Rama ya existente: sin acción adicional.** US-03 CA5 queda *ambiguo*: solo informa y continúa. No se define qué pasa con el checkout (¿queda en la rama actual?), ni si se ofrece cambiar a esa rama. | **US-03 CA5** y **TK-02** (`GitManager.createBranch`, CA3). | 🟢 Resuelto (2026-11-02): solo informa y continúa; **no hay checkout** — el repositorio queda en la rama en la que estaba y no se ofrece ninguna acción adicional. |
 | **H-05** | **Instalación y manejo del token sin definir.** `001` §1.4 y README §1.4 están `[A definir]`; tampoco se decide si el API Token se guarda en claro o cifrado (DPAPI) ni su rotación (`002` §2.5). | **TK-01** (columna `jira_api_token` de `app_config`), **`001` §1.4 / README §1.4**, **`002` §2.5**. Posible ADR nuevo. | 🟡 Parcial: el token se guarda **en claro** en el MVP (decisión 2026-11-01, `002` §2.5 y `003`); falta redactar las instrucciones de instalación (`001` §1.4 / README §1.4). |
@@ -250,3 +252,4 @@ Detectados al cruzar las fuentes (análisis pre-código, 2026-11-01). Cada uno i
 | 2026-11-02 | H-04 resuelto: rama existente → solo informar, sin checkout. Actualizado `005` US-03 CA5. | H-04 · US-03 · TK-02c |
 | 2026-11-02 | H-06 resuelto: nombres `devflow config` y `devflow config proyectos` confirmados. Actualizado `006` (TK-03). | H-06 · US-01 · TK-03a |
 | 2026-11-02 | H-03 resuelto: confirmación única y cancelable en el flujo `startTicket`; agregada al diagrama de `002` §2.1 y a los contratos de `006`. | H-03 · TK-02f · TK-03b |
+| 2026-11-02 | H-02 resuelto: `--reprocesar` en `devflow start`; agregado US-03 CA9 en `005`, y ajustados `002`, `006` (TK-02f, TK-03b) y este documento. | H-02 · US-03 · TK-02f · TK-03b |

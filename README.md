@@ -87,6 +87,8 @@ Detalle de cada componente por capa (Controlador CLI/TUI, Orquestador de Ticket,
 
 **Stack técnico (ADR-006.1, aceptado):** **TypeScript `strict` sobre Node.js ≥ 22.13**, con `node:sqlite` (sin compilación nativa), **Commander** + **`@inquirer/prompts`** + un spinner simple para la interfaz de terminal (sin Ink), Handlebars, Ajv, Vitest y msw. La comparación frente a Bash + curl + jq, Java CLI, PowerShell, Python y Go, según las restricciones de hardware del equipo (8 GB de RAM, ~35 GB libres, IDEs pesados abiertos a la vez), está en `docs/008-evaluacion-stack-tecnologico.md`. Árbol de directorios completo (`/src/tui`, `/src/services`, `/src/database`, `/src/shared`, `/docs`, `/templates` con prompts, schemas y plantillas versionados, `/tests`) y tabla de responsabilidad/lenguaje/reglas de acoplamiento por carpeta en `docs/002-arquitectura-del-sistema.md`, §2.3.
 
+**Convención de documentación del código:** toda API pública de `src/` (clases, métodos públicos, funciones y tipos exportados) lleva **TSDoc en español** (`/** … */`), con `@param`, `@returns` y `@throws` donde apliquen, explicando el comportamiento no obvio (qué devuelve si no encuentra, cuándo lanza, efectos secundarios). La regla está en `CLAUDE.md` (sección Conventions), la aplica `/04-tdd-pair` al refactorizar y `/05-verificar-y-revisar` la revisa como observación.
+
 ### **2.4. Infraestructura y despliegue**
 
 > Detalla la infraestructura del proyecto, incluyendo un diagrama en el formato que creas conveniente, y explica el proceso de despliegue que se sigue

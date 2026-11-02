@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This repo is the AI4Devs (LIDR) final-project deliverable for **DevFlow CLI** — a planned CLI/TUI tool for Windows 10/11 that eliminates context-switching when a developer starts a Jira ticket: it queries Jira, creates a standardized Git branch, creates a local ticket folder outside the repo, and uses a local LLM (Ollama) to draft the first sections of a Markdown dev document.
 
-**There is no application code yet.** The repo holds the product/architecture documentation plus the project scaffold from TK-00 (`package.json`, `tsconfig.json`, Vitest, ESLint — see "Build / test commands"). Do not assume any module under `src/` exists until it is actually created (check the tree before trusting a path in the docs).
+**Application code is being built ticket by ticket.** The repo holds the product/architecture documentation, the project scaffold from TK-00 (`package.json`, `tsconfig.json`, Vitest, ESLint — see "Build / test commands") and, so far, the Storage Layer from TK-01 (`src/database/`, `src/shared/types/`). Do not assume any other module under `src/` exists until it is actually created (check the tree before trusting a path in the docs).
 
 ## Documentation layout
 
@@ -58,7 +58,7 @@ Restricciones técnicas ya decididas (ADR-006.1 aceptado, ADR-003.1, ADR-007.1) 
 
 ## Build / test commands
 
-The scaffold exists (TK-00: `package.json`, `tsconfig.json`, `vitest.config.ts`, `eslint.config.js`), but there is still no application code. Run everything from the repo root, with Node ≥ 22.13:
+The scaffold exists (TK-00: `package.json`, `tsconfig.json`, `vitest.config.ts`, `eslint.config.js`) and the first module is implemented (TK-01, `src/database/`). Run everything from the repo root, with Node ≥ 22.13:
 
 - Install: `npm install`
 - Typecheck: `npm run typecheck` (`tsc --noEmit`, covers `src/`, `tests/` and `vitest.config.ts`)

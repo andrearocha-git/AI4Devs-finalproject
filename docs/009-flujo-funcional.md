@@ -57,7 +57,7 @@ Ref.: `002` §2.2.1.
 2. El Orquestador llama a `GET /myself`, toma el `displayName` y propone el sufijo: inicial del nombre + último apellido, sin acentos y en mayúsculas (p. ej. `AROCHA`).
 3. El usuario confirma o edita; se guarda como `branch_user_suffix`.
 
-> El nombre del comando `devflow config` es *asumido* (ver hueco **H-06**). Almacenamiento del token: hueco **H-05**.
+> El nombre del comando `devflow config` es *asumido* (ver hueco **H-06**). El token se guarda en claro en `app_config` en el MVP (H-05, decidido; ver `002` §2.5).
 
 ### 1.4 `devflow config proyectos` — claves y repositorios — `📄 Especificado` · US-01 CA1-3, CA5-6 · TK-02/TK-03
 
@@ -188,6 +188,7 @@ Rama: `<prefijo>/<ID>-<SUFIJO>` (p. ej. `features/SCRUM-1-AROCHA`).
 - Campos clave: `branch_status`, `jira_fetch_status`, `ollama_status` (`ok | fallback_deterministic | reused | NULL`), `prompt_version`, `folder_path`, `document_path`, `started_at`, `finished_at`.
 - Si el flujo se cortó en Git: `folder_path`, `document_path` y `ollama_status` = `NULL`; la reejecución posterior actualiza esa misma fila.
 - Alimenta la métrica **tasa de éxito sin fallback** del PRD.
+- El cierre de la Fase 2 **no se registra** en el MVP (H-01, resuelto como fuera de alcance; ver `PRD` §4).
 
 ### 5.2 Resumen en la TUI — `📄 Especificado` · TK-03 CA6-7
 
@@ -227,11 +228,11 @@ Detectados al cruzar las fuentes (análisis pre-código, 2026-11-01). Cada uno i
 
 | ID | Hueco | Dónde resolverlo | Estado |
 |---|---|---|---|
-| **H-01** | **Las métricas se registran antes de la Fase 2.** `ticket_logs` se escribe al cerrar la Fase 1; ningún evento registra cuándo el desarrollador completa la Fase 2, por lo que la herramienta no puede medir "documentación completada". Decidir: fuera del MVP, o un comando/estado de cierre (¿nueva columna en `ticket_logs`?). | **TK-01** (esquema `ticket_logs`, `003-modelo-de-datos.md`) y **TK-02** (Orquestador). Posible nueva US si se incorpora. | 🔴 Abierto |
+| **H-01** | **Las métricas se registran antes de la Fase 2.** `ticket_logs` se escribe al cerrar la Fase 1; ningún evento registra cuándo el desarrollador completa la Fase 2, por lo que la herramienta no puede medir "documentación completada". Decidir: fuera del MVP, o un comando/estado de cierre (¿nueva columna en `ticket_logs`?). | **TK-01** (esquema `ticket_logs`, `003-modelo-de-datos.md`) y **TK-02** (Orquestador). Posible nueva US si se incorpora. | 🟢 Resuelto (2026-11-01): fuera del MVP; registrado como no objetivo en `PRD` §4. `ticket_logs` no cambia. |
 | **H-02** | **No hay mecanismo para pedir el reproceso de la Fase 1.** `002` §2.2 dice que se regenera "si el usuario lo pide" o si la primera vez cayó en fallback, pero ni TK-02 ni TK-03 definen flag o prompt (`--reprocesar`, confirmación…). Tampoco qué pasa con `fase1.json` previo. | **TK-03** (comando/flags de `start`) y **TK-02** (`writeDocument` con `regenerateFase1Only`, `FileSystemManager.saveFase1`). Revisar **US-03** (falta un criterio de reproceso). | 🔴 Abierto |
 | **H-03** | **`ConfirmActionsPrompt` no está en el diagrama de secuencia.** TK-03 define una confirmación única antes de actuar (*ambiguo*), pero el diagrama E2E de `002` §2.1 no la incluye, ni dice si se puede cancelar. | **TK-03** (contrato `ConfirmActionsPrompt`) y diagrama Mermaid de `002` §2.1 (actualizar ambos juntos). | 🔴 Abierto |
 | **H-04** | **Rama ya existente: sin acción adicional.** US-03 CA5 queda *ambiguo*: solo informa y continúa. No se define qué pasa con el checkout (¿queda en la rama actual?), ni si se ofrece cambiar a esa rama. | **US-03 CA5** y **TK-02** (`GitManager.createBranch`, CA3). | 🔴 Abierto |
-| **H-05** | **Instalación y manejo del token sin definir.** `001` §1.4 y README §1.4 están `[A definir]`; tampoco se decide si el API Token se guarda en claro o cifrado (DPAPI) ni su rotación (`002` §2.5). | **TK-01** (columna `jira_api_token` de `app_config`), **`001` §1.4 / README §1.4**, **`002` §2.5**. Posible ADR nuevo. | 🔴 Abierto |
+| **H-05** | **Instalación y manejo del token sin definir.** `001` §1.4 y README §1.4 están `[A definir]`; tampoco se decide si el API Token se guarda en claro o cifrado (DPAPI) ni su rotación (`002` §2.5). | **TK-01** (columna `jira_api_token` de `app_config`), **`001` §1.4 / README §1.4**, **`002` §2.5**. Posible ADR nuevo. | 🟡 Parcial: el token se guarda **en claro** en el MVP (decisión 2026-11-01, `002` §2.5 y `003`); falta redactar las instrucciones de instalación (`001` §1.4 / README §1.4). |
 | **H-06** | **Comandos de configuración *asumidos*.** `devflow config` / `devflow config proyectos` son una propuesta de TK-03; ningún documento base define cómo se ejecuta US-01. Pendiente de validar con el equipo (DoD de TK-03). | **TK-03** (`config.command.ts`) y **US-01** (agregar el comando a los criterios). | 🔴 Abierto |
 
 ---
@@ -241,3 +242,5 @@ Detectados al cruzar las fuentes (análisis pre-código, 2026-11-01). Cada uno i
 | Fecha | Cambio | Ref. |
 |---|---|---|
 | 2026-11-01 | Creación del documento a partir del análisis del flujo pre-código (fuentes: 001, 002, 005, 006, PRD, README). Se registran H-01 a H-06. | — |
+| 2026-11-01 | H-01 resuelto (cierre de Fase 2 fuera del MVP) y H-05 parcial (token en claro en el MVP; falta la instalación). Actualizados `PRD` §4, `002` §2.5 y `003` (`jira_api_token`). | H-01, H-05 · TK-01 |
+| 2026-11-01 | Nuevo ticket TK-00 (scaffold del proyecto) en `006`; TK-01 pasa a depender de TK-00. No cambia el flujo funcional: es un prerrequisito de implementación. | TK-00 |

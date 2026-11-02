@@ -79,7 +79,7 @@ erDiagram
 | `id` | INTEGER | PK, `CHECK (id = 1)` | Fuerza fila única (patrón singleton). |
 | `jira_base_url` | TEXT | NOT NULL | URL base de la instancia de Jira Cloud del equipo (`https://<sitio>.atlassian.net`). |
 | `jira_email` | TEXT | NOT NULL | Email de la cuenta Atlassian; junto con el token forma la autenticación Basic de la API REST v2. |
-| `jira_api_token` | TEXT | NOT NULL | API Token de Jira ([ADR-001.1](ADR-001-arquitectura-inicial.md#adr-0011-interfaz-clitui-frente-a-aplicación-gráfica-guiweb)). Cifrado en reposo: [A definir] (ver `002-arquitectura-del-sistema.md`, §2.5). |
+| `jira_api_token` | TEXT | NOT NULL | API Token de Jira ([ADR-001.1](ADR-001-arquitectura-inicial.md#adr-0011-interfaz-clitui-frente-a-aplicación-gráfica-guiweb)). Se guarda **en claro** en el MVP (decisión del 2026-11-01), protegido solo por los permisos del perfil de Windows sobre `%APPDATA%\DevFlowCLI\`; el cifrado (p. ej. DPAPI) queda para v2 (ver `002-arquitectura-del-sistema.md`, §2.5). |
 | `jira_timeout_seconds` | INTEGER | NOT NULL, default `10` | Timeout por intento de consulta a Jira; agotado (tras el reintento único) dispara `FallbackManual` (ver `002-arquitectura-del-sistema.md`, §2.2 — Jira REST Client). |
 | `ollama_host` | TEXT | NOT NULL, default `http://localhost:11434` | Endpoint HTTP local del servicio Ollama. |
 | `ollama_model` | TEXT | NOT NULL, default `qwen2.5:3b` | Nombre del modelo local a invocar. `qwen2.5:3b` es el mínimo viable; el `1.5b` queda descartado por calidad ([ADR-003.1](ADR-001-arquitectura-inicial.md#adr-0031-llm-local-ollama-con-fallback-determinista-frente-a-apis-cloud-openaianthropic)). |

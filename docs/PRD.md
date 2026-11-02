@@ -85,6 +85,7 @@ Una **herramienta CLI con interfaz de texto interactiva (TUI)** para Windows que
 - **Sin autenticación OAuth con redirección a navegador.** La autenticación contra Jira se realiza exclusivamente mediante API Token / Personal Access Token configurado localmente, para no introducir un componente web dentro del flujo de la herramienta (ver §3).
 - **Sin soporte para tickets multi-repositorio en una misma ejecución.** Cada ejecución de la herramienta opera sobre un único repositorio local, elegido de la lista de la clave del ticket. Un ticket que requiera cambios en más de un repositorio (p. ej. backend y frontend) se procesa ejecutando la herramienta una vez por repositorio afectado, una tras otra; cada ejecución genera su propio documento.
 - **Sin documento ni rama para épicas.** Las épicas no se usan para desarrollar y no tienen plantilla: la herramienta solo avisa.
+- **Sin seguimiento del cierre de la Fase 2.** La herramienta registra el historial al terminar la generación de la Fase 1 (`ticket_logs`); no detecta ni registra cuándo el desarrollador completa la Fase 2 del documento (Objetos Modificados, Evidencias, Pasaje a Producción). Queda como mejora futura.
 - **Sin reglas de prompts ni plantillas configurables por el usuario.** Los prompts y las plantillas por tipo de issue son contenido versionado de la aplicación, igual para todo el equipo.
 
 ---

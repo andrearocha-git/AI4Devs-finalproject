@@ -336,7 +336,9 @@ Prácticas ya decididas a nivel arquitectónico (ver ADR-001):
 - **Autenticación sin navegador:** el acceso a Jira se realiza mediante API Token / Personal Access Token configurado localmente, sin flujo OAuth con redirección a navegador ([ADR-001.1](ADR-001-arquitectura-inicial.md#adr-0011-interfaz-clitui-frente-a-aplicación-gráfica-guiweb)), reduciendo la superficie de ataque de la herramienta (sin servidor/puerto local expuesto).
 - **No exfiltración de datos a terceros:** el procesamiento de texto de tickets se realiza con un LLM local (Ollama); ningún contenido de ticket sale de la red del equipo hacia un proveedor cloud ([ADR-003.1](ADR-001-arquitectura-inicial.md#adr-0031-llm-local-ollama-con-fallback-determinista-frente-a-apis-cloud-openaianthropic)).
 
-[A definir] — cómo se almacena el API Token en SQLite (en claro vs. cifrado con DPAPI de Windows u otro mecanismo) y política de rotación/expiración de credenciales.
+- **Almacenamiento del API Token (decisión del MVP):** se guarda **en claro** en la columna `jira_api_token` de `app_config` (SQLite en `%APPDATA%\DevFlowCLI\devflow.db`), protegido únicamente por los permisos del perfil de Windows del desarrollador. Es un riesgo aceptado para el MVP (herramienta local, un usuario por máquina, sin servidor expuesto). La herramienta nunca imprime el token en la TUI ni lo escribe en `ticket_logs`. El cifrado en reposo (p. ej. DPAPI) queda para v2.
+
+[A definir] — política de rotación/expiración de credenciales (sin OAuth no hay refresco automático: el desarrollador reemplaza el token en `devflow config`).
 
 ### **2.6. Tests**
 

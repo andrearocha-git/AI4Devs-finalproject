@@ -1,6 +1,6 @@
 # Change: TK-02b — Jira REST Client
 
-- **Estado:** Aprobado
+- **Estado:** Implementado
 - **Fuente:** `docs/006-tickets-de-trabajo.md` (TK-02b)
 - **Depende de:** TK-02a
 - **INVEST:** Cumple (I, S y T evaluadas). Nota sobre S: es un solo criterio técnico, pero agrupa 4 métodos y ~7 clasificaciones de fallo; se reparte en 3 escenarios y 5 tareas. Si crece al implementar, separar la lectura del ticket de la gestión de claves.
@@ -41,9 +41,9 @@ Ninguna falla de red o de credenciales llega al Orquestador como excepción: se 
 
 | Escenario | Criterios cubiertos | Test | Estado |
 |---|---|---|---|
-| E1 | CA1 (200), DoD-a | _pendiente_ | Pendiente |
-| E2 | CA1 (fallos), DoD-b | _pendiente_ | Pendiente |
-| E3 | CA1 (`validateProjectKey`), métodos sin CA numerado | _pendiente_ | Pendiente |
+| E1 | CA1 (200), DoD-a | `tests/unit/services/jira/jira-rest-client.test.ts` › «E1 — fetchTicket» (5 casos: bug completo, descripción vacía y `null`, host/Basic/campos desde el constructor, codificación del ID) | Hecho |
+| E2 | CA1 (fallos), DoD-b | `tests/unit/services/jira/jira-rest-client.test.ts` › «E2 — fetchTicket: clasificación de fallos» (15 casos: timeout persistente y resuelto en el reintento, 503, error de red, 401/403, 404 con `/myself` 401/403/200/sin respuesta, 429 con y sin `Retry-After` y con tope, otros códigos) | Hecho |
+| E3 | CA1 (`validateProjectKey`), métodos sin CA numerado | `tests/unit/services/jira/jira-rest-client.test.ts` › «E3 — claves, tickets asignados y nombre de la cuenta» (16 casos: `validateProjectKey` Ok/codificación/404 con `/myself` 200 y 401; `listAssignedTickets` JQL y mapeo, sin claves, sin resultados, 401, timeout; `getMyDisplayName` Ok/401/403/503; cuerpos 2xx inválidos en los 4 métodos) | Hecho |
 
 ## Prerrequisitos
 
@@ -62,11 +62,11 @@ Sin cambios en `eslint.config.js`: la regla de TK-02a ya impide que este módulo
 
 ## Tareas
 
-- [ ] 1. E1 — RED: tests de `fetchTicket` con msw y los fixtures; GREEN: `JiraRestClient` con constructor, cabecera Basic y mapeo a `ContextoTicket`
-- [ ] 2. E2 — RED: tests de timeout con reintento, 401/403, regla del 404 con `/myself` y 429; GREEN: clasificación de fallos en `fetchTicket`
-- [ ] 3. E3 — RED: tests de `validateProjectKey`, `listAssignedTickets` y `getMyDisplayName`; GREEN: los tres métodos reutilizando la misma clasificación
-- [ ] 4. Verificar la cobertura (umbral del 80 % de `src/services/**`, ahora con el cliente incluido) con `npm run test:coverage`
-- [ ] 5. Refactor, TSDoc en español de los exports públicos, `npm run typecheck`, `npm run lint` y `npm test` en verde
+- [x] 1. E1 — RED: tests de `fetchTicket` con msw y los fixtures; GREEN: `JiraRestClient` con constructor, cabecera Basic y mapeo a `ContextoTicket`
+- [x] 2. E2 — RED: tests de timeout con reintento, 401/403, regla del 404 con `/myself` y 429; GREEN: clasificación de fallos en `fetchTicket`
+- [x] 3. E3 — RED: tests de `validateProjectKey`, `listAssignedTickets` y `getMyDisplayName`; GREEN: los tres métodos reutilizando la misma clasificación
+- [x] 4. Verificar la cobertura (umbral del 80 % de `src/services/**`, ahora con el cliente incluido) con `npm run test:coverage`
+- [x] 5. Refactor, TSDoc en español de los exports públicos, `npm run typecheck`, `npm run lint` y `npm test` en verde
 
 ## Decisiones y desvíos
 
@@ -82,3 +82,13 @@ Pendientes de confirmar con el desarrollador (marcadas _(ambiguo)_ o _(asumido)_
 - _(asumido)_ **Identificadores en la URL:** el ID del ticket y la clave de proyecto se codifican con `encodeURIComponent`; el host se normaliza quitando una barra final.
 - _(asumido)_ **`FallbackManual` en métodos sin entrada manual:** `validateProjectKey`, `listAssignedTickets` y `getMyDisplayName` devuelven el mismo `StepResult` por coherencia con el contrato; es el Orquestador (TK-02f/TK-02g) quien decide cómo mostrarlo, ya que no existe «carga manual» para ellos.
 - _(asumido)_ **Si `/myself` también falla** (timeout) tras un 404 inicial, el resultado es `FallbackManual('network_timeout')`.
+
+Registro de la implementación (2026-11-03):
+
+- **msw 3:** la opción para rechazar peticiones sin handler se llama `onUnhandledFrame` (no `onUnhandledRequest` como en msw 2); los tests usan `server.listen({ onUnhandledFrame: "error" })`.
+- **Clasificación implementada (E2):** reintento único con `retryDelayMs` ante timeout, error de red y 5xx; 429 espera `Retry-After` (tope 30 s) o `retryDelayMs`; 401/403 → `invalid_token` sin reintento; 404 → `/myself` (401/403 → `invalid_token`, 200 → `not_found`, sin respuesta → `network_timeout`); cualquier otro código → `ErrorBloqueante('ErrorInesperado')`. Todas las propuestas del contrato se aplicaron sin cambios.
+- **Cuerpo 2xx inválido (decidido por el desarrollador, 2026-11-03):** una respuesta 2xx cuyo cuerpo no es JSON o no tiene la forma esperada se clasifica como `ErrorBloqueante('ErrorInesperado')` en los cuatro métodos, para que ninguna excepción cruda llegue al Orquestador. Se añadieron tests en E3.
+- **Endpoint de búsqueda (verificado a mano el 2026-11-03 contra la instancia de pruebas, solo lectura):** `GET /rest/api/2/search` responde **410** («La API solicitada se ha eliminado») y `GET /rest/api/2/search/jql` responde **200**. El cliente usa `/rest/api/2/search/jql` con `fields=summary,issuetype` y `maxResults=50`, sin paginación (`nextPageToken` queda fuera del MVP).
+- **JQL:** las claves de proyecto se separan con coma y espacio dentro de `project in (…)` sin comillas; se asume que ya fueron validadas al darlas de alta.
+- **Cobertura (tarea 4):** con el cliente incluido, `src/services/**` marca 98,8 % en sentencias, 96 % en ramas, 100 % en funciones y 100 % en líneas (umbral del 80 %).
+- **Refactor (tarea 5):** `fetchTicket` deja de ser `async` (devuelve la promesa de `call`), la lectura de `Retry-After` se simplifica sin cambiar su comportamiento y se completa el TSDoc de `email`. Typecheck, lint y 134 tests en verde.

@@ -14,6 +14,12 @@ const sqliteOnlyInStorageManager = {
   ],
 };
 
+// Solo el Orquestador (y los tests, que viven fuera de src/) importa el storage manager.
+const storageManagerOnlyInOrchestrator = {
+  group: ["**/sqlite-storage-manager", "**/sqlite-storage-manager.js"],
+  message: "Solo el Orquestador (src/services/orchestrator/) puede importar sqlite-storage-manager.",
+};
+
 const tuiOnlyTalksToOrchestrator = {
   patterns: [
     {
@@ -41,9 +47,25 @@ export default defineConfig([
     rules: { "no-restricted-imports": ["error", sqliteOnlyInStorageManager] },
   },
   {
+    files: ["src/**/*.ts"],
+    ignores: ["src/database/sqlite-storage-manager.ts", "src/services/orchestrator/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        { ...sqliteOnlyInStorageManager, patterns: [storageManagerOnlyInOrchestrator] },
+      ],
+    },
+  },
+  {
     files: ["src/tui/**/*.ts"],
     rules: {
-      "no-restricted-imports": ["error", { ...sqliteOnlyInStorageManager, ...tuiOnlyTalksToOrchestrator }],
+      "no-restricted-imports": [
+        "error",
+        {
+          ...sqliteOnlyInStorageManager,
+          patterns: [...tuiOnlyTalksToOrchestrator.patterns, storageManagerOnlyInOrchestrator],
+        },
+      ],
     },
   },
 ]);

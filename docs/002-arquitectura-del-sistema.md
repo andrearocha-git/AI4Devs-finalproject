@@ -290,7 +290,7 @@ Los cuatro mecanismos de integración evaluados (Jira REST, Ollama HTTP/JSON, Gi
 │   ├── services/                   # Service Layer — TypeScript puro, sin dependencia de Commander/inquirer
 │   │   ├── orchestrator/
 │   │   │   ├── ticket-orchestrator.ts   # Coordina los pasos independientes (Jira/Git/FS/Ollama) para un repositorio por ejecución
-│   │   │   └── issue-type-resolver.ts   # Tipo de Jira → plantilla, prefijo de rama o tipo bloqueado (templates/issue-types.json)
+│   │   │   └── issue-type-resolver.ts   # Tipo de Jira → plantilla, tipo de rama (feature/bugfix) o tipo bloqueado (templates/issue-types.json)
 │   │   ├── jira/
 │   │   │   └── jira-rest-client.ts      # Cliente REST v2 + clasificación de errores (red/token/404→/myself/429) + alta de claves + asignados
 │   │   ├── ollama/
@@ -315,7 +315,7 @@ Los cuatro mecanismos de integración evaluados (Jira REST, Ollama HTTP/JSON, Gi
 │           └── config.types.ts
 ├── templates/                      # Contenido versionado de la aplicación (no configuración del usuario)
 │   ├── README.md                   # Contrato de las piezas, para implementar el transformer
-│   ├── issue-types.json            # Tipo de Jira → plantilla, prefijo de rama, tipos bloqueados y reglas de datos ausentes
+│   ├── issue-types.json            # Tipo de Jira → plantilla, tipo de rama, promptVersion, tipos bloqueados y reglas de datos ausentes
 │   ├── prompts/                    # comun.system.md, bug.system.md, historia.system.md, ticket.user.md, bug.schema.json, historia.schema.json
 │   └── documents/                  # bug.md.hbs, historia.md.hbs: Fase 1 (generada) + Fase 2 (a completar)
 ├── tests/

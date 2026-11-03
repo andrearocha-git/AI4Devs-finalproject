@@ -1,0 +1,9 @@
+{
+  "id": "10102",
+  "key": "SCRUM-13",
+  "fields": {
+    "summary": "Error al exportar el informe",
+    "description": null,
+    "issuetype": { "name": "Error" }
+  }
+}

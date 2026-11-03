@@ -13,7 +13,7 @@ Permite que TK-02b … TK-02g avancen en paralelo sobre una base común, y deja 
 ## Criterios de aceptación de origen
 
 - CA1: los 4 tipos de `StepResult` están definidos y son discriminables por `kind` (verificado por el compilador y por un test de tipos o de estrechamiento).
-- CA2: el resolutor clasifica Epic/Épica como bloqueada, Bug/Error/Defecto como `bug` y cualquier otro tipo como `historia`, con el prefijo de rama y la `promptVersion` del tipo leídos de `templates/issue-types.json`.
+- CA2: el resolutor clasifica Epic/Épica como bloqueada, Bug/Error/Defecto como `bug` y cualquier otro tipo como `historia`, con el prefijo de rama y la `promptVersion` del tipo leídos de `templates/issue-types.json`. _(Texto original de la fuente; la decisión posterior sustituyó el prefijo por `branchType`, ver «Decisiones y desvíos».)_
 - CA3: el proveedor de configuración rechaza una configuración con campos obligatorios ausentes y completa los valores por defecto; es inmutable y se inyecta por constructor.
 - CA4: `npm run lint` falla si un archivo distinto del Orquestador (o de los tests) importa `src/database/sqlite-storage-manager.ts`.
 - DoD-a: los fixtures cubren bug y historia (completos y escuetos) y una épica.
@@ -106,3 +106,5 @@ Ajustes tras la revisión de la PR (2026-11-03, aprobados por el desarrollador):
 
 - **Aplicados con TDD:** (1) una ruta en blanco (`ticketsRootPath`, `databasePath`) cuenta como ausente: toma el valor por defecto o falla si no hay variable de entorno; (2) el bloque de `src/tui/**` en `eslint.config.js` repite `storageManagerOnlyInOrchestrator`, de modo que un import como `./sqlite-storage-manager.js` sin pasar por `database/` también se rechaza; (3) los textos de la configuración se guardan recortados y un opcional en blanco toma su valor por defecto. Se añadieron 6 tests (96 en total).
 - **Registrados sin cambio de código:** (4) `resolveIssueType` devuelve `historia` para un tipo vacío o desconocido, por la política «el resto → historia»; si Jira devolviera un tipo en blanco, se tratará en TK-02b. (5) El resolutor carga `templates/issue-types.json` con `readFileSync` relativo al módulo: fallará si el código se emite a `dist/` sin copiar `templates/`; revisarlo en TK-03, cuando exista el punto de entrada y el empaquetado.
+
+Segunda revisión de la PR (2026-11-03, aprobada por el desarrollador): `resolveDatabasePath` recorta `APPDATA` con el mismo `text()` que el resto del módulo, de modo que un valor con espacios sobrantes ya no corrompe la ruta y uno en blanco lanza como si no estuviera definido. Se añadieron 2 tests (98 en total). Sin cambios en el texto de los criterios de origen; solo la nota junto a CA2.

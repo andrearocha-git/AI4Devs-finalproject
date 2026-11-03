@@ -32,10 +32,10 @@ function text(value: string | undefined): string | undefined {
  *
  * @param env Variables de entorno (por defecto `process.env`).
  * @returns La ruta en formato Windows.
- * @throws {Error} Si `APPDATA` no está definida.
+ * @throws {Error} Si `APPDATA` no está definida o está en blanco.
  */
 export function resolveDatabasePath(env: Record<string, string | undefined> = process.env): string {
-  const appData = env.APPDATA;
+  const appData = text(env.APPDATA);
   if (!appData) {
     throw new Error("No se puede calcular la ruta de la base de datos: la variable APPDATA no está definida.");
   }

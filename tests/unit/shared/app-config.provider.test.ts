@@ -107,4 +107,14 @@ describe("resolveDatabasePath", () => {
   it("lanza si APPDATA no está definida", () => {
     expect(() => resolveDatabasePath({})).toThrow("APPDATA");
   });
+
+  it("recorta los espacios sobrantes de APPDATA", () => {
+    expect(resolveDatabasePath({ APPDATA: " C:\\Users\\dev\\AppData\\Roaming " })).toBe(
+      "C:\\Users\\dev\\AppData\\Roaming\\DevFlowCLI\\devflow.db",
+    );
+  });
+
+  it("lanza si APPDATA está en blanco", () => {
+    expect(() => resolveDatabasePath({ APPDATA: "  " })).toThrow("APPDATA");
+  });
 });

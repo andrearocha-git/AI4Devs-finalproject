@@ -169,7 +169,7 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
   - [x] Los fixtures cubren bug y historia (completos y escuetos) y una épica.
   - [x] Umbral de cobertura del 80 % configurado en `vitest.config.ts` para la Service Layer y registrado en `docs/changes/TK-02a.md`.
   - [x] Regla de lint verificada con un caso que la viola.
-  - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
+  - [x] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---
 
@@ -196,8 +196,8 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
   1. (CA1 original) `JiraRestClient`: mock HTTP 200 → `Ok(ContextoTicket)` con mapeo correcto (`description` en texto plano); timeout persistente (tras 1 reintento) → `FallbackManual('network_timeout')`; 401/403 → `FallbackManual('invalid_token')`; 404 en `/issue` seguido de `/myself` 401 → `FallbackManual('invalid_token')`, y seguido de `/myself` 200 → `FallbackManual('not_found')`; 429 con `Retry-After` → respetado antes de fallar. `validateProjectKey` aplica la misma regla del 404.
 
 - **Definition of Done (DoD):**
-  - [ ] Todas las credenciales, el host y los timeouts llegan por constructor.
-  - [ ] Hay al menos un test para `Ok` y para cada motivo de `FallbackManual`.
+  - [x] Todas las credenciales, el host y los timeouts llegan por constructor.
+  - [x] Hay al menos un test para `Ok` y para cada motivo de `FallbackManual`.
   - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---

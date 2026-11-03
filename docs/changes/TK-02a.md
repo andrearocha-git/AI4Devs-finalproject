@@ -58,18 +58,18 @@ DoD-b (cobertura) no es un escenario: se verifica ejecutando el comando de cober
 
 | Ruta | Acción |
 |---|---|
-| `src/shared/errors/result.types.ts` | Crear (propuesta): `StepResult<T>` |
-| `src/shared/types/ticket-context.types.ts` | Crear (propuesta, _asumido_: ubicación de `ContextoTicket`; el ticket no la fija) |
-| `src/shared/config/app-config.provider.ts` | Crear (propuesta) |
-| `src/services/orchestrator/issue-type-resolver.ts` | Crear (propuesta) |
-| `templates/README.md`, `templates/issue-types.json` | Crear (propuesta) |
-| `tests/fixtures/tickets/*.json` | Crear (propuesta): bug y historia completos y escuetos, y una épica |
-| `tests/unit/services/orchestrator/issue-type-resolver.test.ts` | Crear (propuesta) |
-| `tests/unit/shared/app-config.provider.test.ts` | Crear (propuesta) |
-| `tests/unit/lint-rules.test.ts` | Modificar (existente): casos de la regla del storage manager |
-| `eslint.config.js` | Modificar (existente): nueva restricción de importación; el bloque de `src/tui/**` debe repetirla porque una regla de un bloque posterior reemplaza a la anterior |
-| `vitest.config.ts` | Modificar (existente): cobertura con umbral del 80 % en `src/services/**` |
-| `package.json` | Modificar (existente): dependencia `@vitest/coverage-v8` y script de cobertura _(ambiguo, ver abajo)_ |
+| `src/shared/errors/result.types.ts` | Creado: `StepResult<T>` |
+| `src/shared/types/ticket-context.types.ts` | Creado (_asumido_: ubicación de `ContextoTicket`; el ticket no la fija) |
+| `src/shared/config/app-config.provider.ts` | Creado |
+| `src/services/orchestrator/issue-type-resolver.ts` | Creado |
+| `templates/README.md`, `templates/issue-types.json` | Creado |
+| `tests/fixtures/tickets/*.json` | Creado: bug y historia completos y escuetos, y una épica |
+| `tests/unit/services/orchestrator/issue-type-resolver.test.ts` | Creado |
+| `tests/unit/shared/app-config.provider.test.ts` | Creado |
+| `tests/unit/lint-rules.test.ts` | Modificado: casos de la regla del storage manager |
+| `eslint.config.js` | Modificado: nueva restricción de importación; el bloque de `src/tui/**` debe repetirla porque una regla de un bloque posterior reemplaza a la anterior |
+| `vitest.config.ts` | Modificado: cobertura con umbral del 80 % en `src/services/**` |
+| `package.json` | Modificado: dependencia `@vitest/coverage-v8` y script de cobertura _(ambiguo, ver abajo)_ |
 
 ## Tareas
 
@@ -81,7 +81,7 @@ DoD-b (cobertura) no es un escenario: se verifica ejecutando el comando de cober
 
 ## Decisiones y desvíos
 
-Pendientes de confirmar con el desarrollador (marcadas _(ambiguo)_ o _(asumido)_; se mueven aquí con su respuesta al aprobar):
+Decisiones tomadas al aprobar el contrato. Las etiquetas _(ambiguo)_ y _(asumido)_ se conservan como registro de lo que se propuso y el desarrollador aceptó:
 
 - **Forma del resolutor (decidido por el desarrollador, opción B):** `resolveIssueType(issueType: string): StepResult<{ tipo: 'bug' | 'historia'; branchType: 'feature' | 'bugfix'; promptVersion: string }>`. El resolutor no devuelve el texto del prefijo. La comparación del nombre del tipo ignora mayúsculas, acentos y espacios sobrantes (Jira devuelve `Epic` o `Épica` según el idioma del sitio); los nombres reconocidos viven en `templates/issue-types.json`.
 - **Prefijo de rama (decidido por el desarrollador, opción B):** una sola fuente de verdad. El resolutor devuelve solo `branchType` (coincide con `TicketLogEntry.branchType`) y el Orquestador (TK-02f) arma el prefijo con `AppConfig.branchPrefixFeature` / `branchPrefixBugfix`. `templates/issue-types.json` no contiene prefijos. **Desvío respecto a `docs/006`:** el contrato del resolutor en TK-02a dice `prefijoRama: 'features' | 'bugs'` y su CA2 habla de «prefijo de rama … leído de `templates/issue-types.json`»; hay que actualizar `006` (TK-02a y, donde corresponda, TK-02f) antes de implementar. Aplicado después en `docs/006` (commit de refinamiento de TK-02a).

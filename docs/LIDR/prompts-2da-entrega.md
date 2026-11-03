@@ -228,3 +228,119 @@ Míos, durante el trabajo:
 8. Lint viejo: hay errores de markdownlint anteriores en README y otros docs que no toqué.
 9. Skills y hook: pueden necesitar reiniciar la sesión para recargarse.
 ```
+
+---
+
+## Bitácora en el desarrollo TK-02a y TK-02b
+
+### Bitácora de Trabajo con Agente (TK-02a y TK-02b)
+
+#### **Cierre de huecos, división de tickets y flujo de ramas con revisión en Cursor (Entrega 2)**
+
+Esta etapa continuó con Claude Code como agente ejecutor y el mismo esquema de supervisión activa. Antes de programar se revisó el trabajo hecho sin validar, se dividió el ticket de la TUI y se cambió el modo de entregar: cada sub-ticket se desarrolla en su propia rama y su PR la revisa **Cursor**, no Claude, de modo que quien implementa y quien revisa son herramientas distintas.
+
+##### **Gobierno del Agente y del flujo de entrega**
+
+- Revisión de lo hecho sin validar: pedí revisar los 4 commits que el agente había hecho sin consultarme (decisiones H-02, H-03, H-04 y H-06). La revisión encontró tres inconsistencias reales: el flag `--reprocesar` no estaba en el resumen de confirmación, no figuraba en la llamada a `startTicket` de la TUI, y una frase de `docs/002` quedó rota. Se corrigieron en un commit aparte, sin tocar los anteriores.
+- Regla de commits respetada: el agente propuso cada commit y esperó mi visto bueno; ningún «commitea» se extendió a otro grupo de cambios. No hizo `push` en ningún momento.
+- Revisor externo con una skill propia: definí que la revisión de cada PR la hace Cursor con una skill `pr-review` (`.cursor/skills/pr-review/SKILL.md`). Claude evaluó la skill que yo traía: detectó que comparaba contra `origin/main` (el diff incluiría trabajo ajeno a la PR), que `allowed-tools` es de Claude Code y Cursor lo ignora, y que faltaban los criterios del repo. Se parametrizó la rama base (por defecto `feature/entrega-2-ANR`), con tres puntos en el diff, y se añadió una prohibición explícita de `commit`, `add`, `push` y similares porque Cursor no respeta la lista de herramientas permitidas.
+- Flujo de ramas: `feature/entrega-2-ANR` → `feature/TK-02` (integración, sin commits directos) → una rama por sub-ticket (`feature/TK-02a`, `feature/TK-02b`…) con PR hacia `feature/TK-02`. Esto contradice una regla anterior mía («sin PRs, solo commits en la rama»); lo decidí como excepción para TK-02 porque la revisión de Cursor por sub-ticket lo exige. Pregunté quién tilda las casillas del DoD al aprobar: Cursor es de solo lectura, así que lo hace Claude a petición mía, tras la merge que hago yo.
+- Entorno: aclaré que mi máquina de destino es Windows sin WSL, mientras el agente trabaja en WSL. Se confirmó que las rutas por defecto usan formato Windows (`path.win32`) y que los tests inyectan el entorno para pasar en ambos sitios; la prueba real en Windows sigue pendiente (Hito 3 del backlog).
+
+##### **Decisiones de Arquitectura e Intervenciones (TK-02a y TK-02b)**
+
+- División de TK-03 (aprobada por mí): TK-03a (CLI base y `devflow config`) y TK-03b (`devflow start`), con TK-03 como paraguas, igual que TK-02. Se actualizaron `docs/006`, `README.md`, `docs/009` y el backlog.
+- Confirmación única de H-03: el agente señaló que `validateRepository` y `git status` son lecturas de Git, así que podía confirmarse un resumen y que Git lo bloqueara después. Elegí la opción recomendada: nuevo `GitManager.inspectRepository` (solo lectura) **antes** de la confirmación, y `createBranch` después, repitiendo el `status` por seguridad. El resumen de confirmación gana `branchAlreadyExists`. Quedó cubierto en `docs/002` (diagrama de secuencia), `docs/006` y `docs/009`.
+- Verificación del diagrama Mermaid: el agente intentó renderizarlo con `mermaid-cli` vía `npx`, pero el sistema bloqueó la descarga externa. No se buscó otra vía de ejecución; se hizo una comprobación estructural (bloques balanceados, `else` solo dentro de `alt`) y se dejó dicho que no se había renderizado.
+- Prefijo de rama (TK-02a): `AppConfig` ya tenía los prefijos y el ticket decía que el resolutor los leía de `templates/issue-types.json`. Pedí que me explicara el punto y elegí la opción B: una sola fuente de verdad. El resolutor devuelve `branchType` (`feature` o `bugfix`) y el Orquestador arma el prefijo con `AppConfig`. Se corrigió `docs/006` antes de programar.
+- Escritura fuera de `src/` y `tests/`: la skill `/04-tdd-pair` solo permite escribir ahí, pero el contrato aprobado exigía tocar `templates/`, `eslint.config.js`, `vitest.config.ts` y `package.json`. El agente se detuvo y pidió autorización explícita en lugar de improvisar; la di, y quedó registrada en el contrato. Lo mismo con la instalación de `@vitest/coverage-v8`, que además subió `vitest` de 5.0.5 a 5.1.0; se documentó.
+- Autorización para consultar Jira real: el agente avisó antes de leer `~/.config/devflow/jira.env` y verificó a mano, sin imprimir el token, que `GET /rest/api/2/search` responde 410 y `GET /rest/api/2/search/jql` responde 200. El cliente usa el segundo.
+- Caso sin especificar (TK-02b): el agente detectó que una respuesta 2xx con cuerpo inválido haría lanzar una excepción cruda, lo cual rompe la regla de no exponer excepciones. No lo implementó por su cuenta; lo preguntó y decidí tratarlo como `ErrorInesperado`, con tests propios.
+- Fricciones con herramientas: msw 3 renombró `onUnhandledRequest` a `onUnhandledFrame`; lo detectó el typecheck, no la ejecución. Los errores de markdownlint (MD049) de los contratos se trataron aparte, preguntándome antes de cambiar el estilo de énfasis.
+
+##### **Hallazgos de la revisión de Cursor**
+
+- Primera revisión de la PR de TK-02a (4 hallazgos reales, todos aplicados con TDD): rutas con solo espacios aceptadas en `ticketsRootPath`/`databasePath`; bloque de la TUI sin el patrón del storage manager; textos obligatorios guardados sin recortar. El segundo era un error del agente: había dicho que lo comprobó, pero solo lo probó con rutas que pasaban por `database/`. Lo reconoció y lo confirmó con `eslint --stdin` antes de corregirlo.
+- Segunda revisión: `resolveDatabasePath` no recortaba `APPDATA`. Arreglado con su test y una nota en el CA2 del contrato (sin reescribir el criterio de origen).
+- Revisión de la PR #2 (TK-02b), dos hallazgos medios, ambos reales y aplicados con TDD:
+  - `fetchTicket` devolvía `Ok` con una forma que no era `ContextoTicket` (una descripción en formato de documento, `summary: null`, `issuetype` sin `name`). Era un incumplimiento mío de la decisión sobre cuerpos 2xx inválidos: la apliqué en tres métodos y dejé el cuarto con un cast. Habría llegado hasta `resolveIssueType` como excepción.
+  - `listAssignedTickets` interpolaba las claves en la JQL: una clave como `FOO) OR (summary is not EMPTY` ampliaba la consulta a otros proyectos. El contrato asumía claves ya validadas; ahora el método rechaza las que no cumplen `^[A-Z][A-Z0-9_]+$`, sin llamar a Jira.
+- Esa misma revisión dejó tres hallazgos bajos, también aplicados: una URL base inválida se informaba como `network_timeout` (ahora `ErrorInesperado`), un `Retry-After` negativo daba una espera negativa (ahora se acota a 0) y faltaban dos tests (`/myself` caído por error de red y el backoff por defecto de 2000 ms, que nacieron en verde).
+- Cursor señaló además que la documentación quedó detrás del código (estado del backlog, `docs/009`, casillas del DoD y contratos). Era un olvido del agente al cerrar TK-02a y TK-02b: `CLAUDE.md` pide mantener `docs/009` al día. Se sincronizó en un commit aparte.
+- Dos observaciones se registraron sin tocar código por ser decisiones de política o de TK-03: un tipo de issue vacío cae en `historia` y la plantilla se carga con `readFileSync` relativo al módulo, lo que fallaría al emitir a `dist/`.
+
+##### **Resultados de Calidad Obtenidos (TK-02a y TK-02b)**
+
+- Suite de pruebas: de 43 a 147 tests en verde (98 al cerrar TK-02a, 134 al cerrar TK-02b y 147 tras aplicar la revisión de la PR #2), con TDD en cada escenario: el test se escribió primero y se comprobó que fallaba por la razón esperada.
+- Cobertura: umbral del 80 % configurado para `src/services/**` (`npm run test:coverage`), verificado forzando un umbral imposible para comprobar que falla. Resultado actual: 100 % en sentencias, ramas, funciones y líneas (antes de la revisión de la PR #2 eran 98,8 % y 96 % en sentencias y ramas).
+- Análisis estático: la regla «solo el Orquestador importa `sqlite-storage-manager`» se comprobó con un archivo temporal que la violaba y rompió `npm run lint`; typecheck y lint sin errores.
+- Veredictos de `/05-verificar-y-revisar`: TK-02a y TK-02b «Aprobada con observaciones». La revisión externa de Cursor encontró después problemas que el `/05` no había visto (el mapeo de `fetchTicket` y la JQL), lo que confirma el valor de un revisor distinto del implementador.
+- Trazabilidad: commits atómicos por grupo, con contratos aprobados antes del código y PR #1 (TK-02a) fusionada en `feature/TK-02`.
+
+#### Prompt utilizado para la bitácora (TK-02a y TK-02b)
+
+```text
+Generá una bitácora similar a ## Bitácora en el desarrollo TK-00 y TK-01 (la que está dentro de docs/LIDR/prompts-2da-entrega.md) pero de los tickets realizados en esta sesión, y colocala al final del archivo docs/LIDR/prompts-2da-entrega.md.
+```
+
+#### Respuesta de Claude (TK-02a y TK-02b)
+
+```text
+Bitácora de la sesión (TK-02a y TK-02b)
+
+1. Antes de programar
+
+- Leí el resumen de la sesión anterior y propuse empezar por los 4 commits sin validar (H-06, H-03, H-02 y el ajuste del backlog). La revisión encontró 3 inconsistencias y se corrigieron en un commit nuevo.
+- Dividimos TK-03 en TK-03a (CLI base y config) y TK-03b (devflow start).
+- Resolvimos la observación pendiente de H-03: la inspección de Git de solo lectura va antes de la confirmación (nuevo GitManager.inspectRepository).
+- Preparamos la skill pr-review de Cursor: rama base parametrizada y prohibición explícita de commits.
+
+2. Flujo de ramas
+
+- feature/TK-02 como rama de integración y una rama por sub-ticket. Cursor revisa cada PR; Claude aplica los hallazgos que acordamos; la merge la hacés vos.
+- Tildar el DoD tras la merge lo hago yo a pedido tuyo, dentro del primer commit del siguiente sub-ticket.
+
+3. TK-02a: base compartida de la Service Layer
+
+- Refinado: 3 escenarios, 4 criterios y 5 tareas. Resolviste el prefijo de rama (opción B) y aceptaste mis propuestas para campos obligatorios, ruta de la base y cobertura.
+- Implementado con /04: E1 (StepResult y resolutor de tipo), E2 (AppConfigProvider), E3 (regla de lint) y cobertura del 80 %. Cada escenario se cerró con tu validación.
+- Autorizaste escribir fuera de src/ y tests/ y la instalación de @vitest/coverage-v8.
+- /05: Aprobada con observaciones. Cursor encontró 4 hallazgos reales en dos revisiones; todos se aplicaron con TDD.
+
+4. TK-02b: cliente REST de Jira
+
+- Refinado: 3 escenarios, 1 criterio técnico con 4 métodos y 5 tareas. Aceptaste mis propuestas sobre reintentos, 429 y errores inesperados.
+- Implementado con /04: E1 (fetchTicket), E2 (clasificación de fallos, reintento y regla del 404) y E3 (validateProjectKey, listAssignedTickets, getMyDisplayName).
+- Comprobé a mano contra tu Jira de pruebas el endpoint de búsqueda: /search da 410 y /search/jql da 200.
+- Decidiste que un cuerpo 2xx inválido sea ErrorInesperado.
+- /05: Aprobada con observaciones.
+- Revisión de Cursor (PR #2): 2 hallazgos medios y 3 bajos, todos reales. Se aplicaron con TDD (tests en rojo primero), se registraron en el contrato y quedó 147 tests con 100 % de cobertura en src/services. Además se sincronizó la documentación que había quedado atrás.
+
+5. Hallazgos
+
+Detectados por vos:
+- La skill pr-review comparaba contra la base equivocada, o sea, contra main en lugar de la rama de integración.
+- Los pasos de una PR con rama de integración: pediste confirmar el flujo y aclaraste quién tilda el DoD.
+- Aviso de que tu máquina es Windows sin WSL.
+
+Míos:
+- El bloque de la TUI sin el patrón del storage manager: dije que lo había comprobado y Cursor lo encontró.
+- msw 3 renombró onUnhandledRequest a onUnhandledFrame.
+- El cuerpo 2xx inválido no estaba especificado y lo pregunté en lugar de decidirlo.
+- Aun así apliqué esa decisión solo en 3 de los 4 métodos: fetchTicket quedó con un cast y Cursor lo encontró.
+- No sincronicé docs/009, el backlog ni los contratos al cerrar TK-02a y TK-02b; lo señaló la revisión de la PR #2.
+
+6. Estado final
+
+- Rama: feature/TK-02b, árbol limpio; el push lo hacés vos.
+- Calidad: 147 tests, typecheck y lint en verde; cobertura de src/services 100 %.
+- Commits: 47417c0, 7fd29ad, f23905b, 7164459, acbe2d1, 11fe767, d402b42, b7d2d90, ef6ce06, 789aac3, 73fb1e6, da35486 (bitácora), 0a08472 (revisión de la PR #2) y 9a858e9 (sincronización de documentación).
+
+7. Pendiente
+
+1. Tuyo: push de feature/TK-02b y nueva pasada de Cursor sobre la PR #2; luego la merge hacia feature/TK-02.
+2. Tras la merge: tildar el DoD de TK-02b en docs/006 y marcar TK-02b en el backlog.
+3. Siguiente: TK-02c (Git Manager), luego TK-02d/e, TK-02f y TK-02g.
+4. Observaciones diferidas: tipo de issue vacío, carga de plantillas en dist/ (TK-03), validar jiraBaseUrl como URL en AppConfigProvider (TK-02g / TK-03a) y prueba contra Jira real de los otros tres métodos.
+5. Prueba en Windows (Hito 3), pendiente porque el desarrollo corre en WSL.
+```

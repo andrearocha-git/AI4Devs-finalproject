@@ -169,7 +169,7 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
   - [x] Los fixtures cubren bug y historia (completos y escuetos) y una épica.
   - [x] Umbral de cobertura del 80 % configurado en `vitest.config.ts` para la Service Layer y registrado en `docs/changes/TK-02a.md`.
   - [x] Regla de lint verificada con un caso que la viola.
-  - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
+  - [x] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---
 

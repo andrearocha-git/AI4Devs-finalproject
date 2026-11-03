@@ -1,0 +1,84 @@
+# Change: TK-02b — Jira REST Client
+
+- **Estado:** Aprobado
+- **Fuente:** `docs/006-tickets-de-trabajo.md` (TK-02b)
+- **Depende de:** TK-02a
+- **INVEST:** Cumple (I, S y T evaluadas). Nota sobre S: es un solo criterio técnico, pero agrupa 4 métodos y ~7 clasificaciones de fallo; se reparte en 3 escenarios y 5 tareas. Si crece al implementar, separar la lectura del ticket de la gestión de claves.
+
+## Propósito
+
+Cliente de la API REST v2 de Jira Cloud (HTTP directo, Basic email + token, sin MCP) que consulta un ticket, valida claves de proyecto, lista los tickets asignados y obtiene el nombre de la cuenta, devolviendo siempre un `StepResult`.
+Ninguna falla de red o de credenciales llega al Orquestador como excepción: se clasifica como `FallbackManual` con motivo.
+
+## Criterios de aceptación de origen
+
+- CA1 (original): `JiraRestClient` con HTTP simulado. 200 → `Ok(ContextoTicket)` con mapeo correcto (`description` en texto plano). Timeout persistente (tras 1 reintento) → `FallbackManual('network_timeout')`. 401/403 → `FallbackManual('invalid_token')`. 404 en `/issue` seguido de `/myself` 401 → `FallbackManual('invalid_token')`, y seguido de `/myself` 200 → `FallbackManual('not_found')`. 429 con `Retry-After` → respetado antes de fallar. `validateProjectKey` aplica la misma regla del 404.
+- DoD-a: todas las credenciales, el host y los timeouts llegan por constructor.
+- DoD-b: hay al menos un test para `Ok` y para cada motivo de `FallbackManual`.
+- Métodos sin criterio numerado en el ticket (se toman de su descripción y contratos): `listAssignedTickets` con la JQL indicada y `getMyDisplayName` sobre `/myself`. _(asumido: se cubren en E3 con el mismo criterio de clasificación de fallos)_
+
+## Escenarios BDD
+
+### E1 — Consulta de un ticket: mapeo y credenciales por constructor (cubre: CA1 caso 200, DoD-a)
+
+- **Given** un cliente construido con host, email, token y timeout, y Jira simulado con msw respondiendo 200 con los fixtures de TK-02a (bug completo, historia escueta con `description` vacía y bug escueto con `description: null`)
+- **When** se llama a `fetchTicket` con cada clave
+- **Then** devuelve `Ok(ContextoTicket)` con `ticketId`, `title`, `description` en texto plano (`""` si Jira devuelve vacío o `null`), `issueType` y `source: 'jira'`; la petición va al host del constructor con `Authorization: Basic base64(email:token)` y pide solo `summary`, `description` e `issuetype`
+
+### E2 — Clasificación de fallos con reintento y regla del 404 (cubre: CA1 casos de fallo, DoD-b)
+
+- **Given** Jira simulado con msw que responde con timeout, 401, 403, 404, 429 con `Retry-After` y una secuencia 404 más `/myself` 401 o 200
+- **When** se llama a `fetchTicket` en cada caso
+- **Then** un timeout persistente se reintenta una vez y termina en `FallbackManual('network_timeout')` (y uno que se resuelve en el reintento devuelve `Ok`); 401 o 403 dan `FallbackManual('invalid_token')` sin reintentar; 404 seguido de `/myself` 401 da `invalid_token` y seguido de `/myself` 200 da `not_found`; un 429 espera lo indicado en `Retry-After` antes de reintentar y solo falla si el reintento también falla
+
+### E3 — Claves, tickets asignados y nombre de la cuenta (cubre: CA1 regla del 404 en `validateProjectKey`, métodos sin CA numerado)
+
+- **Given** Jira simulado con msw que responde para `/project/{key}`, para la búsqueda de tickets asignados y para `/myself`
+- **When** se llama a `validateProjectKey` (clave existente, inexistente con `/myself` 200, y token inválido con `/myself` 401), a `listAssignedTickets` (con dos claves, con una lista vacía de claves y con respuesta sin resultados) y a `getMyDisplayName`
+- **Then** `validateProjectKey` devuelve `Ok({ key, name })`, `FallbackManual('not_found')` o `FallbackManual('invalid_token')` según la regla del 404; `listAssignedTickets` envía la JQL `project in (…) AND assignee = currentUser() AND statusCategory != Done AND issuetype != Epic ORDER BY updated DESC` y devuelve `Ok([{ ticketId, title, issueType }])` (sin llamar a Jira si no hay claves); `getMyDisplayName` devuelve `Ok(displayName)`; y los tres clasifican 401/403 y timeout igual que `fetchTicket`
+
+## Trazabilidad
+
+| Escenario | Criterios cubiertos | Test | Estado |
+|---|---|---|---|
+| E1 | CA1 (200), DoD-a | _pendiente_ | Pendiente |
+| E2 | CA1 (fallos), DoD-b | _pendiente_ | Pendiente |
+| E3 | CA1 (`validateProjectKey`), métodos sin CA numerado | _pendiente_ | Pendiente |
+
+## Prerrequisitos
+
+- `msw` ^3.0.3 (`msw/node`): **ya instalado** y declarado en `package.json`, verificado.
+- `fetch` global de Node ≥ 22.13: disponible, sin dependencias nuevas.
+- Credenciales reales de Jira: **no se necesitan** para los tests automatizados (todo se simula con msw).
+
+## Archivos afectados
+
+| Ruta | Acción |
+|---|---|
+| `src/services/jira/jira-rest-client.ts` | Crear (propuesta) |
+| `tests/unit/services/jira/jira-rest-client.test.ts` | Crear (propuesta) |
+
+Sin cambios en `eslint.config.js`: la regla de TK-02a ya impide que este módulo importe el storage manager. Los fixtures de tickets de TK-02a se reutilizan sin modificarlos.
+
+## Tareas
+
+- [ ] 1. E1 — RED: tests de `fetchTicket` con msw y los fixtures; GREEN: `JiraRestClient` con constructor, cabecera Basic y mapeo a `ContextoTicket`
+- [ ] 2. E2 — RED: tests de timeout con reintento, 401/403, regla del 404 con `/myself` y 429; GREEN: clasificación de fallos en `fetchTicket`
+- [ ] 3. E3 — RED: tests de `validateProjectKey`, `listAssignedTickets` y `getMyDisplayName`; GREEN: los tres métodos reutilizando la misma clasificación
+- [ ] 4. Verificar la cobertura (umbral del 80 % de `src/services/**`, ahora con el cliente incluido) con `npm run test:coverage`
+- [ ] 5. Refactor, TSDoc en español de los exports públicos, `npm run typecheck`, `npm run lint` y `npm test` en verde
+
+## Decisiones y desvíos
+
+Pendientes de confirmar con el desarrollador (marcadas _(ambiguo)_ o _(asumido)_; se mueven aquí con su respuesta al aprobar):
+
+- _(asumido)_ **Constructor:** recibe `{ baseUrl, email, apiToken, timeoutSeconds, retryDelayMs?, sleep? }`, o sea, los campos correspondientes de `ResolvedAppConfig` más dos parámetros opcionales para poder probar sin esperas: `retryDelayMs` (por defecto ~2000 ms, el «backoff corto» de `docs/009` §2.3) y `sleep`. Usa `fetch` global y `AbortSignal.timeout`. En los tests el timeout puede ser fraccionario (p. ej. 0,05 s).
+- _(ambiguo)_ **Qué se reintenta:** el ticket habla de «un reintento con backoff corto» ante timeout. Propuesta: se reintenta una vez ante timeout, error de red y 5xx; **no** ante 401/403/404. Un 5xx persistente se clasifica como `FallbackManual('network_timeout')` (el ticket no lo menciona).
+- _(ambiguo)_ **429:** se espera `Retry-After` segundos y se reintenta una vez; si el reintento también da 429 se devuelve `FallbackManual('network_timeout')` (el motivo no admite otro valor). Propuesta: limitar la espera a un máximo (p. ej. 30 s) para no bloquear la TUI indefinidamente; sin cabecera, usar el mismo backoff de ~2 s.
+- _(ambiguo)_ **Otros códigos inesperados** (400, 410, etc.): propuesta `ErrorBloqueante('ErrorInesperado')` con el código en el mensaje, en vez de forzarlos a un `FallbackManual`.
+- _(ambiguo)_ **Endpoint de búsqueda:** `docs/009` no lo fija. Atlassian está reemplazando `GET /rest/api/2/search` por `GET /rest/api/2/search/jql` en Jira Cloud. Propuesta: implementar el que acepte la instancia de pruebas (`andreardev`), verificándolo una vez a mano con las credenciales de `~/.config/devflow/jira.env` y registrando aquí el resultado; los tests con msw usan el elegido. Sin paginación: `maxResults=50` y campos `summary,issuetype`.
+- _(asumido)_ **Lista de claves vacía:** `listAssignedTickets([])` devuelve `Ok([])` sin llamar a Jira (una JQL con `project in ()` es inválida).
+- _(asumido)_ **`description` ausente:** `null` o ausente se mapea a `""`, no a `undefined`, para cumplir `ContextoTicket.description: string`.
+- _(asumido)_ **Identificadores en la URL:** el ID del ticket y la clave de proyecto se codifican con `encodeURIComponent`; el host se normaliza quitando una barra final.
+- _(asumido)_ **`FallbackManual` en métodos sin entrada manual:** `validateProjectKey`, `listAssignedTickets` y `getMyDisplayName` devuelven el mismo `StepResult` por coherencia con el contrato; es el Orquestador (TK-02f/TK-02g) quien decide cómo mostrarlo, ya que no existe «carga manual» para ellos.
+- _(asumido)_ **Si `/myself` también falla** (timeout) tras un 404 inicial, el resultado es `FallbackManual('network_timeout')`.

@@ -4,7 +4,7 @@
 >
 > Fuentes de verdad: `docs/PRD.md`, `docs/001-descripcion-general-del-producto.md`, `docs/002-arquitectura-del-sistema.md`, `docs/005-historias-de-usuario.md`, `docs/006-tickets-de-trabajo.md`, `docs/ADR-001-arquitectura-inicial.md`. Si este archivo contradice a esas fuentes, gana la fuente; corregir aquí.
 
-**Estado del proyecto:** fase de documentación — **no existe código todavía**. Todo lo descrito abajo es comportamiento *especificado*, no implementado.
+**Estado del proyecto:** desarrollo en curso, ticket por ticket. Implementados: TK-00 (scaffold), TK-01 (Storage Layer), TK-02a (base compartida: `StepResult`, configuración, resolutor de tipo de issue, regla de lint) y TK-02b (cliente REST de Jira). Todo lo demás es comportamiento *especificado*, aún sin código; los pasos que ya tienen parte implementada llevan la etiqueta `🚧 En desarrollo`.
 
 ## Cómo mantener este documento
 
@@ -45,7 +45,7 @@ Ref.: `002` §2.2.1.
 
 > Procedimiento de instalación concreto: ver hueco **H-05**.
 
-### 1.2 Primer arranque en frío — `📄 Especificado` · TK-01
+### 1.2 Primer arranque en frío — `🚧 En desarrollo` · TK-01, TK-02a (`SQLiteStorageManager` y `AppConfigProvider` implementados; falta el Orquestador que los instancia)
 
 - `getAppConfig()` devuelve `null` sin lanzar excepción (TK-01 CA6).
 - `SQLiteStorageManager` aplica las migraciones de forma idempotente (TK-01 CA7) y crea `devflow.db` en modo **WAL** con las 4 tablas: `app_config`, `jira_projects`, `repositories`, `ticket_logs`.
@@ -59,7 +59,7 @@ Ref.: `002` §2.2.1.
 
 > Los nombres de los comandos `devflow config` y `devflow config proyectos` están decididos (hueco **H-06**, resuelto). El token se guarda en claro en `app_config` en el MVP (H-05, decidido; ver `002` §2.5).
 
-### 1.4 `devflow config proyectos` — claves y repositorios — `📄 Especificado` · US-01 CA1-3, CA5-6 · TK-02/TK-03a
+### 1.4 `devflow config proyectos` — claves y repositorios — `🚧 En desarrollo` · US-01 CA1-3, CA5-6 · TK-02/TK-03a (`validateProjectKey` implementado en TK-02b; faltan Git, Orquestador y TUI)
 
 - **Alta de clave:** se valida con `GET /rest/api/2/project/{key}` (la JQL ignora sin error las claves inexistentes). Ante un 404 se llama a `/myself`: **401 = token inválido**, **200 = la clave no existe**. Se guarda con el nombre del proyecto.
 - **Alta de repositorio** (0..N por clave): nombre (`backend`), ruta local y rama base (por defecto `main`). `GitManager.validateRepository` comprueba que sea un repo Git con remoto `origin` y que la rama base exista en el remoto.
@@ -86,13 +86,13 @@ Ref.: `002` §2.2.1.
 - Si la clave tiene varios repositorios, el usuario elige uno; con uno solo se preselecciona; sin repositorios no hay selección y no se pasa `repositoryId` (TK-03 CA4).
 - **Un repositorio por ejecución.** Un ticket que toca varios se ejecuta una vez por repositorio, en secuencia.
 
-### 2.3 Consulta a Jira — `📄 Especificado` · US-02 CA2 · TK-02
+### 2.3 Consulta a Jira — `✅ Implementado y probado` · US-02 CA2 · TK-02b (cliente; falta integrarlo en el Orquestador, TK-02f)
 
 - `GET /rest/api/2/issue/{id}?fields=summary,description,issuetype`, con Basic email + token.
 - La `description` llega en texto plano y se mapea de forma determinista a `ContextoTicket` (sin LLM).
-- Un reintento con backoff corto (~2 s) ante timeout.
+- Un reintento con backoff corto (~2 s) ante timeout. Un cuerpo 2xx con campos de tipo incorrecto, una URL base inválida o una clave de proyecto con formato inválido (en `listAssignedTickets`) dan `ErrorBloqueante('ErrorInesperado')`, nunca una excepción.
 
-### 2.4 Fallback manual — `📄 Especificado` · US-02 CA4-5 · TK-02/TK-03b
+### 2.4 Fallback manual — `🚧 En desarrollo` · US-02 CA4-5 · TK-02b, TK-02f/TK-03b (la clasificación de fallos del cliente Jira está implementada; faltan `ask()` y el prompt de la TUI)
 
 | Causa | Detección | Resultado |
 |---|---|---|
@@ -103,7 +103,7 @@ Ref.: `002` §2.2.1.
 
 El Orquestador invoca `ask({ kind: 'manualTicket', reason })`; la TUI abre `ManualTicketEntryPrompt` con el motivo, el usuario ingresa título y descripción y el flujo continúa con `source: 'manual'` y `jira_fetch_status = 'fallback_manual'`.
 
-### 2.5 Resolución del tipo de issue — `📄 Especificado` · US-02 CA6 · TK-02
+### 2.5 Resolución del tipo de issue — `✅ Implementado y probado` · US-02 CA6 · TK-02a (`resolveIssueType`; el Orquestador aún no lo invoca)
 
 Según `templates/issue-types.json`:
 
@@ -256,3 +256,4 @@ Detectados al cruzar las fuentes (análisis pre-código, 2026-11-01). Cada uno i
 | 2026-11-02 | H-03 resuelto: confirmación única y cancelable en el flujo `startTicket`; agregada al diagrama de `002` §2.1 y a los contratos de `006`. | H-03 · TK-02f · TK-03b |
 | 2026-11-02 | H-03 afinado: nuevo `GitManager.inspectRepository` (solo lectura) antes de la confirmación; `createBranch` después. Actualizados `002` §2.1, `006` (TK-02c, TK-02f, TK-03b) y §3.1 de este documento. | H-03 · TK-02c · TK-02f · TK-03b |
 | 2026-11-02 | H-02 resuelto: `--reprocesar` en `devflow start`; agregado US-03 CA9 en `005`, y ajustados `002`, `006` (TK-02f, TK-03b) y este documento. | H-02 · US-03 · TK-02f · TK-03b |
+| 2026-11-03 | TK-02a y TK-02b implementados: `StepResult`, `AppConfigProvider`, resolutor de tipo de issue (`branchType`; el prefijo lo arma el Orquestador) y cliente REST de Jira (búsqueda por `/rest/api/2/search/jql`, porque `/search` responde 410). Actualizados el estado del proyecto y los pasos 1.2, 1.4, 2.3, 2.4 y 2.5. | TK-02a · TK-02b |

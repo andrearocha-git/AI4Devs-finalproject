@@ -55,8 +55,8 @@ Ninguna falla de red o de credenciales llega al Orquestador como excepción: se 
 
 | Ruta | Acción |
 |---|---|
-| `src/services/jira/jira-rest-client.ts` | Crear (propuesta) |
-| `tests/unit/services/jira/jira-rest-client.test.ts` | Crear (propuesta) |
+| `src/services/jira/jira-rest-client.ts` | Creado |
+| `tests/unit/services/jira/jira-rest-client.test.ts` | Creado |
 
 Sin cambios en `eslint.config.js`: la regla de TK-02a ya impide que este módulo importe el storage manager. Los fixtures de tickets de TK-02a se reutilizan sin modificarlos.
 
@@ -70,7 +70,7 @@ Sin cambios en `eslint.config.js`: la regla de TK-02a ya impide que este módulo
 
 ## Decisiones y desvíos
 
-Pendientes de confirmar con el desarrollador (marcadas _(ambiguo)_ o _(asumido)_; se mueven aquí con su respuesta al aprobar):
+Decisiones tomadas al aprobar el contrato. Las etiquetas _(ambiguo)_ y _(asumido)_ se conservan como registro de lo que se propuso y el desarrollador aceptó:
 
 - _(asumido)_ **Constructor:** recibe `{ baseUrl, email, apiToken, timeoutSeconds, retryDelayMs?, sleep? }`, o sea, los campos correspondientes de `ResolvedAppConfig` más dos parámetros opcionales para poder probar sin esperas: `retryDelayMs` (por defecto ~2000 ms, el «backoff corto» de `docs/009` §2.3) y `sleep`. Usa `fetch` global y `AbortSignal.timeout`. En los tests el timeout puede ser fraccionario (p. ej. 0,05 s).
 - _(ambiguo)_ **Qué se reintenta:** el ticket habla de «un reintento con backoff corto» ante timeout. Propuesta: se reintenta una vez ante timeout, error de red y 5xx; **no** ante 401/403/404. Un 5xx persistente se clasifica como `FallbackManual('network_timeout')` (el ticket no lo menciona).

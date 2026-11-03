@@ -1,0 +1,9 @@
+{
+  "id": "10105",
+  "key": "SCRUM-1",
+  "fields": {
+    "summary": "Módulo de reportes",
+    "description": "Agrupa las historias relacionadas con la generación de reportes.",
+    "issuetype": { "name": "Epic" }
+  }
+}

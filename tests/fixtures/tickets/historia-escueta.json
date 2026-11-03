@@ -1,0 +1,9 @@
+{
+  "id": "10104",
+  "key": "SCRUM-22",
+  "fields": {
+    "summary": "Actualizar el texto del banner",
+    "description": "",
+    "issuetype": { "name": "Tarea" }
+  }
+}

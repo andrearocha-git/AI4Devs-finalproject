@@ -1,0 +1,15 @@
+{
+  "blockedTypes": ["Epic", "Épica"],
+  "types": {
+    "bug": {
+      "names": ["Bug", "Error", "Defecto"],
+      "branchType": "bugfix",
+      "promptVersion": "bug-v1"
+    },
+    "historia": {
+      "default": true,
+      "branchType": "feature",
+      "promptVersion": "historia-v1"
+    }
+  }
+}

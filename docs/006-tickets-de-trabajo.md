@@ -138,7 +138,7 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
 - **Historias de Usuario Relacionadas:** US-02, US-03
 
 - **Descripción y Alcance:**
-  Define lo que comparten los demás sub-tickets para que puedan avanzar en paralelo: el contrato `StepResult`, el proveedor de configuración inyectable, la resolución del tipo de issue con `templates/issue-types.json` (épica → bloqueada; Bug/Error/Defecto → `bug`; el resto → `historia`; prefijo de rama `features/` o `bugs/`; `promptVersion` por tipo), los fixtures de tickets en formato Jira v2 y la regla de lint que restringe quién importa `sqlite-storage-manager.ts`. Toma además las decisiones que TK-01 dejó abiertas (ver "Decisiones a cerrar").
+  Define lo que comparten los demás sub-tickets para que puedan avanzar en paralelo: el contrato `StepResult`, el proveedor de configuración inyectable, la resolución del tipo de issue con `templates/issue-types.json` (épica → bloqueada; Bug/Error/Defecto → `bug`; el resto → `historia`; tipo de rama `feature` o `bugfix`; `promptVersion` por tipo), los fixtures de tickets en formato Jira v2 y la regla de lint que restringe quién importa `sqlite-storage-manager.ts`. Toma además las decisiones que TK-01 dejó abiertas (ver "Decisiones a cerrar").
 
 - **Archivos a Crear / Modificar:**
   - `src/shared/errors/result.types.ts`
@@ -152,7 +152,7 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
 - **Contratos e Interfaces (Input/Output):**
   - `type StepResult<T> = { kind: 'Ok'; value: T } | { kind: 'FallbackManual'; reason: 'network_timeout' | 'invalid_token' | 'not_found' } | { kind: 'FallbackDeterminista'; rawText: string } | { kind: 'ErrorBloqueante'; subtype: 'RepositorioNoEncontrado' | 'CambiosPendientes' | 'PullFallido' | 'TipoIssueBloqueado' | 'PermisosInsuficientes' | 'ErrorInesperado'; message: string }`
   - `ContextoTicket { ticketId: string; title: string; description: string; issueType: string; source: 'jira' | 'manual' }`
-  - Resolutor de tipo: dado el `issueType` de Jira devuelve `{ tipo: 'bug' | 'historia'; prefijoRama: 'features' | 'bugs'; promptVersion: string }` o `ErrorBloqueante('TipoIssueBloqueado')` para épicas *(asumido: forma exacta del retorno)*.
+  - Resolutor de tipo: dado el `issueType` de Jira devuelve `StepResult<{ tipo: 'bug' | 'historia'; branchType: 'feature' | 'bugfix'; promptVersion: string }>`, con `ErrorBloqueante('TipoIssueBloqueado')` para épicas. El texto del prefijo (`features/`, `bugs/`) no lo devuelve el resolutor: lo arma el Orquestador con `AppConfig.branchPrefixFeature` / `branchPrefixBugfix` (decidido el 2026-11-02, una sola fuente de verdad).
 
 - **Decisiones a cerrar en este ticket** (heredadas de TK-01):
   - Umbral de cobertura de la Service Layer: **80 %** (decidido 2026-11-02); aquí solo se configura y se hace cumplir.
@@ -161,7 +161,7 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
 
 - **Criterios de Aceptación Técnicos** *(derivados del DoD y de las decisiones del ticket original; no tienen CA numerado en la versión previa)*:
   1. Los 4 tipos de `StepResult` están definidos y son discriminables por `kind` (verificado por el compilador y por un test de tipos o de estrechamiento).
-  2. El resolutor clasifica Epic/Épica como bloqueada, Bug/Error/Defecto como `bug` y cualquier otro tipo como `historia`, con el prefijo de rama y la `promptVersion` del tipo leídos de `templates/issue-types.json`.
+  2. El resolutor clasifica Epic/Épica como bloqueada, Bug/Error/Defecto como `bug` y cualquier otro tipo como `historia`, con el `branchType` y la `promptVersion` del tipo leídos de `templates/issue-types.json`.
   3. El proveedor de configuración rechaza una configuración con campos obligatorios ausentes y completa los valores por defecto; es inmutable y se inyecta por constructor.
   4. `npm run lint` falla si un archivo distinto del Orquestador (o de los tests) importa `src/database/sqlite-storage-manager.ts`.
 

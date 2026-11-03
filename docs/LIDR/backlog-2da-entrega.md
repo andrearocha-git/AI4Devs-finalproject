@@ -11,7 +11,7 @@
 | `docs/005-historias-de-usuario.md` | 3 historias: **US-01** (configurar, 6 CA), **US-02** (elegir y consultar el ticket en Jira, 6 CA), **US-03** (preparar rama, carpeta y documento con Ollama, 9 CA). |
 | `docs/006-tickets-de-trabajo.md` | **TK-00** y **TK-01** (hechos), **TK-02** (paraguas dividido en **TK-02a … TK-02g**), **TK-03** (paraguas dividido en **TK-03a** y **TK-03b**). |
 
-Estado: TK-00 y TK-01 implementados y verificados (43 tests, typecheck y lint en verde). Todo lo demás está especificado y sin código.
+Estado: TK-00, TK-01 y TK-02a implementados y verificados (96 tests, typecheck y lint en verde; TK-02a pendiente de revisión de la PR). Todo lo demás está especificado y sin código.
 
 **Observación INVEST (sin modificar nada).** US-03 falla S (Small): 9 CA y esfuerzo Alto. TK-03 también es grande (dos comandos, cuatro prompts y todas las pantallas de resultado). Por eso el orden de abajo entrega las historias **por criterios de aceptación**, no de una vez, y TK-03 ya se dividió en TK-03a y TK-03b (§4).
 
@@ -29,7 +29,7 @@ Estado: TK-00 y TK-01 implementados y verificados (43 tests, typecheck y lint en
 | # | Ticket | Estado |
 |---|---|---|
 | 0.1 | TK-00 Scaffold | ✅ Implementado |
-| 0.2 | TK-01 SQLite Storage Manager | ✅ Implementado (pendiente: tildar el DoD en `006`) |
+| 0.2 | TK-01 SQLite Storage Manager | ✅ Implementado |
 
 ### Hito 1 — «Configuro la herramienta contra mi Jira y mis repositorios» (US-01 completa)
 
@@ -37,7 +37,7 @@ Estado: TK-00 y TK-01 implementados y verificados (43 tests, typecheck y lint en
 
 | # | Ticket | Qué aporta | Depende de |
 |---|---|---|---|
-| 1.1 | **TK-02a** Base compartida | `StepResult`, configuración inyectable, resolutor de tipo, fixtures, regla de lint, umbral de cobertura | TK-01 |
+| 1.1 | **TK-02a** Base compartida ✅ | `StepResult`, configuración inyectable, resolutor de tipo, fixtures, regla de lint, umbral de cobertura | TK-01 |
 | 1.2 | **TK-02b** Jira REST Client | Validar claves, `displayName`, clasificación de fallos | 1.1 |
 | 1.3 | **TK-02c** Git Manager | `validateRepository` y `createBranch` completos | 1.1 |
 | 1.4 | **TK-02g** Orquestador: gestión | Alta, edición y baja de proyectos y repositorios; sufijo; errores claros | 1.2, 1.3 |

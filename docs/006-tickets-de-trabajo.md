@@ -101,7 +101,7 @@
   - [x] `SQLiteStorageManager` es el único módulo que importa `node:sqlite` (verificable por regla de lint/búsqueda estática).
   - [ ] Modo WAL habilitado; ruta del archivo configurable, con default `%APPDATA%\DevFlowCLI\devflow.db`. *(WAL y ruta configurable están hechos; el valor por defecto lo calcula quien instancia el manager y se resuelve en TK-02a, por eso sigue abierta)*
   - [x] Migraciones versionadas y documentadas en `src/database/migrations/`.
-  - [ ] Umbral de cobertura de tests en la Service Layer: **decidido (2026-11-02): 80 %**; se configura y verifica en TK-02a, cuando exista la Service Layer. Esta casilla se cierra con ese ticket.
+  - [x] Umbral de cobertura de tests en la Service Layer: **decidido (2026-11-02): 80 %**; configurado y verificado en TK-02a (`npm run test:coverage`).
   - [x] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---
@@ -166,9 +166,9 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
   4. `npm run lint` falla si un archivo distinto del Orquestador (o de los tests) importa `src/database/sqlite-storage-manager.ts`.
 
 - **Definition of Done (DoD):**
-  - [ ] Los fixtures cubren bug y historia (completos y escuetos) y una épica.
-  - [ ] Umbral de cobertura del 80 % configurado en `vitest.config.ts` para la Service Layer y registrado en `docs/changes/TK-02a.md`.
-  - [ ] Regla de lint verificada con un caso que la viola.
+  - [x] Los fixtures cubren bug y historia (completos y escuetos) y una épica.
+  - [x] Umbral de cobertura del 80 % configurado en `vitest.config.ts` para la Service Layer y registrado en `docs/changes/TK-02a.md`.
+  - [x] Regla de lint verificada con un caso que la viola.
   - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---

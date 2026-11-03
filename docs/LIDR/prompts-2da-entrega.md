@@ -262,14 +262,19 @@ Esta etapa continuó con Claude Code como agente ejecutor y el mismo esquema de 
 
 - Primera revisión de la PR de TK-02a (4 hallazgos reales, todos aplicados con TDD): rutas con solo espacios aceptadas en `ticketsRootPath`/`databasePath`; bloque de la TUI sin el patrón del storage manager; textos obligatorios guardados sin recortar. El segundo era un error del agente: había dicho que lo comprobó, pero solo lo probó con rutas que pasaban por `database/`. Lo reconoció y lo confirmó con `eslint --stdin` antes de corregirlo.
 - Segunda revisión: `resolveDatabasePath` no recortaba `APPDATA`. Arreglado con su test y una nota en el CA2 del contrato (sin reescribir el criterio de origen).
+- Revisión de la PR #2 (TK-02b), dos hallazgos medios, ambos reales y aplicados con TDD:
+  - `fetchTicket` devolvía `Ok` con una forma que no era `ContextoTicket` (una descripción en formato de documento, `summary: null`, `issuetype` sin `name`). Era un incumplimiento mío de la decisión sobre cuerpos 2xx inválidos: la apliqué en tres métodos y dejé el cuarto con un cast. Habría llegado hasta `resolveIssueType` como excepción.
+  - `listAssignedTickets` interpolaba las claves en la JQL: una clave como `FOO) OR (summary is not EMPTY` ampliaba la consulta a otros proyectos. El contrato asumía claves ya validadas; ahora el método rechaza las que no cumplen `^[A-Z][A-Z0-9_]+$`, sin llamar a Jira.
+- Esa misma revisión dejó tres hallazgos bajos, también aplicados: una URL base inválida se informaba como `network_timeout` (ahora `ErrorInesperado`), un `Retry-After` negativo daba una espera negativa (ahora se acota a 0) y faltaban dos tests (`/myself` caído por error de red y el backoff por defecto de 2000 ms, que nacieron en verde).
+- Cursor señaló además que la documentación quedó detrás del código (estado del backlog, `docs/009`, casillas del DoD y contratos). Era un olvido del agente al cerrar TK-02a y TK-02b: `CLAUDE.md` pide mantener `docs/009` al día. Se sincronizó en un commit aparte.
 - Dos observaciones se registraron sin tocar código por ser decisiones de política o de TK-03: un tipo de issue vacío cae en `historia` y la plantilla se carga con `readFileSync` relativo al módulo, lo que fallaría al emitir a `dist/`.
 
 ##### **Resultados de Calidad Obtenidos (TK-02a y TK-02b)**
 
-- Suite de pruebas: de 43 a 134 tests en verde (98 al cerrar TK-02a, 134 al cerrar TK-02b), con TDD en cada escenario: el test se escribió primero y se comprobó que fallaba por la razón esperada.
-- Cobertura: umbral del 80 % configurado para `src/services/**` (`npm run test:coverage`), verificado forzando un umbral imposible para comprobar que falla. Resultado actual: 98,8 % en sentencias, 96 % en ramas y 100 % en líneas.
+- Suite de pruebas: de 43 a 147 tests en verde (98 al cerrar TK-02a, 134 al cerrar TK-02b y 147 tras aplicar la revisión de la PR #2), con TDD en cada escenario: el test se escribió primero y se comprobó que fallaba por la razón esperada.
+- Cobertura: umbral del 80 % configurado para `src/services/**` (`npm run test:coverage`), verificado forzando un umbral imposible para comprobar que falla. Resultado actual: 100 % en sentencias, ramas, funciones y líneas (antes de la revisión de la PR #2 eran 98,8 % y 96 % en sentencias y ramas).
 - Análisis estático: la regla «solo el Orquestador importa `sqlite-storage-manager`» se comprobó con un archivo temporal que la violaba y rompió `npm run lint`; typecheck y lint sin errores.
-- Veredictos de `/05-verificar-y-revisar`: TK-02a y TK-02b «Aprobada con observaciones».
+- Veredictos de `/05-verificar-y-revisar`: TK-02a y TK-02b «Aprobada con observaciones». La revisión externa de Cursor encontró después problemas que el `/05` no había visto (el mapeo de `fetchTicket` y la JQL), lo que confirma el valor de un revisor distinto del implementador.
 - Trazabilidad: commits atómicos por grupo, con contratos aprobados antes del código y PR #1 (TK-02a) fusionada en `feature/TK-02`.
 
 #### Prompt utilizado para la bitácora (TK-02a y TK-02b)
@@ -309,6 +314,7 @@ Bitácora de la sesión (TK-02a y TK-02b)
 - Comprobé a mano contra tu Jira de pruebas el endpoint de búsqueda: /search da 410 y /search/jql da 200.
 - Decidiste que un cuerpo 2xx inválido sea ErrorInesperado.
 - /05: Aprobada con observaciones.
+- Revisión de Cursor (PR #2): 2 hallazgos medios y 3 bajos, todos reales. Se aplicaron con TDD (tests en rojo primero), se registraron en el contrato y quedó 147 tests con 100 % de cobertura en src/services. Además se sincronizó la documentación que había quedado atrás.
 
 5. Hallazgos
 
@@ -321,18 +327,20 @@ Míos:
 - El bloque de la TUI sin el patrón del storage manager: dije que lo había comprobado y Cursor lo encontró.
 - msw 3 renombró onUnhandledRequest a onUnhandledFrame.
 - El cuerpo 2xx inválido no estaba especificado y lo pregunté en lugar de decidirlo.
+- Aun así apliqué esa decisión solo en 3 de los 4 métodos: fetchTicket quedó con un cast y Cursor lo encontró.
+- No sincronicé docs/009, el backlog ni los contratos al cerrar TK-02a y TK-02b; lo señaló la revisión de la PR #2.
 
 6. Estado final
 
-- Rama: feature/TK-02b, árbol limpio, sin push.
-- Calidad: 134 tests, typecheck y lint en verde; cobertura de src/services 98,8 % (sentencias).
-- Commits: 47417c0, 7fd29ad, f23905b, 7164459, acbe2d1, 11fe767, d402b42, b7d2d90, ef6ce06, 789aac3 y 73fb1e6.
+- Rama: feature/TK-02b, árbol limpio; el push lo hacés vos.
+- Calidad: 147 tests, typecheck y lint en verde; cobertura de src/services 100 %.
+- Commits: 47417c0, 7fd29ad, f23905b, 7164459, acbe2d1, 11fe767, d402b42, b7d2d90, ef6ce06, 789aac3, 73fb1e6, da35486 (bitácora), 0a08472 (revisión de la PR #2) y 9a858e9 (sincronización de documentación).
 
 7. Pendiente
 
-1. Tuyo: push de feature/TK-02b, PR hacia feature/TK-02 y revisión de Cursor.
+1. Tuyo: push de feature/TK-02b y nueva pasada de Cursor sobre la PR #2; luego la merge hacia feature/TK-02.
 2. Tras la merge: tildar el DoD de TK-02b en docs/006 y marcar TK-02b en el backlog.
 3. Siguiente: TK-02c (Git Manager), luego TK-02d/e, TK-02f y TK-02g.
-4. Observaciones diferidas: tipo de issue vacío, carga de plantillas en dist/ (TK-03) y prueba contra Jira real de los otros tres métodos.
+4. Observaciones diferidas: tipo de issue vacío, carga de plantillas en dist/ (TK-03), validar jiraBaseUrl como URL en AppConfigProvider (TK-02g / TK-03a) y prueba contra Jira real de los otros tres métodos.
 5. Prueba en Windows (Hito 3), pendiente porque el desarrollo corre en WSL.
 ```

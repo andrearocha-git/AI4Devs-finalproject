@@ -18,8 +18,8 @@
 ## 0. Resumen del flujo
 
 ```text
-Etapa 1: Instalación y configuración (devflow config / config proyectos)      US-01 · TK-01 · TK-03
-Etapa 2: Selección y consulta del ticket (devflow start [ID])                  US-02 · TK-02 · TK-03
+Etapa 1: Instalación y configuración (devflow config / config proyectos)      US-01 · TK-01 · TK-03a
+Etapa 2: Selección y consulta del ticket (devflow start [ID])                  US-02 · TK-02 · TK-03b
 Etapa 3: Preparación del entorno (Git + carpetas)                              US-03 · TK-02
 Etapa 4: Generación asistida (Ollama → Fase 1 → documento)                     US-03 · TK-02
 Etapa 5: Fase 2 manual + registro en SQLite                                    TK-01 · TK-02
@@ -31,7 +31,7 @@ Contrato de resultado de cada paso orquestado: `Ok | FallbackManual | FallbackDe
 
 ## 1. ⚙️ Instalación y configuración inicial
 
-**Historias:** US-01 · **Tickets:** TK-01 (storage), TK-02 (validaciones), TK-03 (comandos)
+**Historias:** US-01 · **Tickets:** TK-01 (storage), TK-02 (validaciones), TK-03a (comandos)
 
 ### 1.1 Requisitos del entorno — `📄 Especificado`
 
@@ -51,7 +51,7 @@ Ref.: `002` §2.2.1.
 - `SQLiteStorageManager` aplica las migraciones de forma idempotente (TK-01 CA7) y crea `devflow.db` en modo **WAL** con las 4 tablas: `app_config`, `jira_projects`, `repositories`, `ticket_logs`.
 - La configuración se resuelve **una sola vez** al arrancar y el Orquestador la inyecta por constructor a Jira, Ollama, Git y FileSystem. Ningún componente de integración lee SQLite.
 
-### 1.3 `devflow config` — sufijo de usuario y credenciales — `📄 Especificado` · US-01 CA4 · TK-03
+### 1.3 `devflow config` — sufijo de usuario y credenciales — `📄 Especificado` · US-01 CA4 · TK-03a
 
 1. El usuario carga `jira_base_url`, email y API Token en `app_config`.
 2. El Orquestador llama a `GET /myself`, toma el `displayName` y propone el sufijo: inicial del nombre + último apellido, sin acentos y en mayúsculas (p. ej. `AROCHA`).
@@ -59,7 +59,7 @@ Ref.: `002` §2.2.1.
 
 > Los nombres de los comandos `devflow config` y `devflow config proyectos` están decididos (hueco **H-06**, resuelto). El token se guarda en claro en `app_config` en el MVP (H-05, decidido; ver `002` §2.5).
 
-### 1.4 `devflow config proyectos` — claves y repositorios — `📄 Especificado` · US-01 CA1-3, CA5-6 · TK-02/TK-03
+### 1.4 `devflow config proyectos` — claves y repositorios — `📄 Especificado` · US-01 CA1-3, CA5-6 · TK-02/TK-03a
 
 - **Alta de clave:** se valida con `GET /rest/api/2/project/{key}` (la JQL ignora sin error las claves inexistentes). Ante un 404 se llama a `/myself`: **401 = token inválido**, **200 = la clave no existe**. Se guarda con el nombre del proyecto.
 - **Alta de repositorio** (0..N por clave): nombre (`backend`), ruta local y rama base (por defecto `main`). `GitManager.validateRepository` comprueba que sea un repo Git con remoto `origin` y que la rama base exista en el remoto.
@@ -74,13 +74,13 @@ Ref.: `002` §2.2.1.
 
 **Historias:** US-02 · **Tickets:** TK-02 (Jira/Orquestador), TK-03 (prompts)
 
-### 2.1 Entrada — `devflow start [ID] [--base rama] [--reprocesar]` — `📄 Especificado` · TK-03
+### 2.1 Entrada — `devflow start [ID] [--base rama] [--reprocesar]` — `📄 Especificado` · TK-03b
 
 - **Sin ID:** la TUI llama a `TicketOrchestrator.listAssignedTickets()`. El cliente Jira ejecuta
   `project in (…) AND assignee = currentUser() AND statusCategory != Done AND issuetype != Epic ORDER BY updated DESC` y el usuario elige uno (US-02 CA1).
 - **Con ID:** la TUI valida el formato `^[A-Z][A-Z0-9_]+-\d+$` antes de invocar al Orquestador; si es inválido, muestra el error sin llamar a nada (TK-03 CA1).
 
-### 2.2 Validación de clave y selección de repositorio — `📄 Especificado` · US-02 CA3 · TK-02/TK-03
+### 2.2 Validación de clave y selección de repositorio — `📄 Especificado` · US-02 CA3 · TK-02/TK-03b
 
 - `listRepositoriesForTicket(ID)` deriva la clave del ID. Si la clave **no está configurada**, falla **antes de llamar a Jira** y muestra las claves disponibles.
 - Si la clave tiene varios repositorios, el usuario elige uno; con uno solo se preselecciona; sin repositorios no hay selección y no se pasa `repositoryId` (TK-03 CA4).
@@ -92,7 +92,7 @@ Ref.: `002` §2.2.1.
 - La `description` llega en texto plano y se mapea de forma determinista a `ContextoTicket` (sin LLM).
 - Un reintento con backoff corto (~2 s) ante timeout.
 
-### 2.4 Fallback manual — `📄 Especificado` · US-02 CA4-5 · TK-02/TK-03
+### 2.4 Fallback manual — `📄 Especificado` · US-02 CA4-5 · TK-02/TK-03b
 
 | Causa | Detección | Resultado |
 |---|---|---|
@@ -194,7 +194,7 @@ Rama: `<prefijo>/<ID>-<SUFIJO>` (p. ej. `features/SCRUM-1-AROCHA`).
 - Alimenta la métrica **tasa de éxito sin fallback** del PRD.
 - El cierre de la Fase 2 **no se registra** en el MVP (H-01, resuelto como fuera de alcance; ver `PRD` §4).
 
-### 5.2 Resumen en la TUI — `📄 Especificado` · TK-03 CA6-7
+### 5.2 Resumen en la TUI — `📄 Especificado` · TK-03b CA6-7
 
 - Éxito: rama, carpeta y documento — "Ticket ID listo para trabajar".
 - Avisos distinguibles: `⚠️ Generado sin Ollama`; "análisis reutilizado" (`reused`); pantallas de bloqueo (cambios pendientes con archivos, pull fallido, épica, repositorio no encontrado). Un resumen con `blocked` **nunca** muestra pantalla de éxito.

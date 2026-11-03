@@ -9,11 +9,11 @@
 | Archivo | Contenido |
 |---|---|
 | `docs/005-historias-de-usuario.md` | 3 historias: **US-01** (configurar, 6 CA), **US-02** (elegir y consultar el ticket en Jira, 6 CA), **US-03** (preparar rama, carpeta y documento con Ollama, 9 CA). |
-| `docs/006-tickets-de-trabajo.md` | **TK-00** y **TK-01** (hechos), **TK-02** (paraguas dividido en **TK-02a … TK-02g**), **TK-03** (TUI). |
+| `docs/006-tickets-de-trabajo.md` | **TK-00** y **TK-01** (hechos), **TK-02** (paraguas dividido en **TK-02a … TK-02g**), **TK-03** (paraguas dividido en **TK-03a** y **TK-03b**). |
 
 Estado: TK-00 y TK-01 implementados y verificados (43 tests, typecheck y lint en verde). Todo lo demás está especificado y sin código.
 
-**Observación INVEST (sin modificar nada).** US-03 falla S (Small): 9 CA y esfuerzo Alto. TK-03 también es grande (dos comandos, cuatro prompts y todas las pantallas de resultado). Por eso el orden de abajo entrega las historias **por criterios de aceptación**, no de una vez, y la §4 sugiere dividir TK-03.
+**Observación INVEST (sin modificar nada).** US-03 falla S (Small): 9 CA y esfuerzo Alto. TK-03 también es grande (dos comandos, cuatro prompts y todas las pantallas de resultado). Por eso el orden de abajo entrega las historias **por criterios de aceptación**, no de una vez, y TK-03 ya se dividió en TK-03a y TK-03b (§4).
 
 ## 2. Principio de orden
 
@@ -41,7 +41,7 @@ Estado: TK-00 y TK-01 implementados y verificados (43 tests, typecheck y lint en
 | 1.2 | **TK-02b** Jira REST Client | Validar claves, `displayName`, clasificación de fallos | 1.1 |
 | 1.3 | **TK-02c** Git Manager | `validateRepository` y `createBranch` completos | 1.1 |
 | 1.4 | **TK-02g** Orquestador: gestión | Alta, edición y baja de proyectos y repositorios; sufijo; errores claros | 1.2, 1.3 |
-| 1.5 | **TK-03a** *(sugerido, §4)* CLI base + `devflow config` | `cli.ts`, `config.command.ts`, prompts de alta | 1.4 |
+| 1.5 | **TK-03a** CLI base + `devflow config` | `cli.ts`, `config.command.ts`, prompts de alta | 1.4 |
 
 *Nota de orden:* 1.2 y 1.3 son independientes y pueden ir en paralelo. `createBranch` ya queda implementado aquí aunque aún nadie lo use; se verifica con repositorios temporales.
 
@@ -62,7 +62,7 @@ Estado: TK-00 y TK-01 implementados y verificados (43 tests, typecheck y lint en
 | 2.1 | **TK-02d** FileSystem Manager + plantillas | Carpeta y documento fuera del repo, Fase 1 idempotente, `fase1.json` | 1.1 |
 | 2.2 | **TK-02e** Ollama AI Transformer | Prompts, schemas, Ajv, posprocesado, fallback | 1.1 |
 | 2.3 | **TK-02f** Orquestador: `startTicket` | Flujo completo, `ticket_logs`, reutilización de Fase 1 | 1.2, 1.3, 2.1, 2.2 |
-| 2.4 | **TK-03b** *(sugerido, §4)* `devflow start` | Selección de ticket y repositorio, carga manual, confirmación, progreso, pantallas de resultado | 2.3 |
+| 2.4 | **TK-03b** `devflow start` | Selección de ticket y repositorio, carga manual, confirmación, progreso, pantallas de resultado | 2.3 |
 
 *Nota de orden:* 2.1 y 2.2 son independientes (se pueden paralelizar). Si Ollama se retrasa, 2.2 puede entrar con solo el camino de fallback determinista y completarse después sin bloquear 2.3, siempre que el contrato del ticket lo apruebe.
 
@@ -89,10 +89,10 @@ Estado: TK-00 y TK-01 implementados y verificados (43 tests, typecheck y lint en
 
 ## 4. Sugerencias de cambio al backlog (no aplicadas)
 
-1. **Dividir TK-03** (ahora una sola unidad de esfuerzo Medio que en la práctica es grande) en dos tickets, para poder entregar el Hito 1 sin esperar al Orquestador completo:
+1. ✅ **Aplicada (2026-11-02): dividir TK-03** (antes una sola unidad de esfuerzo Medio que en la práctica es grande) en dos tickets, para poder entregar el Hito 1 sin esperar al Orquestador completo:
    - **TK-03a** — `src/tui/cli.ts`, `config.command.ts` y los prompts de alta de claves, repositorios y sufijo. Depende de TK-02g.
    - **TK-03b** — `start.command.ts`, selección de ticket y repositorio, carga manual, confirmación, spinner y pantallas de resultado. Depende de TK-02f.
-   Si se aprueba, TK-03 pasa a ser paraguas (como TK-02) y `006` se actualiza.
+   TK-03 pasó a ser paraguas (como TK-02) y `006` y `README.md` ya lo reflejan.
 2. **Alternativa más fina para el Hito 1:** dividir TK-02g en «proyectos y sufijo» (depende solo de TK-02b) y «repositorios» (depende de TK-02c). Permite una primera demo con solo Jira. Solo vale la pena si 02b llega bastante antes que 02c.
 3. **Entregar US-03 por criterios** (sin tocar el texto de la historia): la tabla de abajo es la trazabilidad CA → tickets.
 
@@ -138,7 +138,7 @@ TK-00 ─► TK-01 ─► TK-02a ─┬─► TK-02b ─┬─► TK-02g ─► 
 | ~~Comportamiento del checkout con la rama ya existente (**H-04**)~~ — **decidido (2026-11-02): solo informar, sin checkout** | — | `009` |
 | ~~Cómo se pide reprocesar la Fase 1 (**H-02**)~~ — **decidido (2026-11-02): `--reprocesar`** | — | `009` |
 | ~~`ConfirmActionsPrompt` en el diagrama de secuencia (**H-03**)~~ — **decidido (2026-11-02): confirmación única, cancelable** | — | `009` |
-| Aprobación de las sugerencias de la §4 | `/03-refinar-historia TK-03a` | este documento |
+| ~~Aprobación de dividir TK-03 (§4, punto 1)~~ — **aprobada (2026-11-02)**. Los puntos 2 y 3 de la §4 siguen sin aplicar | — | este documento |
 
 ## 8. Antes de empezar el Hito 1
 

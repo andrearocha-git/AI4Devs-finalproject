@@ -125,7 +125,7 @@
 | **TK-02f** | Orquestador: flujo `startTicket` y `ticket_logs` | CA5 | Alto | TK-02b, c, d, e |
 | **TK-02g** | Orquestador: gestión de configuración, proyectos y repositorios para la TUI | Contrato TUI | Medio | TK-02b, TK-02c |
 
-Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02f → TK-02g. TK-03 depende de TK-02f y TK-02g.
+Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02f → TK-02g. TK-03a depende de TK-02g y TK-03b de TK-02f (y de TK-03a).
 
 **Reglas comunes a todos los sub-tickets** (Decisiones 1, 3 y 4 de la auditoría): toda configuración (credenciales, host, timeouts, sufijo de rama, raíz de tickets) se resuelve una única vez y se inyecta por constructor; ningún componente de la Service Layer accede a SQLite directamente (solo el Orquestador, vía `SQLiteStorageManager` de TK-01); todo paso devuelve `StepResult` y ninguna falla de una integración llega a la TUI como excepción cruda.
 
@@ -343,32 +343,75 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
   3. `removeProject` / `removeRepository` con historial en `ticket_logs` lanzan o devuelven un error con un mensaje claro, no el texto crudo de SQLite.
 
 - **Definition of Done (DoD):**
-  - [ ] La TUI (TK-03) puede cubrir todo US-01 usando solo estos métodos.
+  - [ ] La TUI (TK-03a) puede cubrir todo US-01 usando solo estos métodos.
   - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---
 
-### TK-03: Controlador CLI e Interfaz Interactiva de Terminal (Windows)
+### TK-03: Controlador CLI e Interfaz Interactiva de Terminal (Windows) (ticket paraguas dividido en TK-03a y TK-03b)
 
-- **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 3 | **Esfuerzo:** Medio
+- **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 3 | **Esfuerzo total:** Medio-Alto
 - **Dependencias Previas:** TK-01, TK-02f, TK-02g (el TK-02 original se dividió; ver la tabla en TK-02)
-
 - **Capa / Módulo:** Frontend / TUI (TUI Layer)
-
 - **Historias de Usuario Relacionadas:** US-01, US-02, US-03
 
+> **División (2026-11-02).** El TK-03 original (dos comandos, cuatro prompts de flujo, uno de alta y tres vistas) era demasiado grande para un contrato de 2-3 escenarios y 5 tareas, y obligaba a esperar al Orquestador completo (TK-02f) para entregar nada. Se divide en dos sub-tickets, cada uno con su propio contrato en `docs/changes/TK-03x.md`. **TK-03 deja de implementarse como unidad**: es solo el paraguas; se considera cerrado cuando TK-03a y TK-03b lo están. Los criterios técnicos originales CA1-CA9 se conservan dentro del sub-ticket que los cubre.
+
+| Sub-ticket | Alcance | CA originales | Esfuerzo | Depende de |
+|---|---|---|---|---|
+| **TK-03a** | CLI base (`cli.ts`) y `devflow config` / `devflow config proyectos` con sus prompts de alta | CA9 | Medio | TK-02g |
+| **TK-03b** | `devflow start`: selección de ticket y repositorio, carga manual, confirmación, progreso y pantallas de resultado | CA1-CA8 | Medio-Alto | TK-02f, TK-03a |
+
+Orden: TK-03a (Hito 1, ya con TK-02g) → TK-03b (Hito 2, con TK-02f).
+
+**Reglas comunes a ambos sub-tickets:** **sin Ink** (Ink e inquirer compiten por stdin); la TUI nunca accede directamente a Jira, Git, Ollama, SQLite o al sistema de archivos — todo pasa por el Orquestador; la comunicación es asíncrona basada en eventos, no una llamada bloqueante única (Decisión 1 de la auditoría de arquitectura).
+
+---
+
+#### TK-03a: CLI base y comando `devflow config`
+
+- **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 3 (1.º) | **Esfuerzo:** Medio
+- **Dependencias Previas:** TK-02g
+- **Historias de Usuario Relacionadas:** US-01
+
 - **Descripción y Alcance:**
-  Implementar el punto de entrada de línea de comandos con Commander — `devflow start [ID] [--base <rama>] [--reprocesar]` y `devflow config` (sufijo de usuario y `devflow config proyectos`: agregar, listar, editar y quitar claves y repositorios) —, el parsing/validación del ID antes de invocar al Orquestador, los prompts interactivos con `@inquirer/prompts` (elección de ticket en la lista de asignados, elección de repositorio —preseleccionado si la clave tiene uno solo—, carga manual de datos de Jira ante `FallbackManual`, confirmación de acciones, alta de claves y repositorios) y el renderizado de progreso en vivo mediante un spinner simple que consume los eventos `onStep` emitidos por el Orquestador (TK-02f), incluido el progreso del *streaming* de Ollama — comunicación asíncrona basada en eventos, no una llamada bloqueante única (Decisión 1 de la auditoría de arquitectura). **Sin Ink**: Ink e inquirer compiten por stdin. Incluye las pantallas de resultado final y las de aviso de `FallbackManual` / `FallbackDeterminista` / `ErrorBloqueante` (listado de cambios pendientes, fallo del pull, aviso de épica), cada una con un mensaje distinguible para el usuario. La TUI nunca accede directamente a Jira, Git, Ollama, SQLite o al sistema de archivos — todo pasa por el Orquestador.
+  Punto de entrada de línea de comandos con Commander (`cli.ts`, que también instancia el Orquestador con la ruta de la base) y el comando `devflow config`: propone el sufijo de usuario sugerido desde Jira, que el usuario confirma o edita, y, con `devflow config proyectos`, permite agregar, listar, editar y quitar claves de proyecto y repositorios (con su rama base) mediante prompts de `@inquirer/prompts`. Traduce a mensajes claros los errores del Orquestador (p. ej. el borrado con historial, pendiente desde TK-01). Los flags y subcomandos concretos se fijan al refinar este ticket (H-06).
 
 - **Archivos a Crear / Modificar:**
   - `src/tui/cli.ts`
-  - `src/tui/commands/start.command.ts`
   - `src/tui/commands/config.command.ts` *(nombres decididos el 2026-11-02, H-06: `devflow config` y `devflow config proyectos`; ningún documento base los definía, y sin ellos las tablas de configuración no podrían poblarse nunca)*
+  - `src/tui/prompts/project-config.prompt.ts`
+  - `tests/unit/tui/*.test.ts`
+
+- **Contratos e Interfaces (Input/Output):**
+  - Entrada: `devflow config` y `devflow config proyectos`; usa solo los métodos de gestión del Orquestador definidos en TK-02g.
+
+- **Criterios de Aceptación Técnicos:**
+  1. `devflow config proyectos` permite agregar una clave (validada por el Orquestador), asociarle repositorios con su rama base y quitar claves o repositorios; y `devflow config` propone el sufijo de usuario sugerido desde Jira, que el usuario confirma o edita. *(CA9 del TK-03 original)*
+
+- **Definition of Done (DoD):**
+  - [ ] La TUI no importa clientes de Jira/Git/Ollama ni el storage manager — solo invoca al Orquestador (verificable por revisión de imports).
+  - [ ] Los nombres `devflow config` y `devflow config proyectos` están decididos (H-06); los flags y subcomandos concretos se fijan al refinar este ticket y se validan antes de cerrarlo.
+  - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
+
+---
+
+#### TK-03b: Comando `devflow start` (selección, confirmación, progreso y pantallas de resultado)
+
+- **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 3 (2.º) | **Esfuerzo:** Medio-Alto
+- **Dependencias Previas:** TK-02f, TK-03a
+- **Historias de Usuario Relacionadas:** US-02, US-03
+
+- **Descripción y Alcance:**
+  Comando `devflow start [ID] [--base <rama>] [--reprocesar]` (registrado en el `cli.ts` de TK-03a): parsing/validación del ID antes de invocar al Orquestador, prompts interactivos (elección de ticket en la lista de asignados, elección de repositorio —preseleccionado si la clave tiene uno solo—, carga manual de datos de Jira ante `FallbackManual`, confirmación única de acciones) y progreso en vivo mediante un spinner simple que consume los eventos `onStep` del Orquestador (TK-02f), incluido el progreso del *streaming* de Ollama. Incluye las pantallas de resultado final y las de aviso de `FallbackManual` / `FallbackDeterminista` / `ErrorBloqueante` (listado de cambios pendientes, fallo del pull, aviso de épica), cada una con un mensaje distinguible.
+
+- **Archivos a Crear / Modificar:**
+  - `src/tui/cli.ts` *(modificar: registrar `start`)*
+  - `src/tui/commands/start.command.ts`
   - `src/tui/prompts/ticket-selection.prompt.ts`
   - `src/tui/prompts/repository-selection.prompt.ts`
   - `src/tui/prompts/manual-ticket-entry.prompt.ts`
   - `src/tui/prompts/confirm-actions.prompt.ts`
-  - `src/tui/prompts/project-config.prompt.ts`
   - `src/tui/views/progress-view.ts`
   - `src/tui/views/summary-view.ts`
   - `src/tui/views/fallback-view.ts`
@@ -393,13 +436,11 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
   6. Al recibir eventos de progreso sucesivos (`started` → `ok` por paso), la vista de progreso actualiza el estado de cada paso sin bloquear el hilo principal.
   7. Al finalizar con `ollamaStatus: 'fallback_deterministic'`, `SummaryView` muestra explícitamente el aviso `⚠️ Generado sin Ollama`; con `'reused'`, indica que se reutilizó el análisis del ticket.
   8. Al recibir un resumen con `blocked` (`RepositorioNoEncontrado`, `CambiosPendientes` con la lista de archivos, `PullFallido`, `TipoIssueBloqueado`), la TUI muestra el mensaje correspondiente y no renderiza una pantalla de éxito.
-  9. `devflow config proyectos` permite agregar una clave (validada por el Orquestador), asociarle repositorios con su rama base y quitar claves o repositorios; y `devflow config` propone el sufijo de usuario sugerido desde Jira, que el usuario confirma o edita.
 
 - **Definition of Done (DoD):**
   - [ ] La TUI no importa clientes de Jira/Git/Ollama ni el storage manager — solo invoca al Orquestador (verificable por revisión de imports).
   - [ ] Los 4 estados de resultado tienen una pantalla/mensaje distinguible para el usuario.
   - [ ] Progreso en vivo (spinner) funcional sin llamada bloqueante única y sin dependencia de Ink.
-  - [ ] Los nombres `devflow config` y `devflow config proyectos` están decididos (H-06); los flags y subcomandos concretos se fijan al refinar TK-03a y se validan antes de cerrar el ticket.
   - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---

@@ -29,11 +29,20 @@ function expectString(value: unknown): string {
   return value;
 }
 
+/** Como `expectString`, pero admite ausente o `null` (se trata como cadena vacía); cualquier otro tipo lanza. */
+function optionalString(value: unknown): string {
+  if (value === undefined || value === null) return "";
+  return expectString(value);
+}
+
+/** Formato de una clave de proyecto de Jira (el mismo que el de la clave dentro de un ID de ticket). */
+const PROJECT_KEY_FORMAT = /^[A-Z][A-Z0-9_]+$/;
+
 const networkTimeout = { kind: "FallbackManual", reason: "network_timeout" } as const;
 const invalidToken = { kind: "FallbackManual", reason: "invalid_token" } as const;
 
 interface JiraIssueResponse {
-  fields: { summary: string; description?: string | null; issuetype: { name: string } };
+  fields: { summary: unknown; description?: unknown; issuetype: { name: unknown } };
 }
 
 /**
@@ -43,6 +52,7 @@ interface JiraIssueResponse {
  */
 export class JiraRestClient {
   private readonly baseUrl: string;
+  private readonly hasValidBaseUrl: boolean;
   private readonly authorization: string;
   private readonly timeoutMs: number;
   private readonly retryDelayMs: number;
@@ -51,6 +61,7 @@ export class JiraRestClient {
   /** @param options Host, credenciales y timeouts; ver {@link JiraRestClientOptions}. */
   constructor(options: JiraRestClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/+$/, "");
+    this.hasValidBaseUrl = URL.canParse(this.baseUrl);
     this.authorization = `Basic ${Buffer.from(`${options.email}:${options.apiToken}`).toString("base64")}`;
     this.timeoutMs = options.timeoutSeconds * 1000;
     this.retryDelayMs = options.retryDelayMs ?? 2000;
@@ -63,16 +74,17 @@ export class JiraRestClient {
    * @param ticketId Clave del ticket (p. ej. `SCRUM-12`); se codifica en la URL.
    * @returns `Ok` con el contexto (`description` en texto plano, `""` si Jira la devuelve vacía o `null`);
    * `FallbackManual` con el motivo si Jira no responde (`network_timeout`, tras un reintento), rechaza el token
-   * (`invalid_token`) o el ticket no existe (`not_found`); `ErrorBloqueante('ErrorInesperado')` ante otro código HTTP.
+   * (`invalid_token`) o el ticket no existe (`not_found`); `ErrorBloqueante('ErrorInesperado')` ante otro código HTTP,
+   * una URL base inválida o un cuerpo 2xx cuyos campos no son del tipo esperado (p. ej. `summary: null`).
    */
   fetchTicket(ticketId: string): Promise<StepResult<ContextoTicket>> {
     return this.call(`/rest/api/2/issue/${encodeURIComponent(ticketId)}?fields=summary,description,issuetype`, (body) => {
       const issue = body as JiraIssueResponse;
       return {
         ticketId,
-        title: issue.fields.summary,
-        description: issue.fields.description ?? "",
-        issueType: issue.fields.issuetype.name,
+        title: expectString(issue.fields.summary),
+        description: optionalString(issue.fields.description),
+        issueType: expectString(issue.fields.issuetype.name),
         source: "jira" as const,
       };
     });
@@ -97,13 +109,23 @@ export class JiraRestClient {
    * Lista los tickets abiertos asignados al usuario en las claves dadas, del más reciente al más antiguo.
    *
    * @param projectKeys Claves de proyecto dadas de alta. Con una lista vacía devuelve `Ok([])` sin llamar a Jira
-   * (una JQL con `project in ()` es inválida).
-   * @returns `Ok` con hasta 50 tickets (sin paginación, MVP) o el fallo clasificado como en `fetchTicket`.
+   * (una JQL con `project in ()` es inválida). Cada clave debe cumplir `^[A-Z][A-Z0-9_]+$`: se interpolan en la JQL
+   * y una clave con sintaxis JQL podría ampliar la consulta a otros proyectos.
+   * @returns `Ok` con hasta 50 tickets (sin paginación, MVP); `ErrorBloqueante('ErrorInesperado')` nombrando la
+   * clave, sin llamar a Jira, si alguna no cumple el formato; o el fallo clasificado como en `fetchTicket`.
    */
   listAssignedTickets(
     projectKeys: string[],
   ): Promise<StepResult<Array<{ ticketId: string; title: string; issueType: string }>>> {
     if (projectKeys.length === 0) return Promise.resolve({ kind: "Ok", value: [] });
+    const invalidKey = projectKeys.find((key) => !PROJECT_KEY_FORMAT.test(key));
+    if (invalidKey !== undefined) {
+      return Promise.resolve({
+        kind: "ErrorBloqueante",
+        subtype: "ErrorInesperado",
+        message: `La clave de proyecto «${invalidKey}» no tiene un formato válido (se espera, p. ej., SCRUM).`,
+      });
+    }
     const jql = `project in (${projectKeys.join(", ")}) AND assignee = currentUser() AND statusCategory != Done AND issuetype != Epic ORDER BY updated DESC`;
     return this.call(`/rest/api/2/search/jql?jql=${encodeURIComponent(jql)}&fields=summary,issuetype&maxResults=50`, (body) => {
       const { issues } = body as { issues: unknown };
@@ -130,6 +152,13 @@ export class JiraRestClient {
    * Un 404 se distingue con `/myself`: 401/403 = token inválido, 200 = el recurso no existe.
    */
   private async call<T>(path: string, map: (body: unknown) => T): Promise<StepResult<T>> {
+    if (!this.hasValidBaseUrl) {
+      return {
+        kind: "ErrorBloqueante",
+        subtype: "ErrorInesperado",
+        message: "La URL base de Jira no es válida; revisa la configuración (jiraBaseUrl).",
+      };
+    }
     const attempt = await this.request(path);
     if (attempt.kind === "unreachable") return networkTimeout;
     const { response } = attempt;
@@ -180,7 +209,7 @@ export class JiraRestClient {
     if (status !== 429) return undefined;
     const retryAfter = headers.get("Retry-After");
     const seconds = retryAfter === null ? NaN : Number(retryAfter);
-    return Number.isFinite(seconds) ? Math.min(seconds * 1000, MAX_RETRY_AFTER_MS) : this.retryDelayMs;
+    return Number.isFinite(seconds) ? Math.max(0, Math.min(seconds * 1000, MAX_RETRY_AFTER_MS)) : this.retryDelayMs;
   }
 
   private async send(path: string): Promise<Attempt> {

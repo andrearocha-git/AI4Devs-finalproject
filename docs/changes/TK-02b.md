@@ -92,3 +92,12 @@ Registro de la implementación (2026-11-03):
 - **JQL:** las claves de proyecto se separan con coma y espacio dentro de `project in (…)` sin comillas; se asume que ya fueron validadas al darlas de alta.
 - **Cobertura (tarea 4):** con el cliente incluido, `src/services/**` marca 98,8 % en sentencias, 96 % en ramas, 100 % en funciones y 100 % en líneas (umbral del 80 %).
 - **Refactor (tarea 5):** `fetchTicket` deja de ser `async` (devuelve la promesa de `call`), la lectura de `Retry-After` se simplifica sin cambiar su comportamiento y se completa el TSDoc de `email`. Typecheck, lint y 134 tests en verde.
+
+Ajustes tras la revisión de la PR #2 (2026-11-03, aprobados por el desarrollador, aplicados con TDD):
+
+- **Mapeo estricto de `fetchTicket`:** `summary` e `issuetype.name` deben ser texto y `description` solo texto, `null` o ausente (`""`); cualquier otro tipo (p. ej. una descripción en formato de documento, o `summary: null`) da `ErrorBloqueante('ErrorInesperado')`. Corrige un incumplimiento de la decisión sobre cuerpos 2xx inválidos, que solo se había aplicado a los otros tres métodos; evita además que un `issueType` ausente llegue a `resolveIssueType` y lance un `TypeError`.
+- **Claves en la JQL:** `listAssignedTickets` rechaza antes de llamar a Jira toda clave que no cumpla `^[A-Z][A-Z0-9_]+$` con `ErrorInesperado` que nombra la clave. Sustituye la suposición «claves ya validadas al darlas de alta»: el método es público y la interpolación permitía ampliar la consulta a otros proyectos.
+- **URL base inválida:** todos los métodos devuelven `ErrorInesperado` (error de configuración) en lugar de `network_timeout`; timeout y fallo de red siguen en `network_timeout`. `AppConfigProvider` (TK-02a) tampoco valida que `jiraBaseUrl` sea una URL; se deja anotado para TK-02g / TK-03a.
+- **`Retry-After` negativo:** la espera se acota a un mínimo de 0. Una fecha HTTP en la cabecera sigue cayendo al backoff por defecto (Jira Cloud envía segundos).
+- **Tests que faltaban:** `/myself` caído por error de red tras un 404, y backoff por defecto de 2000 ms sin `retryDelayMs`. Nacieron en verde porque fijan comportamiento ya correcto.
+- **Sin cambios, a propósito:** un 429 agotado sigue siendo `network_timeout` (el motivo no admite otro valor) y la búsqueda se corta en 50 sin seguir `nextPageToken`.

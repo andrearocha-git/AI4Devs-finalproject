@@ -349,3 +349,84 @@ describe("E3 — claves, tickets asignados y nombre de la cuenta (TK-02b CA1 val
     });
   });
 });
+
+describe("Revisión de la PR #2 — mapeo estricto, claves, URL base y reintentos", () => {
+  const issueUrl = `${BASE_URL}/rest/api/2/issue/:id`;
+  const myselfUrl = `${BASE_URL}/rest/api/2/myself`;
+  const unexpected = { kind: "ErrorBloqueante", subtype: "ErrorInesperado" };
+  const issueWith = (fields: Record<string, unknown>) => HttpResponse.json({ key: "SCRUM-12", fields });
+
+  describe("fetchTicket rechaza campos con tipos incorrectos", () => {
+    it.each([
+      ["descripción como objeto (formato de documento)", { summary: "t", description: { type: "doc" }, issuetype: { name: "Bug" } }],
+      ["summary null", { summary: null, description: "d", issuetype: { name: "Bug" } }],
+      ["issuetype sin name", { summary: "t", description: "d", issuetype: {} }],
+      ["issuetype ausente", { summary: "t", description: "d" }],
+    ])("%s da ErrorInesperado", async (_caso, fields) => {
+      server.use(http.get(issueUrl, () => issueWith(fields)));
+      expect(await newClient().fetchTicket("SCRUM-12")).toMatchObject(unexpected);
+    });
+
+    it("acepta la descripción ausente y la trata como cadena vacía", async () => {
+      server.use(http.get(issueUrl, () => issueWith({ summary: "t", issuetype: { name: "Bug" } })));
+      expect(await newClient().fetchTicket("SCRUM-12")).toMatchObject({ kind: "Ok", value: { description: "" } });
+    });
+  });
+
+  describe("listAssignedTickets valida las claves antes de armar la JQL", () => {
+    it.each([
+      ["inyección de JQL", ["FOO) OR (summary is not EMPTY"]],
+      ["minúsculas", ["scrum"]],
+      ["una válida y otra inválida", ["SCRUM", "A B"]],
+      ["vacía", [""]],
+    ])("%s da ErrorInesperado sin llamar a Jira", async (_caso, keys) => {
+      // onUnhandledFrame: "error" haría fallar la petición si el cliente llamara a Jira
+      const result = await newClient().listAssignedTickets(keys);
+      expect(result).toMatchObject(unexpected);
+      expect(result.kind === "ErrorBloqueante" && result.message).toContain(keys.find((k) => !/^[A-Z][A-Z0-9_]+$/.test(k)) ?? "");
+    });
+  });
+
+  it("una URL base inválida da ErrorInesperado en lugar de network_timeout, sin llamar a Jira", async () => {
+    const client = newClient({ baseUrl: "no-es-una-url" });
+    expect(await client.fetchTicket("SCRUM-12")).toMatchObject(unexpected);
+    expect(await client.getMyDisplayName()).toMatchObject(unexpected);
+  });
+
+  describe("reintentos", () => {
+    it("un Retry-After negativo se acota a 0", async () => {
+      const calls: number[] = [];
+      let attempts = 0;
+      server.use(
+        http.get(issueUrl, () =>
+          ++attempts === 1 ? new HttpResponse(null, { status: 429, headers: { "Retry-After": "-5" } }) : HttpResponse.json(fixture("bug-completo.json")),
+        ),
+      );
+      const result = await newClient({ sleep: async (ms) => void calls.push(ms) }).fetchTicket("SCRUM-12");
+      expect(result.kind).toBe("Ok");
+      expect(calls).toEqual([0]);
+    });
+
+    it("sin retryDelayMs el backoff por defecto es de 2000 ms", async () => {
+      const calls: number[] = [];
+      let attempts = 0;
+      server.use(
+        http.get(issueUrl, () => (++attempts === 1 ? new HttpResponse(null, { status: 503 }) : HttpResponse.json(fixture("bug-completo.json")))),
+      );
+      const client = new JiraRestClient({
+        baseUrl: BASE_URL,
+        email: EMAIL,
+        apiToken: TOKEN,
+        timeoutSeconds: 1,
+        sleep: async (ms) => void calls.push(ms),
+      });
+      expect((await client.fetchTicket("SCRUM-12")).kind).toBe("Ok");
+      expect(calls).toEqual([2000]);
+    });
+
+    it("un 404 con /myself caído por error de red da network_timeout", async () => {
+      server.use(http.get(issueUrl, () => new HttpResponse(null, { status: 404 })), http.get(myselfUrl, () => HttpResponse.error()));
+      expect(await newClient().fetchTicket("SCRUM-12")).toEqual({ kind: "FallbackManual", reason: "network_timeout" });
+    });
+  });
+});

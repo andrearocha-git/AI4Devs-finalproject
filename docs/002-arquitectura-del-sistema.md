@@ -118,7 +118,17 @@ sequenceDiagram
         ORCH-->>TUI: aviso: las épicas no tienen plantilla (sin rama ni documento)
         TUI-->>Dev: elegir una historia, tarea o bug
     else Tipo con plantilla (bug o historia)
-        ORCH->>TUI: ask(confirmActions, resumen: rama, base, carpeta)
+        opt Se eligió un repositorio
+            ORCH->>GITM: inspeccionarRepositorio(repositorio, rama)
+            GITM->>GITM: verificar repo y git status --porcelain (solo lectura)
+            break Hay cambios pendientes o el repositorio no existe
+                GITM-->>ORCH: ErrorBloqueante(CambiosPendientes + archivos | RepositorioNoEncontrado)
+                ORCH->>SQL: registrarHistorial(ID-123, repositorio, branch_status = pending_changes | error)
+                ORCH-->>TUI: flujo detenido (sin pedir confirmación), listar los cambios
+            end
+            GITM-->>ORCH: Ok(la rama ya existe: sí | no)
+        end
+        ORCH->>TUI: ask(confirmActions, resumen: rama, base, carpeta, si la rama ya existe)
         TUI->>Dev: ¿Continuar? (muestra rama, base y carpeta)
         Dev-->>TUI: sí | no
         TUI-->>ORCH: confirmación
@@ -127,12 +137,7 @@ sequenceDiagram
         end
         opt Se eligió un repositorio
             ORCH->>GITM: crearRama(repositorio, rama, base)
-            GITM->>GITM: verificar repo y git status --porcelain
-            alt Hay cambios pendientes
-                GITM-->>ORCH: ErrorBloqueante(CambiosPendientes + archivos)
-                ORCH->>SQL: registrarHistorial(ID-123, repositorio, branch_status = pending_changes)
-                ORCH-->>TUI: flujo detenido, listar los cambios
-            else La rama ya existe
+            alt La rama ya existe
                 GITM-->>ORCH: Ok(alreadyExisted)
             else Se puede crear la rama
                 GITM->>GITM: git pull --ff-only origin base (o git fetch origin base:base)

@@ -19,8 +19,13 @@ export interface AppConfigProviderOptions {
   env?: Record<string, string | undefined>;
 }
 
-const REQUIRED_FIELDS = ["jiraBaseUrl", "jiraEmail", "jiraApiToken", "branchUserSuffix"] as const;
 const SUFFIX_FORMAT = /^[A-Z0-9]+$/;
+
+/** Recorta los espacios y trata una cadena en blanco como ausente. */
+function text(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
 
 /**
  * Calcula la ruta por defecto de la base de datos: `%APPDATA%\DevFlowCLI\devflow.db`.
@@ -49,7 +54,8 @@ export class AppConfigProvider {
 
   /**
    * @param input Configuración parcial. Obligatorios: `jiraBaseUrl`, `jiraEmail`, `jiraApiToken` y
-   * `branchUserSuffix` (formato `^[A-Z0-9]+$`); una cadena vacía o de solo espacios cuenta como ausente.
+   * `branchUserSuffix` (formato `^[A-Z0-9]+$`). Los textos se guardan sin espacios sobrantes y una cadena
+   * vacía o de solo espacios cuenta como ausente (obligatorio que falta, u opcional que toma su valor por defecto).
    * @param options Entorno inyectable.
    * @throws {Error} Si falta un obligatorio, el sufijo es inválido, o no hay valor explícito ni variable de
    * entorno (`USERPROFILE`, `APPDATA`) para `ticketsRootPath` / `databasePath`. El mensaje lista todos los problemas.
@@ -58,39 +64,51 @@ export class AppConfigProvider {
     const env = options.env ?? process.env;
     const problems: string[] = [];
 
-    for (const field of REQUIRED_FIELDS) {
-      if (!input[field]?.trim()) problems.push(`${field} es obligatorio`);
-    }
-    if (input.branchUserSuffix?.trim() && !SUFFIX_FORMAT.test(input.branchUserSuffix)) {
-      problems.push("branchUserSuffix debe cumplir ^[A-Z0-9]+$");
-    }
+    const jiraBaseUrl = text(input.jiraBaseUrl);
+    const jiraEmail = text(input.jiraEmail);
+    const jiraApiToken = text(input.jiraApiToken);
+    const branchUserSuffix = text(input.branchUserSuffix);
+    if (!jiraBaseUrl) problems.push("jiraBaseUrl es obligatorio");
+    if (!jiraEmail) problems.push("jiraEmail es obligatorio");
+    if (!jiraApiToken) problems.push("jiraApiToken es obligatorio");
+    if (!branchUserSuffix) problems.push("branchUserSuffix es obligatorio");
+    else if (!SUFFIX_FORMAT.test(branchUserSuffix)) problems.push("branchUserSuffix debe cumplir ^[A-Z0-9]+$");
 
-    const userProfile = env.USERPROFILE;
+    const userProfile = text(env.USERPROFILE);
     const ticketsRootPath =
-      input.ticketsRootPath ?? (userProfile ? win32.join(userProfile, "DevFlowCLI", "tickets") : undefined);
+      text(input.ticketsRootPath) ?? (userProfile ? win32.join(userProfile, "DevFlowCLI", "tickets") : undefined);
     if (!ticketsRootPath) problems.push("ticketsRootPath: no hay valor ni variable USERPROFILE para calcularlo");
 
-    const databasePath = input.databasePath ?? (env.APPDATA ? resolveDatabasePath(env) : undefined);
+    const databasePath = text(input.databasePath) ?? (text(env.APPDATA) ? resolveDatabasePath(env) : undefined);
     if (!databasePath) problems.push("databasePath: no hay valor ni variable APPDATA para calcularlo");
 
-    if (problems.length > 0) {
+    // Las comprobaciones de valor son redundantes con `problems`, pero estrechan los tipos para el objeto final.
+    if (
+      problems.length > 0 ||
+      !jiraBaseUrl ||
+      !jiraEmail ||
+      !jiraApiToken ||
+      !branchUserSuffix ||
+      !ticketsRootPath ||
+      !databasePath
+    ) {
       throw new Error(`Configuración inválida: ${problems.join("; ")}.`);
     }
 
     this.config = Object.freeze({
-      jiraBaseUrl: input.jiraBaseUrl as string,
-      jiraEmail: input.jiraEmail as string,
-      jiraApiToken: input.jiraApiToken as string,
+      jiraBaseUrl,
+      jiraEmail,
+      jiraApiToken,
       jiraTimeoutSeconds: input.jiraTimeoutSeconds ?? 10,
-      ollamaHost: input.ollamaHost ?? "http://localhost:11434",
-      ollamaModel: input.ollamaModel ?? "qwen2.5:3b",
+      ollamaHost: text(input.ollamaHost) ?? "http://localhost:11434",
+      ollamaModel: text(input.ollamaModel) ?? "qwen2.5:3b",
       ollamaTimeoutSeconds: input.ollamaTimeoutSeconds ?? 120,
-      branchPrefixFeature: input.branchPrefixFeature ?? "features",
-      branchPrefixBugfix: input.branchPrefixBugfix ?? "bugs",
-      branchUserSuffix: input.branchUserSuffix as string,
-      ticketsRootPath: ticketsRootPath as string,
-      adjuntosDirName: input.adjuntosDirName ?? "adjuntos",
-      databasePath: databasePath as string,
+      branchPrefixFeature: text(input.branchPrefixFeature) ?? "features",
+      branchPrefixBugfix: text(input.branchPrefixBugfix) ?? "bugs",
+      branchUserSuffix,
+      ticketsRootPath,
+      adjuntosDirName: text(input.adjuntosDirName) ?? "adjuntos",
+      databasePath,
     });
   }
 }

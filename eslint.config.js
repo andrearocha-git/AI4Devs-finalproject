@@ -59,7 +59,13 @@ export default defineConfig([
   {
     files: ["src/tui/**/*.ts"],
     rules: {
-      "no-restricted-imports": ["error", { ...sqliteOnlyInStorageManager, ...tuiOnlyTalksToOrchestrator }],
+      "no-restricted-imports": [
+        "error",
+        {
+          ...sqliteOnlyInStorageManager,
+          patterns: [...tuiOnlyTalksToOrchestrator.patterns, storageManagerOnlyInOrchestrator],
+        },
+      ],
     },
   },
 ]);

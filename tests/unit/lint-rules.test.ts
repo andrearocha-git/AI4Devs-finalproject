@@ -59,6 +59,14 @@ describe("E3 — solo el Orquestador importa sqlite-storage-manager (TK-02a CA4)
     expect(errors).not.toHaveLength(0);
   });
 
+  it.each(["./sqlite-storage-manager.js", "../sqlite-storage-manager", "sqlite-storage-manager"])(
+    "rechaza que src/tui/ importe %s aunque la ruta no pase por database/",
+    async (specifier) => {
+      const errors = await restrictedImportErrors(managerImport(specifier), "src/tui/commands/start.command.ts");
+      expect(errors).not.toHaveLength(0);
+    },
+  );
+
   it.each([
     ["src/services/orchestrator/ticket-orchestrator.ts", "../../database/sqlite-storage-manager.js"],
     ["tests/unit/database/otro.test.ts", "../../../src/database/sqlite-storage-manager.js"],

@@ -76,6 +76,29 @@ describe("E2 — AppConfigProvider (TK-02a CA3)", () => {
   });
 });
 
+describe("E2 — espacios en blanco (hallazgos de la revisión de la PR)", () => {
+  it("guarda los obligatorios sin espacios sobrantes", () => {
+    const config = new AppConfigProvider(
+      { ...required, jiraBaseUrl: " https://equipo.atlassian.net ", jiraEmail: " dev@example.com\t" },
+      { env },
+    ).config;
+    expect(config.jiraBaseUrl).toBe("https://equipo.atlassian.net");
+    expect(config.jiraEmail).toBe("dev@example.com");
+  });
+
+  it("trata una ruta en blanco como ausente y aplica el valor por defecto", () => {
+    const config = new AppConfigProvider({ ...required, ticketsRootPath: " ", databasePath: "   " }, { env }).config;
+    expect(config.ticketsRootPath).toBe("C:\\Users\\dev\\DevFlowCLI\\tickets");
+    expect(config.databasePath).toBe("C:\\Users\\dev\\AppData\\Roaming\\DevFlowCLI\\devflow.db");
+  });
+
+  it("rechaza una ruta en blanco si tampoco hay variable de entorno para calcularla", () => {
+    expect(() => new AppConfigProvider({ ...required, ticketsRootPath: " ", databasePath: " " }, { env: {} })).toThrow(
+      /ticketsRootPath.*databasePath/,
+    );
+  });
+});
+
 describe("resolveDatabasePath", () => {
   it("calcula %APPDATA%\\DevFlowCLI\\devflow.db", () => {
     expect(resolveDatabasePath(env)).toBe("C:\\Users\\dev\\AppData\\Roaming\\DevFlowCLI\\devflow.db");

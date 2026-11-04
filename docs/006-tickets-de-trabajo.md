@@ -224,8 +224,8 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
   1. (CA3 original) `GitManager` (sobre repositorios Git temporales): `inspectRepository` no ejecuta `fetch`, `pull`, `switch` ni escribe nada (verificable con spy sobre el runner) y devuelve `branchAlreadyExists`; repo inexistente → `ErrorBloqueante('RepositorioNoEncontrado')`; cambios pendientes → `ErrorBloqueante('CambiosPendientes')` sin ejecutar pull ni creación; rama ya existente en local → `Ok({ alreadyExisted: true })` sin pull, creación ni cambio de rama (H-04); rama que solo existe en `origin` → `ErrorBloqueante('RamaExistenteEnRemoto')` sin pull, `fetch`, `switch` ni creación; parado en la rama base → `git pull --ff-only origin <base>`; parado en otra rama → `git fetch origin <base>:<base>`; pull fallido → `ErrorBloqueante('PullFallido')` sin crear la rama; caso feliz → crea la rama exactamente una vez con `git switch -c <rama> <base>`; en ningún path se ejecuta `commit`, `add` ni `push` (verificable con spy sobre el runner de comandos Git).
 
 - **Definition of Done (DoD):**
-  - [ ] `GitManager` no ejecuta `commit`, `add` ni `push` en ningún path de código.
-  - [ ] Hay al menos un test para `Ok` y para cada subtipo de `ErrorBloqueante` que produce.
+  - [x] `GitManager` no ejecuta `commit`, `add` ni `push` en ningún path de código.
+  - [x] Hay al menos un test para `Ok` y para cada subtipo de `ErrorBloqueante` que produce.
   - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---

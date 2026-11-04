@@ -1,6 +1,6 @@
 # Change: TK-02c — Git Manager
 
-- **Estado:** Aprobado
+- **Estado:** Implementado
 - **Fuente:** `docs/006-tickets-de-trabajo.md` (TK-02c)
 - **Depende de:** TK-02a
 - **INVEST:** Cumple (I, S y T evaluadas). Nota sobre S: un solo criterio técnico que agrupa 3 métodos y ~6 ramas de decisión; se reparte en 3 escenarios y 5 tareas. Si crece al implementar, separar `validateRepository` (alta de repositorios) del resto.
@@ -51,9 +51,9 @@ Nunca ejecuta `commit`, `add` ni `push`, y nunca ramifica desde una base desactu
 
 | Escenario | Criterios cubiertos | Test | Estado |
 |---|---|---|---|
-| E1 | CA1 (`inspectRepository`), `validateRepository`, DoD-b | _pendiente_ | Pendiente |
-| E2 | CA1 (pull/fetch, caso feliz), DoD-a | _pendiente_ | Pendiente |
-| E3 | CA1 (pendientes, rama existente, pull fallido), DoD-b | _pendiente_ | Pendiente |
+| E1 | CA1 (`inspectRepository`), `validateRepository`, DoD-b | `tests/unit/services/git/git-manager.test.ts` › «E1 — inspectRepository: solo lectura» (12 casos) y «E1 — validateRepository: alta de un repositorio» (6 casos) | Hecho |
+| E2 | CA1 (pull/fetch, caso feliz), DoD-a | `tests/unit/services/git/git-manager.test.ts` › «E2 — createBranch con rama nueva» (4 casos: pull parado en la base, fetch parado en otra rama, base distinta con `--base` sin copia local, nombre que empieza por «-») | Hecho |
+| E3 | CA1 (pendientes, rama existente, pull fallido), DoD-b | `tests/unit/services/git/git-manager.test.ts` › «E3 — createBranch: reutilizar rama existente y cortes antes de crear» (9 casos: rama en local, rama solo en origin, cambios pendientes, ruta inexistente, subcarpeta de un repositorio, `PullFallido` con origin inalcanzable parado en la base y en otra rama, base divergente, y ningún `commit`/`add`/`push` en ningún camino) | Hecho |
 
 ## Prerrequisitos
 
@@ -71,11 +71,11 @@ Nunca ejecuta `commit`, `add` ni `push`, y nunca ramifica desde una base desactu
 
 ## Tareas
 
-- [ ] 1. E1 — RED: tests de `inspectRepository` y `validateRepository` con repositorios temporales y spy; GREEN: `GitManager` con runner inyectable y los dos métodos de solo lectura
-- [ ] 2. E2 — RED: tests de `createBranch` con pull y con fetch y verificación de la rama creada; GREEN: actualización de la base y `git switch -c`
-- [ ] 3. E3 — RED: tests de pendientes, repo inexistente, rama en local, rama solo en remoto y pull fallido; GREEN: las guardas previas a la creación
-- [ ] 4. Verificar la cobertura (umbral del 80 % de `src/services/**`) con `npm run test:coverage`
-- [ ] 5. Refactor, TSDoc en español de los exports públicos, `npm run typecheck`, `npm run lint` y `npm test` en verde
+- [x] 1. E1 — RED: tests de `inspectRepository` y `validateRepository` con repositorios temporales y spy; GREEN: `GitManager` con runner inyectable y los dos métodos de solo lectura
+- [x] 2. E2 — RED: tests de `createBranch` con pull y con fetch y verificación de la rama creada; GREEN: actualización de la base y `git switch -c`
+- [x] 3. E3 — RED: tests de pendientes, repo inexistente, rama en local, rama solo en remoto y pull fallido; GREEN: las guardas previas a la creación
+- [x] 4. Verificar la cobertura (umbral del 80 % de `src/services/**`) con `npm run test:coverage`
+- [x] 5. Refactor, TSDoc en español de los exports públicos, `npm run typecheck`, `npm run lint` y `npm test` en verde
 
 ## Decisiones y desvíos
 
@@ -99,3 +99,29 @@ Propuestas por confirmar al aprobar el contrato:
 - _(asumido)_ **`PullFallido`:** cualquier código de salida distinto de cero en `pull --ff-only` o `fetch origin <base>:<base>`; `message` lleva el `stderr` de Git para explicar el motivo (sin red, divergencia, credenciales).
 - _(asumido)_ **Fallo inesperado de Git** al crear la rama (p. ej. `switch -c` falla tras actualizar la base): `ErrorBloqueante('ErrorInesperado')` con el `stderr` en el mensaje.
 - _(asumido)_ **Sin comandos de escritura distintos de los permitidos:** la lista blanca de subcomandos del runner es `rev-parse`, `status`, `branch`, `remote`, `ls-remote`, `pull`, `fetch` y `switch`; los tests verifican con el spy que nada fuera de esa lista (en particular `commit`, `add` y `push`) se ejecuta.
+
+Registro de la implementación de E1 (2026-11-04):
+
+- **Runner por defecto:** se llama `runGitCommand` (export público, además del tipo `GitRunner`); ante una ruta inexistente devuelve `exitCode: -1` en lugar de lanzar, y fija `GIT_TERMINAL_PROMPT=0` para que Git nunca espere credenciales.
+- **Tests con Git 2.25:** `git init -b` no existe en esa versión; los repositorios temporales usan `git checkout -b main`. La identidad de los commits de prueba se pasa con `-c user.name/user.email`.
+- **Referencia completa en `ls-remote`:** se consulta `refs/heads/<rama>` y no el nombre suelto, porque `ls-remote` casa por sufijo y `otro/features/X` contaría como `features/X` (hay un test). Un nombre como `--all` se trata como nombre de rama, no como opción (hay un test).
+- _(asumido, no previsto en el contrato)_ **`validateRepository` con remoto inalcanzable:** si `ls-remote` falla por un motivo distinto de «no existe la rama» (sin red, credenciales), devuelve `ErrorBloqueante('ErrorInesperado')` con el `stderr` de Git, no `RepositorioNoEncontrado`. `inspectRepository` sigue sin bloquear en ese caso, como acordado.
+- **Pendiente para E2:** `createBranch` empleará `git switch -c <rama> <base>` con un nombre que podría empezar por `-`; lo trataré al escribir E2 (la rama se construye como `<prefijo>/<ID>-<SUFIJO>`, así que el riesgo es bajo).
+
+Registro de la implementación de E2 (2026-11-04):
+
+- **Nombre de rama o base que empieza por «-»:** `createBranch` los rechaza con `ErrorBloqueante('ErrorInesperado')` antes de ejecutar nada, porque `git switch -c` no admite `--` delante del nombre. Resuelve el punto que quedó pendiente en E1.
+- **Base sin copia local:** parado en otra rama, `git fetch origin <base>:<base>` crea la base local si no existía (hay un test con `develop`).
+- **Fallo de `git switch -c`:** `ErrorBloqueante('ErrorInesperado')` con el `stderr` de Git.
+- **Rama ya existente en local:** `createBranch` todavía no devuelve `alreadyExisted: true` (intentaría crearla); es lo que cubre E3.
+
+Registro de la implementación de E3 (2026-11-04):
+
+- **Rama ya existente en local:** `createBranch` devuelve `Ok({ alreadyExisted: true })` justo después de la verificación, sin pull, fetch ni switch, y deja el repositorio en la rama en la que estaba.
+- **Cobertura (tarea 4):** `git-manager.ts` marca 95,08 % en sentencias, 93,02 % en ramas, 100 % en funciones y 94,44 % en líneas (umbral del 80 %). Suite completa: 175 tests, typecheck y lint en verde. Las líneas sin cubrir son tres ramas de `ErrorInesperado` difíciles de provocar con Git real: `validateRepository` con remoto inalcanzable, fallo de `git switch -c` y fallo de `git status`.
+
+Ajustes tras `/05-verificar-y-revisar` (2026-11-04, aprobados por el desarrollador, aplicados con TDD):
+
+- **Solo la raíz de un repositorio es un repositorio:** `isRepository` usa `git rev-parse --is-inside-work-tree --show-prefix` y exige prefijo vacío; una subcarpeta de un repositorio da `RepositorioNoEncontrado` en `inspectRepository`, `validateRepository` y `createBranch` (un test en cada uno). Antes se aceptaba cualquier subcarpeta.
+- **Lista blanca de subcomandos real:** los tests ya no buscan comandos prohibidos sino que comprueban con el spy que todo subcomando ejecutado está en una lista blanca: `rev-parse`, `status`, `branch`, `remote` y `ls-remote` para inspección y alta, más `pull`, `fetch` y `switch` en `createBranch` (así, cualquier comando de escritura no previsto, además de `commit`, `add` y `push`, haría fallar el test). Cumple lo asumido en el contrato.
+- **Cobertura y suite tras los ajustes:** `git-manager.ts` 95,23 % en sentencias y 93,33 % en ramas; 178 tests en total, typecheck y lint en verde.

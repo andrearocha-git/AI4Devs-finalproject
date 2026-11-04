@@ -8,12 +8,12 @@
 
 | Archivo | Contenido |
 |---|---|
-| `docs/005-historias-de-usuario.md` | 3 historias: **US-01** (configurar, 6 CA), **US-02** (elegir y consultar el ticket en Jira, 6 CA), **US-03** (preparar rama, carpeta y documento con Ollama, 9 CA). |
+| `docs/005-historias-de-usuario.md` | 3 historias: **US-01** (configurar, 6 CA), **US-02** (elegir y consultar el ticket en Jira, 6 CA), **US-03** (preparar rama, carpeta y documento con Ollama, 10 CA). |
 | `docs/006-tickets-de-trabajo.md` | **TK-00** y **TK-01** (hechos), **TK-02** (paraguas dividido en **TK-02a … TK-02g**), **TK-03** (paraguas dividido en **TK-03a** y **TK-03b**). |
 
-Estado: TK-00, TK-01, TK-02a, TK-02b y TK-02c implementados y verificados (178 tests, typecheck y lint en verde; TK-02a y TK-02b revisados y fusionados en `feature/TK-02`). Todo lo demás está especificado y sin código.
+Estado: TK-00, TK-01, TK-02a, TK-02b y TK-02c implementados y verificados (197 tests, typecheck y lint en verde; TK-02a y TK-02b revisados y fusionados en `feature/TK-02`). Todo lo demás está especificado y sin código.
 
-**Observación INVEST (sin modificar nada).** US-03 falla S (Small): 9 CA y esfuerzo Alto. TK-03 también es grande (dos comandos, cuatro prompts y todas las pantallas de resultado). Por eso el orden de abajo entrega las historias **por criterios de aceptación**, no de una vez, y TK-03 ya se dividió en TK-03a y TK-03b (§4).
+**Observación INVEST (sin modificar nada).** US-03 falla S (Small): 10 CA y esfuerzo Alto. TK-03 también es grande (dos comandos, cuatro prompts y todas las pantallas de resultado). Por eso el orden de abajo entrega las historias **por criterios de aceptación**, no de una vez, y TK-03 ya se dividió en TK-03a y TK-03b (§4).
 
 ## 2. Principio de orden
 
@@ -66,7 +66,7 @@ Estado: TK-00, TK-01, TK-02a, TK-02b y TK-02c implementados y verificados (178 t
 
 *Nota de orden:* 2.1 y 2.2 son independientes (se pueden paralelizar). Si Ollama se retrasa, 2.2 puede entrar con solo el camino de fallback determinista y completarse después sin bloquear 2.3, siempre que el contrato del ticket lo apruebe.
 
-**Historias cubiertas:** US-02 CA1-CA6 y US-03 CA1-CA9.
+**Historias cubiertas:** US-02 CA1-CA6 y US-03 CA1-CA10.
 
 **Verificación del hito**
 
@@ -118,6 +118,7 @@ Estado: TK-00, TK-01, TK-02a, TK-02b y TK-02c implementados y verificados (178 t
 | US-03 CA7 | Clave sin repositorios: solo documento | 02f | 2 |
 | US-03 CA8 | `--base` de una sola vez | 02c · 02f · 03b | 2 |
 | US-03 CA9 | Reprocesar la Fase 1 (`--reprocesar`) | 02d · 02e · 02f · 03b | 2 |
+| US-03 CA10 | Rama solo en el remoto: se detiene con aviso | 02c · 02f · 03b | 2 |
 
 ## 6. Dependencias entre tickets
 

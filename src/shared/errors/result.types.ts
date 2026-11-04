@@ -5,6 +5,7 @@ export type FallbackManualReason = "network_timeout" | "invalid_token" | "not_fo
 export type ErrorBloqueanteSubtype =
   | "RepositorioNoEncontrado"
   | "CambiosPendientes"
+  /** La rama del ticket no existe en local pero sí en `origin`: la herramienta no la trae ni la crea; el usuario la configura a mano. */
   | "RamaExistenteEnRemoto"
   | "PullFallido"
   | "TipoIssueBloqueado"

@@ -117,7 +117,7 @@ Según `templates/issue-types.json`:
 
 **Historias:** US-03 · **Tickets:** TK-02
 
-**Confirmación (H-03):** tras obtener el ticket, resolver su tipo y ejecutar la inspección de solo lectura del repositorio (3.1, pasos 1-3), y antes de cualquier escritura en Git, disco u Ollama, el Orquestador pide una única confirmación (`ask` `confirmActions`) con rama, base, carpeta y si la rama ya existe. Un repositorio inexistente o con cambios pendientes corta el flujo **antes** de pedir confirmar. Si el desarrollador cancela, no se crea nada ni se escribe en `ticket_logs`.
+**Confirmación (H-03):** tras obtener el ticket, resolver su tipo y ejecutar la inspección de solo lectura del repositorio (3.1, pasos 1-3), y antes de cualquier escritura en Git, disco u Ollama, el Orquestador pide una única confirmación (`ask` `confirmActions`) con rama, base, carpeta y si la rama ya existe. Un repositorio inexistente, con cambios pendientes o con la rama solo en el remoto corta el flujo **antes** de pedir confirmar; si la rama ya existe en local, la confirmación consulta si se usa la misma. Si el desarrollador cancela, no se crea nada ni se escribe en `ticket_logs`.
 
 Cada paso emite `onStep(paso, estado)` hacia la TUI para el spinner. Si la clave **no tiene repositorios**, el paso Git se omite y solo se genera el documento (US-03 CA7).
 
@@ -129,7 +129,9 @@ Los pasos 1-3 son de **solo lectura** (`GitManager.inspectRepository`) y se ejec
 
 1. **Verifica el repositorio.** Si no existe → `ErrorBloqueante('RepositorioNoEncontrado')`.
 2. **`git status --porcelain`.** Con cambios pendientes (modificados, staged o sin trackear) → `ErrorBloqueante('CambiosPendientes')` con la lista de archivos; se registra `branch_status = 'pending_changes'` y se corta **antes de crear nada**. No hay `stash` automático.
-3. **Si la rama ya existe** → `Ok(alreadyExisted)`; informa y continúa con carpeta y documento, sin pull ni creación; no cambia de rama (H-04 resuelto).
+3. **Rama ya existente.**
+   - **En local** → `Ok(alreadyExisted)`; la confirmación avisa que existe y consulta si se usa la misma (si no, se cancela). Si se acepta, continúa con carpeta y documento, sin pull ni creación; no cambia de rama (H-04 resuelto).
+   - **Solo en `origin`** (`git ls-remote --heads`, solo lectura) → `ErrorBloqueante('RamaExistenteEnRemoto')` antes de la confirmación, `branch_status = 'error'`; el usuario la verifica y la configura a mano. La app **nunca crea ni publica ramas en el remoto** (el `push` es del usuario).
 4. **Actualiza la rama base** sin importar la rama actual:
    - parado en la base: `git pull --ff-only origin <base>`;
    - parado en otra rama: `git fetch origin <base>:<base>`.
@@ -222,7 +224,8 @@ El desarrollador abre el documento en su IDE y completa: **Objetos Modificados**
 | Repositorio inexistente | Git | `ErrorBloqueante` | ❌ | TK-02 CA3 |
 | Cambios pendientes | Git | `ErrorBloqueante` + archivos | ❌ log `pending_changes` | US-03 CA2 · TK-02 |
 | Pull fallido | Git | `ErrorBloqueante` | ❌ log `error` | US-03 CA3 · TK-02 |
-| Rama ya existente | Git | `Ok(alreadyExisted)` | ✅ sin pull ni creación | US-03 CA5 · TK-02 |
+| Rama ya existente en local | Git | `Ok(alreadyExisted)` + consulta en la confirmación | ✅ si el usuario acepta; sin pull ni creación | US-03 CA5 · TK-02 |
+| Rama existente solo en `origin` | Git | `ErrorBloqueante('RamaExistenteEnRemoto')` | ❌ log `error`; el usuario la configura a mano | US-03 CA10 · TK-02 |
 | Ollama caído / timeout / JSON inválido / con código | Ollama | `FallbackDeterminista` | ✅ documento con `⚠️` | US-03 CA4 · TK-02 |
 | Sin permisos de disco | FileSystem | `ErrorBloqueante` | ❌ reporta lo completado | TK-02 |
 
@@ -256,4 +259,5 @@ Detectados al cruzar las fuentes (análisis pre-código, 2026-11-01). Cada uno i
 | 2026-11-02 | H-03 resuelto: confirmación única y cancelable en el flujo `startTicket`; agregada al diagrama de `002` §2.1 y a los contratos de `006`. | H-03 · TK-02f · TK-03b |
 | 2026-11-02 | H-03 afinado: nuevo `GitManager.inspectRepository` (solo lectura) antes de la confirmación; `createBranch` después. Actualizados `002` §2.1, `006` (TK-02c, TK-02f, TK-03b) y §3.1 de este documento. | H-03 · TK-02c · TK-02f · TK-03b |
 | 2026-11-02 | H-02 resuelto: `--reprocesar` en `devflow start`; agregado US-03 CA9 en `005`, y ajustados `002`, `006` (TK-02f, TK-03b) y este documento. | H-02 · US-03 · TK-02f · TK-03b |
+| 2026-11-03 | Regla de rama existente de TK-02c: en local → aviso y consulta en la confirmación; solo en `origin` → `ErrorBloqueante('RamaExistenteEnRemoto')` (nuevo subtipo); nunca se crea ni publica en el remoto. Nuevo US-03 CA10 y CA5 ajustado en `005`; actualizados `002`, `006` (TK-02c, TK-02f, TK-03b) y este documento. | H-04 · US-03 · TK-02c · TK-02f · TK-03b |
 | 2026-11-03 | TK-02a y TK-02b implementados: `StepResult`, `AppConfigProvider`, resolutor de tipo de issue (`branchType`; el prefijo lo arma el Orquestador) y cliente REST de Jira (búsqueda por `/rest/api/2/search/jql`, porque `/search` responde 410). Actualizados el estado del proyecto y los pasos 1.2, 1.4, 2.3, 2.4 y 2.5. | TK-02a · TK-02b |

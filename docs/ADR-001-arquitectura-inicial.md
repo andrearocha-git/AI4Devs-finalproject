@@ -185,7 +185,7 @@ Se elige la opción B. El Git Manager, sobre el repositorio elegido para la ejec
 
 1. Verifica que el repositorio exista (`ErrorBloqueante` si no).
 2. Ejecuta `git status --porcelain`: si hay cambios pendientes (modificados, staged o sin trackear), **se detiene y los lista**. No hay `stash` automático; el desarrollador los commitea o guarda y vuelve a ejecutar.
-3. Si la rama ya existe, informa y continúa con la carpeta y el documento (sin pull ni creación).
+3. Si la rama ya existe, informa y continúa con la carpeta y el documento (sin pull ni creación). _(Ajuste del 2026-11-03: la consulta «¿usar la misma?» la hace el Orquestador en la confirmación; si la rama no está en local pero sí en `origin`, se detiene con `ErrorBloqueante('RamaExistenteEnRemoto')`. No cambia el principio: nunca `push`.)_
 4. Actualiza la rama base **sin importar la rama actual**: `git pull --ff-only origin <base>` si está parado en ella, o `git fetch origin <base>:<base>` si está en otra.
 5. Crea la rama con `git switch -c <rama> <base>`.
 6. Si el pull falla (sin red, base local divergente del remoto, credenciales de Git), es un **error bloqueante**: nunca se crea la rama desde una base vieja.

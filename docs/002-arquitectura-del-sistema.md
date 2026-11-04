@@ -121,14 +121,14 @@ sequenceDiagram
         opt Se eligió un repositorio
             ORCH->>GITM: inspeccionarRepositorio(repositorio, rama)
             GITM->>GITM: verificar repo y git status --porcelain (solo lectura)
-            break Hay cambios pendientes o el repositorio no existe
-                GITM-->>ORCH: ErrorBloqueante(CambiosPendientes + archivos | RepositorioNoEncontrado)
+            break Hay cambios pendientes, el repositorio no existe o la rama solo existe en el remoto
+                GITM-->>ORCH: ErrorBloqueante(CambiosPendientes + archivos | RepositorioNoEncontrado | RamaExistenteEnRemoto)
                 ORCH->>SQL: registrarHistorial(ID-123, repositorio, branch_status = pending_changes | error)
                 ORCH-->>TUI: flujo detenido (sin pedir confirmación), listar los cambios
             end
-            GITM-->>ORCH: Ok(la rama ya existe: sí | no)
+            GITM-->>ORCH: Ok(la rama ya existe en local: sí | no)
         end
-        ORCH->>TUI: ask(confirmActions, resumen: rama, base, carpeta, si la rama ya existe)
+        ORCH->>TUI: ask(confirmActions, resumen: rama, base, carpeta, si la rama ya existe; si existe, consulta si se usa la misma)
         TUI->>Dev: ¿Continuar? (muestra rama, base y carpeta)
         Dev-->>TUI: sí | no
         TUI-->>ORCH: confirmación
@@ -207,7 +207,7 @@ Toda la configuración que necesitan estos componentes (credenciales de Jira, ho
   **Secuencia de pasos:**
   1. Verifica que el repositorio exista (`ErrorBloqueante` si no).
   2. `git status --porcelain`: si hay cambios pendientes (modificados, staged o sin trackear), se detiene y los lista (`ErrorBloqueante`); el desarrollador los commitea o guarda y vuelve a ejecutar. No hay `stash` automático.
-  3. Si la rama ya existe, informa y continúa con la carpeta y el documento, sin pull ni creación.
+  3. Si la rama ya existe **en local**, informa, el Orquestador consulta si se usa la misma y, si se acepta, continúa con la carpeta y el documento, sin pull ni creación. Si no está en local pero existe en `origin` (`git ls-remote --heads`, solo lectura), se detiene con `ErrorBloqueante('RamaExistenteEnRemoto')` para que el usuario la verifique y la configure a mano; la app nunca crea ni publica ramas en el remoto.
   4. Actualiza la rama base sin importar la rama actual: `git pull --ff-only origin <base>` si está en ella, o `git fetch origin <base>:<base>` si está en otra.
   5. Crea la rama con `git switch -c <rama> <base>`.
   6. Si el pull falla (sin red, base local divergente, credenciales de Git), es un `ErrorBloqueante`: nunca se crea la rama desde una base vieja.
@@ -253,7 +253,7 @@ Antes de iniciar la implementación (TK-01, TK-02, TK-03), se audita aquí la vi
 - **Timeouts o caída de red hacia Jira** (VPN corporativa, firewall, instancia de Jira caída): mitigado con reintento único + clasificación explícita de la causa (`FallbackManual`), degradando a carga manual de datos por TUI sin bloquear la creación de rama/carpetas.
 - **Permisos de carpeta en Windows** (ruta de repo sin acceso, carpeta bloqueada por antivirus, o sincronizándose vía OneDrive): no tiene un camino de degradación silenciosa — se clasifica explícitamente como `ErrorBloqueante`, deteniendo únicamente ese paso y reportando a la TUI qué se alcanzó a completar, sin dejar el proceso en un estado ambiguo.
 - **Token de Jira inválido o expirado:** cubierto por el mismo camino de `FallbackManual` que la caída de red (401/403); al no existir OAuth, no hay refresco automático — el desarrollador corrige el token en su configuración y reintenta.
-- **Rama Git ya existente / repositorio no encontrado / cambios pendientes / pull fallido:** tratados de forma explícita y distinta entre sí (rama existente = resultado informativo, no error; repositorio no encontrado, cambios pendientes y pull fallido = `ErrorBloqueante`) — ninguno llega a la TUI como una excepción cruda.
+- **Rama Git ya existente / repositorio no encontrado / cambios pendientes / pull fallido:** tratados de forma explícita y distinta entre sí (rama existente en local = resultado informativo con consulta, no error; repositorio no encontrado, cambios pendientes, rama solo en el remoto y pull fallido = `ErrorBloqueante`) — ninguno llega a la TUI como una excepción cruda.
 - **Ejecución concurrente del CLI** (dos terminales abiertas a la vez): mitigado a nivel de Storage Layer con SQLite en modo WAL ([ADR-002.1](ADR-001-arquitectura-inicial.md#adr-0021-persistencia-en-sqlite-embebida-frente-a-archivos-planos-jsonyaml)); no mitigado a nivel de Git — dos ejecuciones simultáneas sobre el mismo repositorio quedan fuera del alcance del Git Manager (ver ADR-007.1).
 
 El denominador común: **ningún fallo de una integración externa se propaga como una excepción no controlada hacia la TUI.** Cada paso del Orquestador retorna uno de los cuatro resultados ya tipificados (`Ok | FallbackManual | FallbackDeterminista | ErrorBloqueante`), y es la TUI —nunca el componente que falló— quien decide cómo comunicarlo al desarrollador.

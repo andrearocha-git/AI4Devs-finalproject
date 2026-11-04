@@ -133,7 +133,7 @@ Los pasos 1-3 son de **solo lectura** (`GitManager.inspectRepository`) y se ejec
    - **En local** → `Ok(alreadyExisted)`; la confirmación avisa que existe y consulta si se usa la misma (si no, se cancela). Si se acepta, continúa con carpeta y documento, sin pull ni creación; no cambia de rama (H-04 resuelto).
    - **Solo en `origin`** (`git ls-remote --heads`, solo lectura) → `ErrorBloqueante('RamaExistenteEnRemoto')` antes de la confirmación, `branch_status = 'error'`; el usuario la verifica y la configura a mano. La app **nunca crea ni publica ramas en el remoto** (el `push` es del usuario).
 4. **Actualiza la rama base** sin importar la rama actual:
-   - parado en la base: `git pull --ff-only origin <base>`;
+   - parado en la base: `git pull --no-rebase --ff-only origin <base>`;
    - parado en otra rama: `git fetch origin <base>:<base>`.
    Si falla (sin red, historial divergente, credenciales) → `ErrorBloqueante('PullFallido')`, `branch_status = 'error'`. **Nunca** se ramifica desde una base desactualizada.
 5. **Crea la rama:** `git switch -c <rama> <base>`. `--base` aplica solo a esta ejecución y no cambia la configuración del repositorio.
@@ -260,4 +260,5 @@ Detectados al cruzar las fuentes (análisis pre-código, 2026-11-01). Cada uno i
 | 2026-11-02 | H-03 afinado: nuevo `GitManager.inspectRepository` (solo lectura) antes de la confirmación; `createBranch` después. Actualizados `002` §2.1, `006` (TK-02c, TK-02f, TK-03b) y §3.1 de este documento. | H-03 · TK-02c · TK-02f · TK-03b |
 | 2026-11-02 | H-02 resuelto: `--reprocesar` en `devflow start`; agregado US-03 CA9 en `005`, y ajustados `002`, `006` (TK-02f, TK-03b) y este documento. | H-02 · US-03 · TK-02f · TK-03b |
 | 2026-11-03 | Regla de rama existente de TK-02c: en local → aviso y consulta en la confirmación; solo en `origin` → `ErrorBloqueante('RamaExistenteEnRemoto')` (nuevo subtipo); nunca se crea ni publica en el remoto. Nuevo US-03 CA10 y CA5 ajustado en `005`; actualizados `002`, `006` (TK-02c, TK-02f, TK-03b) y este documento. | H-04 · US-03 · TK-02c · TK-02f · TK-03b |
+| 2026-11-04 | Revisión de la PR #3 (TK-02c): el pull de la base lleva `--no-rebase` (ignora `pull.rebase`); los nombres de rama y base se validan con `git check-ref-format` antes de usarlos en `ls-remote` y `fetch`; el runner de Git tiene timeout. Actualizados `002`, `006`, ADR-007.1, `CLAUDE.md` y este documento. | TK-02c |
 | 2026-11-03 | TK-02a y TK-02b implementados: `StepResult`, `AppConfigProvider`, resolutor de tipo de issue (`branchType`; el prefijo lo arma el Orquestador) y cliente REST de Jira (búsqueda por `/rest/api/2/search/jql`, porque `/search` responde 410). Actualizados el estado del proyecto y los pasos 1.2, 1.4, 2.3, 2.4 y 2.5. | TK-02a · TK-02b |

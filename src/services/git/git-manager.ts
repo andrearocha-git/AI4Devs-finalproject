@@ -1,0 +1,187 @@
+import { execFile } from "node:child_process";
+import type { StepResult } from "../../shared/errors/result.types.js";
+
+/** Resultado de un comando Git: nunca lanza por un código de salida distinto de cero, lo informa en `exitCode`. */
+export interface GitCommandResult {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+}
+
+/** Ejecutor de comandos Git inyectable: permite espiar qué subcomandos se ejecutan (garantía de «nunca commit, add ni push»). */
+export type GitRunner = (cwd: string, args: string[]) => Promise<GitCommandResult>;
+
+/**
+ * Runner por defecto: ejecuta `git` sin shell (el nombre de rama no puede inyectar comandos) y sin prompts interactivos de credenciales.
+ *
+ * @param cwd Carpeta donde se ejecuta; si no existe, devuelve `exitCode: -1` en lugar de lanzar.
+ * @param args Argumentos de `git`, uno por elemento.
+ * @returns Salida del comando; un código de salida distinto de cero es un resultado, no una excepción.
+ */
+export const runGitCommand: GitRunner = (cwd, args) =>
+  new Promise((resolve) => {
+    execFile(
+      "git",
+      args,
+      { cwd, env: { ...process.env, GIT_TERMINAL_PROMPT: "0" }, encoding: "utf8", maxBuffer: 10 * 1024 * 1024 },
+      (error, stdout, stderr) => {
+        if (!error) return resolve({ exitCode: 0, stdout, stderr });
+        const exitCode = typeof error.code === "number" ? error.code : -1;
+        resolve({ exitCode, stdout, stderr: stderr || error.message });
+      },
+    );
+  });
+
+/** `git ls-remote --exit-code` termina con este código cuando ninguna referencia coincide. */
+const LS_REMOTE_NO_MATCH = 2;
+
+/** Argumentos para consultar si `origin` tiene la rama; la referencia completa evita coincidencias por sufijo. */
+function lsRemoteHeads(branch: string): string[] {
+  return ["ls-remote", "--exit-code", "--heads", "origin", `refs/heads/${branch}`];
+}
+
+/**
+ * Gestor de Git (ADR-007.1): inspecciona un repositorio en modo solo lectura y, tras la confirmación del usuario, actualiza la base y crea la rama del ticket.
+ *
+ * Nunca ejecuta `commit`, `add` ni `push`; publicar la rama queda del lado del usuario.
+ */
+export class GitManager {
+  /** @param runner Ejecutor de comandos Git; por defecto el `git` real. Los tests inyectan un spy sobre él. */
+  constructor(private readonly runner: GitRunner = runGitCommand) {}
+
+  /**
+   * Verifica, al dar de alta un repositorio, que sea un repositorio Git con remoto `origin` y que la rama base exista en ese remoto.
+   *
+   * No escribe nada. Consulta el remoto con `git ls-remote`.
+   *
+   * @param input.repoLocalPath Ruta local del repositorio.
+   * @param input.baseBranch Rama base que debe existir en `origin`.
+   * @returns `Ok` si todo está; `ErrorBloqueante('RepositorioNoEncontrado')` cuyo `message` dice qué falta (repositorio, `origin` o rama base);
+   *   `ErrorBloqueante('ErrorInesperado')` si el remoto no se pudo consultar (sin red, credenciales).
+   */
+  async validateRepository(input: { repoLocalPath: string; baseBranch: string }): Promise<StepResult<void>> {
+    const { repoLocalPath, baseBranch } = input;
+    if (!(await this.isRepository(repoLocalPath))) return notARepository(repoLocalPath);
+
+    const origin = await this.runner(repoLocalPath, ["remote", "get-url", "origin"]);
+    if (origin.exitCode !== 0) {
+      return blocked("RepositorioNoEncontrado", `El repositorio ${repoLocalPath} no tiene un remoto «origin» configurado.`);
+    }
+
+    const base = await this.runner(repoLocalPath, lsRemoteHeads(baseBranch));
+    if (base.exitCode === LS_REMOTE_NO_MATCH) {
+      return blocked("RepositorioNoEncontrado", `La rama base «${baseBranch}» no existe en el remoto «origin» de ${repoLocalPath}.`);
+    }
+    if (base.exitCode !== 0) {
+      return blocked("ErrorInesperado", `No se pudo consultar el remoto «origin» de ${repoLocalPath}: ${base.stderr.trim()}`);
+    }
+    return { kind: "Ok", value: undefined };
+  }
+
+  /**
+   * Inspección de solo lectura que el Orquestador ejecuta antes de pedir la confirmación: repositorio, cambios pendientes y rama del ticket.
+   *
+   * No hace `fetch`, `pull`, `switch` ni escribe nada. Si `origin` no responde, decide solo con la rama local.
+   *
+   * @param input.repoLocalPath Ruta local del repositorio.
+   * @param input.branchName Rama del ticket (`<prefijo>/<ID>-<SUFIJO>`).
+   * @returns `Ok({ branchAlreadyExists })` (`true` solo si la rama existe en local);
+   *   `ErrorBloqueante('RepositorioNoEncontrado')`; `ErrorBloqueante('CambiosPendientes')` con la lista de archivos en `message`;
+   *   `ErrorBloqueante('RamaExistenteEnRemoto')` si la rama no está en local pero sí en `origin`.
+   */
+  async inspectRepository(input: { repoLocalPath: string; branchName: string }): Promise<StepResult<{ branchAlreadyExists: boolean }>> {
+    const checked = await this.checkRepository(input.repoLocalPath, input.branchName);
+    if (checked.kind !== "Ok") return checked;
+    return { kind: "Ok", value: { branchAlreadyExists: checked.value.existsLocally } };
+  }
+
+  /**
+   * Actualiza la rama base y crea la rama del ticket a partir de ella. Se ejecuta después de la confirmación del usuario.
+   *
+   * Repite la verificación de `inspectRepository` (el árbol pudo cambiar mientras el usuario confirmaba). Si la rama ya existe en local
+   * no hace nada más. Parado en la base ejecuta
+   * `git pull --ff-only origin <base>`; parado en otra rama (o con HEAD desacoplado) ejecuta `git fetch origin <base>:<base>`.
+   * Luego `git switch -c <rama> <base>`, que deja el repositorio parado en la rama nueva. Nunca ejecuta `commit`, `add` ni `push`.
+   *
+   * @param input.repoLocalPath Ruta local del repositorio.
+   * @param input.branchName Rama del ticket; no puede empezar por «-».
+   * @param input.baseBranch Rama base (la configurada o la del override `--base`); no se modifica la configuración.
+   * @returns `Ok` con la rama creada, o con `alreadyExisted: true` (sin escribir nada ni cambiar de rama) si ya existía en local; los mismos `ErrorBloqueante` de `inspectRepository`;
+   *   `ErrorBloqueante('PullFallido')` con el motivo de Git si la base no se pudo actualizar (nunca se ramifica desde una base vieja);
+   *   `ErrorBloqueante('ErrorInesperado')` si el nombre de rama es inválido o `git switch` falla.
+   */
+  async createBranch(input: {
+    repoLocalPath: string;
+    branchName: string;
+    baseBranch: string;
+  }): Promise<StepResult<{ branchName: string; baseBranch: string; alreadyExisted: boolean }>> {
+    const { repoLocalPath, branchName, baseBranch } = input;
+    if (branchName.startsWith("-") || baseBranch.startsWith("-")) {
+      return blocked("ErrorInesperado", `Nombre de rama no válido: «${branchName}» sobre «${baseBranch}».`);
+    }
+
+    const checked = await this.checkRepository(repoLocalPath, branchName);
+    if (checked.kind !== "Ok") return checked;
+    if (checked.value.existsLocally) return { kind: "Ok", value: { branchName, baseBranch, alreadyExisted: true } };
+
+    const current = await this.runner(repoLocalPath, ["branch", "--show-current"]);
+    const updateArgs =
+      current.stdout.trim() === baseBranch ? ["pull", "--ff-only", "origin", baseBranch] : ["fetch", "origin", `${baseBranch}:${baseBranch}`];
+    const update = await this.runner(repoLocalPath, updateArgs);
+    if (update.exitCode !== 0) {
+      return blocked("PullFallido", `No se pudo actualizar la rama base «${baseBranch}» desde «origin»: ${update.stderr.trim()}`);
+    }
+
+    const created = await this.runner(repoLocalPath, ["switch", "-c", branchName, baseBranch]);
+    if (created.exitCode !== 0) {
+      return blocked("ErrorInesperado", `No se pudo crear la rama «${branchName}» desde «${baseBranch}»: ${created.stderr.trim()}`);
+    }
+    return { kind: "Ok", value: { branchName, baseBranch, alreadyExisted: false } };
+  }
+
+  /** Verificación común de `inspectRepository` y `createBranch`: repositorio, cambios pendientes y dónde existe la rama. */
+  private async checkRepository(repoLocalPath: string, branchName: string): Promise<StepResult<{ existsLocally: boolean }>> {
+    if (!(await this.isRepository(repoLocalPath))) return notARepository(repoLocalPath);
+
+    const status = await this.runner(repoLocalPath, ["status", "--porcelain"]);
+    if (status.exitCode !== 0) {
+      return blocked("ErrorInesperado", `No se pudo leer el estado de ${repoLocalPath}: ${status.stderr.trim()}`);
+    }
+    if (status.stdout.trim() !== "") {
+      return blocked(
+        "CambiosPendientes",
+        `El repositorio ${repoLocalPath} tiene cambios pendientes; resuélvelos y vuelve a ejecutar:\n${status.stdout.trimEnd()}`,
+      );
+    }
+
+    const local = await this.runner(repoLocalPath, ["rev-parse", "--verify", "--quiet", `refs/heads/${branchName}`]);
+    if (local.exitCode === 0) return { kind: "Ok", value: { existsLocally: true } };
+
+    const remote = await this.runner(repoLocalPath, lsRemoteHeads(branchName));
+    if (remote.exitCode === 0) {
+      return blocked(
+        "RamaExistenteEnRemoto",
+        `La rama «${branchName}» ya existe en el remoto «origin» pero no en tu repositorio local. Verifícala y, si quieres usarla, configúrala de forma manual.`,
+      );
+    }
+    return { kind: "Ok", value: { existsLocally: false } };
+  }
+
+  /** `true` solo si la ruta es la raíz de un repositorio: una subcarpeta tiene un prefijo no vacío respecto de la raíz. */
+  private async isRepository(repoLocalPath: string): Promise<boolean> {
+    const result = await this.runner(repoLocalPath, ["rev-parse", "--is-inside-work-tree", "--show-prefix"]);
+    const [insideWorkTree, prefix = ""] = result.stdout.split("\n").map((line) => line.trim());
+    return result.exitCode === 0 && insideWorkTree === "true" && prefix === "";
+  }
+}
+
+function blocked(
+  subtype: "RepositorioNoEncontrado" | "CambiosPendientes" | "RamaExistenteEnRemoto" | "PullFallido" | "ErrorInesperado",
+  message: string,
+) {
+  return { kind: "ErrorBloqueante", subtype, message } as const;
+}
+
+function notARepository(repoLocalPath: string) {
+  return blocked("RepositorioNoEncontrado", `No se encontró un repositorio Git en ${repoLocalPath}.`);
+}

@@ -5,6 +5,7 @@ export type FallbackManualReason = "network_timeout" | "invalid_token" | "not_fo
 export type ErrorBloqueanteSubtype =
   | "RepositorioNoEncontrado"
   | "CambiosPendientes"
+  | "RamaExistenteEnRemoto"
   | "PullFallido"
   | "TipoIssueBloqueado"
   | "PermisosInsuficientes"

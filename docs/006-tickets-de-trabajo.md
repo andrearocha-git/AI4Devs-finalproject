@@ -198,7 +198,7 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
 - **Definition of Done (DoD):**
   - [x] Todas las credenciales, el host y los timeouts llegan por constructor.
   - [x] Hay al menos un test para `Ok` y para cada motivo de `FallbackManual`.
-  - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
+  - [x] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---
 

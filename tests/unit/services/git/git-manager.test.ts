@@ -9,7 +9,7 @@ const BRANCH = "features/SCRUM-1-AROCHA";
 /** Lista blanca de subcomandos: solo lectura (inspección y alta). */
 const READ_ONLY = ["rev-parse", "status", "branch", "remote", "ls-remote", "check-ref-format"];
 /** Lista blanca de `createBranch`: la lectura más la actualización de la base y la creación de la rama. */
-const CAN_WRITE = [...READ_ONLY, "pull", "fetch", "switch"];
+const CAN_WRITE = [...READ_ONLY, "pull", "switch"];
 
 /**
  * Aísla a Git de la configuración del desarrollador que corre los tests (`pull.rebase`, alias, hooks…): HOME y XDG apuntan a una carpeta
@@ -319,7 +319,7 @@ function publishCommitToOrigin(env: TestEnv, branch: string, file: string): void
   git(other, "push", "origin", branch);
 }
 
-describe("E2 — createBranch con rama nueva: actualización de la base y creación (TK-02c CA1 pull/fetch y caso feliz, DoD-a)", () => {
+describe("E2 — createBranch con rama nueva: actualización de la base y creación (TK-02c CA1 pull y caso feliz, DoD-a)", () => {
   it("parado en la base: git pull --no-rebase --ff-only origin <base>, luego git switch -c una sola vez", async () => {
     const env = createEnv();
     publishCommitToOrigin(env, "main", "de-origin.txt");

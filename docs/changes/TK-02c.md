@@ -17,7 +17,7 @@ Nunca ejecuta `commit`, `add` ni `push`, y nunca ramifica desde una base desactu
   - Repo inexistente → `ErrorBloqueante('RepositorioNoEncontrado')`.
   - Cambios pendientes → `ErrorBloqueante('CambiosPendientes')` sin ejecutar pull ni creación.
   - Rama ya existente → `Ok({ alreadyExisted: true })` sin pull, creación ni cambio de rama (H-04). _(ampliado el 2026-11-03: si la rama solo existe en `origin`, se detiene con `ErrorBloqueante('RamaExistenteEnRemoto')`, ver «Decisiones y desvíos»)_
-  - Parado en la base → `git pull --ff-only origin <base>`; parado en otra rama → `git fetch origin <base>:<base>`.
+  - Parado en la base → `git pull --ff-only origin <base>`; parado en otra rama → `git switch <base>` y luego el mismo pull. _(cambiado el 2026-11-04, ver «Registro de la 2.ª revisión de la PR #3»)_
   - Pull fallido → `ErrorBloqueante('PullFallido')` sin crear la rama.
   - Caso feliz → crea la rama una sola vez con `git switch -c <rama> <base>`.
   - En ningún path se ejecuta `commit`, `add` ni `push` (spy sobre el runner).
@@ -39,7 +39,7 @@ Nunca ejecuta `commit`, `add` ni `push`, y nunca ramifica desde una base desactu
 
 - **Given** un repositorio temporal limpio con `origin` local cuya rama base tiene un commit nuevo que el clon aún no tiene, primero con el clon parado en la base y luego parado en otra rama
 - **When** se llama a `createBranch` con `branchName` y `baseBranch`
-- **Then** parado en la base ejecuta `git pull --no-rebase --ff-only origin <base>` y parado en otra rama ejecuta `git fetch origin <base>:<base>`; después ejecuta `git switch -c <rama> <base>` exactamente una vez y devuelve `Ok({ branchName, baseBranch, alreadyExisted: false })`; la rama nueva contiene el commit nuevo de la base; el spy no registra `commit`, `add` ni `push` y la base configurada del repositorio no cambia (se usa el `baseBranch` recibido, sea el de `--base` o el configurado)
+- **Then** parado en la base ejecuta `git pull --no-rebase --ff-only origin <base>` y parado en otra rama ejecuta antes `git switch <base>` (sin `fetch`); después ejecuta `git switch -c <rama> <base>` exactamente una vez y devuelve `Ok({ branchName, baseBranch, alreadyExisted: false })`; la rama nueva contiene el commit nuevo de la base; el spy no registra `commit`, `add` ni `push` y la base configurada del repositorio no cambia (se usa el `baseBranch` recibido, sea el de `--base` o el configurado)
 
 ### E3 — `createBranch`: reutilizar rama existente y cortes antes de crear (cubre: CA1 pendientes, rama existente y pull fallido, DoD-b)
 
@@ -52,7 +52,7 @@ Nunca ejecuta `commit`, `add` ni `push`, y nunca ramifica desde una base desactu
 | Escenario | Criterios cubiertos | Test | Estado |
 |---|---|---|---|
 | E1 | CA1 (`inspectRepository`), `validateRepository`, DoD-b | `tests/unit/services/git/git-manager.test.ts` › «E1 — inspectRepository: solo lectura» (19 casos) y «E1 — validateRepository: alta de un repositorio» (9 casos) | Hecho |
-| E2 | CA1 (pull/fetch, caso feliz), DoD-a | `tests/unit/services/git/git-manager.test.ts` › «E2 — createBranch con rama nueva» (8 casos: pull parado en la base, fetch parado en otra rama, base distinta con `--base` sin copia local, 4 nombres de rama o base no válidos y HEAD desacoplado) | Hecho |
+| E2 | CA1 (pull, caso feliz), DoD-a | `tests/unit/services/git/git-manager.test.ts` › «E2 — createBranch con rama nueva» (8 casos: pull parado en la base, `switch` a la base y pull parado en otra rama, base distinta con `--base` sin copia local, 4 nombres de rama o base no válidos y HEAD desacoplado) | Hecho |
 | E3 | CA1 (pendientes, rama existente, pull fallido), DoD-b | `tests/unit/services/git/git-manager.test.ts` › «E3 — createBranch: reutilizar rama existente y cortes antes de crear» (12 casos: rama en local, rama solo en origin, cambios pendientes, ruta inexistente, subcarpeta de un repositorio, `PullFallido` con origin inalcanzable parado en la base y en otra rama, base divergente con `pull.rebase` (rebase sin conflicto y con conflicto) y con fetch no fast-forward parado en otra rama, y ningún `commit`/`add`/`push` en ningún camino) | Hecho |
 
 ## Prerrequisitos
@@ -72,7 +72,7 @@ Nunca ejecuta `commit`, `add` ni `push`, y nunca ramifica desde una base desactu
 ## Tareas
 
 - [x] 1. E1 — RED: tests de `inspectRepository` y `validateRepository` con repositorios temporales y spy; GREEN: `GitManager` con runner inyectable y los dos métodos de solo lectura
-- [x] 2. E2 — RED: tests de `createBranch` con pull y con fetch y verificación de la rama creada; GREEN: actualización de la base y `git switch -c`
+- [x] 2. E2 — RED: tests de `createBranch` con pull (y `switch` previo a la base) y verificación de la rama creada; GREEN: actualización de la base y `git switch -c`
 - [x] 3. E3 — RED: tests de pendientes, repo inexistente, rama en local, rama solo en remoto y pull fallido; GREEN: las guardas previas a la creación
 - [x] 4. Verificar la cobertura (umbral del 80 % de `src/services/**`) con `npm run test:coverage`
 - [x] 5. Refactor, TSDoc en español de los exports públicos, `npm run typecheck`, `npm run lint` y `npm test` en verde
@@ -94,11 +94,11 @@ Propuestas por confirmar al aprobar el contrato:
 - **La consulta al usuario («¿usas esa misma rama?») no es del `GitManager`:** el Orquestador la formula dentro de la confirmación única de H-03 cuando `branchAlreadyExists` es `true`, antes de llamar a `createBranch`. Si el usuario no acepta, el Orquestador cancela sin crear nada (TK-02f). Registrar la rama como la del ticket es de TK-02f (`ticket_logs`). _(asumido: no hay alternativa de elegir otro nombre de rama)_
 - **Efecto en otros documentos (pendiente de autorizar):** reflejar el subtipo `RamaExistenteEnRemoto` y la consulta sobre la rama local en `docs/006` (TK-02c y TK-02f), `docs/009` §3.1 pasos 3 y 5, `docs/002` y `docs/005` US-03 CA5. Este contrato no los modifica.
 - _(asumido)_ **`ls-remote` sin respuesta** (sin red, `origin` inalcanzable): `inspectRepository` no bloquea y decide solo con la rama local (`true` o `false`), porque la falla de red la reporta después `createBranch` como `PullFallido`.
-- _(asumido)_ **«Parado en la base»:** `git branch --show-current` igual a `baseBranch`. HEAD desacoplado (cadena vacía) cuenta como «otra rama» y usa `git fetch origin <base>:<base>`.
+- _(asumido)_ **«Parado en la base»:** `git branch --show-current` igual a `baseBranch`. HEAD desacoplado (cadena vacía) cuenta como «otra rama» y usa `git switch <base>` antes del pull.
 - _(asumido)_ **Cambios pendientes:** `git status --porcelain` con salida no vacía; `message` incluye la lista de archivos tal como la devuelve Git (una línea por archivo).
-- _(asumido)_ **`PullFallido`:** cualquier código de salida distinto de cero en `pull --ff-only` o `fetch origin <base>:<base>`; `message` lleva el `stderr` de Git para explicar el motivo (sin red, divergencia, credenciales).
+- _(asumido)_ **`PullFallido`:** cualquier código de salida distinto de cero en `pull --ff-only`; `message` lleva el `stderr` de Git para explicar el motivo (sin red, divergencia, credenciales).
 - _(asumido)_ **Fallo inesperado de Git** al crear la rama (p. ej. `switch -c` falla tras actualizar la base): `ErrorBloqueante('ErrorInesperado')` con el `stderr` en el mensaje.
-- _(asumido)_ **Sin comandos de escritura distintos de los permitidos:** la lista blanca de subcomandos del runner es `rev-parse`, `status`, `branch`, `remote`, `ls-remote`, `pull`, `fetch` y `switch`; los tests verifican con el spy que nada fuera de esa lista (en particular `commit`, `add` y `push`) se ejecuta.
+- _(asumido)_ **Sin comandos de escritura distintos de los permitidos:** la lista blanca de subcomandos del runner es `rev-parse`, `status`, `branch`, `remote`, `ls-remote`, `check-ref-format`, `pull` y `switch`; los tests verifican con el spy que nada fuera de esa lista (en particular `commit`, `add` y `push`) se ejecuta.
 
 Registro de la implementación de E1 (2026-11-04):
 
@@ -111,7 +111,7 @@ Registro de la implementación de E1 (2026-11-04):
 Registro de la implementación de E2 (2026-11-04):
 
 - **Nombre de rama o base que empieza por «-»:** `createBranch` los rechaza con `ErrorBloqueante('ErrorInesperado')` antes de ejecutar nada, porque `git switch -c` no admite `--` delante del nombre. Resuelve el punto que quedó pendiente en E1.
-- **Base sin copia local:** parado en otra rama, `git fetch origin <base>:<base>` crea la base local si no existía (hay un test con `develop`).
+- **Base sin copia local:** parado en otra rama, `git switch <base>` crea la base local desde `origin/<base>` si no existía (hay un test con `develop`); requiere que `origin/<base>` ya esté en el repositorio (ver 2.ª revisión). _(antes era `git fetch origin <base>:<base>`)_
 - **Fallo de `git switch -c`:** `ErrorBloqueante('ErrorInesperado')` con el `stderr` de Git.
 - **Rama ya existente en local:** `createBranch` todavía no devuelve `alreadyExisted: true` (intentaría crearla); es lo que cubre E3.
 
@@ -123,7 +123,7 @@ Registro de la implementación de E3 (2026-11-04):
 Ajustes tras `/05-verificar-y-revisar` (2026-11-04, aprobados por el desarrollador, aplicados con TDD):
 
 - **Solo la raíz de un repositorio es un repositorio:** `isRepository` usa `git rev-parse --is-inside-work-tree --show-prefix` y exige prefijo vacío; una subcarpeta de un repositorio da `RepositorioNoEncontrado` en `inspectRepository`, `validateRepository` y `createBranch` (un test en cada uno). Antes se aceptaba cualquier subcarpeta.
-- **Lista blanca de subcomandos real:** los tests ya no buscan comandos prohibidos sino que comprueban con el spy que todo subcomando ejecutado está en una lista blanca: `rev-parse`, `status`, `branch`, `remote` y `ls-remote` para inspección y alta, más `pull`, `fetch` y `switch` en `createBranch` (así, cualquier comando de escritura no previsto, además de `commit`, `add` y `push`, haría fallar el test). Cumple lo asumido en el contrato.
+- **Lista blanca de subcomandos real:** los tests ya no buscan comandos prohibidos sino que comprueban con el spy que todo subcomando ejecutado está en una lista blanca: `rev-parse`, `status`, `branch`, `remote` y `ls-remote` para inspección y alta, más `pull` y `switch` en `createBranch` (`fetch` se quitó de la lista el 2026-11-04) (así, cualquier comando de escritura no previsto, además de `commit`, `add` y `push`, haría fallar el test). Cumple lo asumido en el contrato.
 - **Cobertura y suite tras los ajustes:** `git-manager.ts` 95,23 % en sentencias y 93,33 % en ramas; 178 tests en total, typecheck y lint en verde.
 
 Corrección tras la revisión de la PR #3 (2026-11-04, hallazgo de gravedad alta de Cursor, aprobada por el desarrollador, aplicada con TDD):
@@ -137,7 +137,7 @@ Segunda tanda de la revisión de la PR #3 (2026-11-04, hallazgos de gravedad med
 - **Aislamiento de la configuración de Git en los tests (media):** los tests fijan `HOME`, `XDG_CONFIG_HOME`, `USERPROFILE`, `GIT_CONFIG_GLOBAL` y `GIT_CONFIG_NOSYSTEM` sobre `process.env` (con un `.gitconfig` vacío en una carpeta temporal), de modo que tanto el helper `git()` como el runner real ignoran la configuración del desarrollador. `GIT_CONFIG_GLOBAL` solo lo respeta Git ≥ 2.32; con HOME/XDG el aislamiento vale también para Git 2.25. El test de base divergente se parametrizó con las dos variantes pedidas (rebase que terminaría en 0 y rebase con conflicto), con `pull.rebase=true` en la configuración global y `branch.main.rebase=true` en la del repositorio. Se comprobó que ambas variantes fallan al quitar `--no-rebase`.
 - **Validación de nombres de rama (baja):** `inspectRepository`, `validateRepository` y `createBranch` validan la rama (y la base) con `git check-ref-format --branch` —comparando su salida con el nombre para que `@{-1}` no se expanda— y rechazan además los que empiezan por `-` o `+` (con `+main`, `git fetch origin +main:+main` forzaba el refspec y creaba una rama llamada `+main`). Un nombre inválido da `ErrorBloqueante('ErrorInesperado')` antes de armar el patrón de `ls-remote` o el refspec de `fetch`; se valida después de comprobar el repositorio y antes de `git status`. La lista blanca de los tests incorpora `check-ref-format`. Cambia un test aprobado: «una rama con nombre de opción no se interpreta como argumento de Git» esperaba `Ok({ branchAlreadyExists: false })` para `--all` y ahora espera `ErrorInesperado` (autorizado por el desarrollador al pasar el hallazgo).
 - **Timeout del runner (baja):** `createGitRunner({ timeoutMs })` (por defecto 120 000 ms, elegido sin que el ticket lo fije) corta el proceso al vencer y devuelve `exitCode: -1` con «Tiempo de espera agotado»; `runGitCommand` pasa a ser `createGitRunner()`. Por la vía normal queda como `PullFallido` (pull o fetch), `ErrorInesperado` (status o switch) o, en `ls-remote`, como «sin respuesta» (no bloquea la inspección). Tests (describe «runGitCommand: timeout», 2 casos, fuera de E1-E3): un comando que espera stdin se corta, y uno rápido no se ve afectado.
-- **Casos que faltaban (baja):** HEAD desacoplado usa `fetch origin <base>:<base>` sin `pull`, y una base divergente parado en otra rama da `PullFallido` por fetch no fast-forward sin tocar la base local.
+- **Casos que faltaban (baja):** HEAD desacoplado usaba `fetch origin <base>:<base>` sin `pull`, y una base divergente parado en otra rama daba `PullFallido` por fetch no fast-forward (superado el 2026-11-04: ahora `switch` + `pull`) sin tocar la base local.
 - **Backlog (baja):** `docs/LIDR/backlog-2da-entrega.md` pasa de 9 a 10 criterios de US-03, e incorpora la fila de CA10.
 
 Registro de la 2.ª revisión de la PR #3 (2026-11-04), autorizada por la desarrolladora (3 hallazgos medios de Cursor, todos reales):

@@ -230,7 +230,7 @@ export class GitManager {
 
   /**
    * Devuelve el primer nombre que no sea un nombre de rama válido, o `null` si todos lo son. Se valida antes de armar el patrón de
-   * `ls-remote` o el refspec de `fetch`: `git check-ref-format --branch` rechaza `:`, `*`, `?`, espacios y `@{-1}` (se compara la
+   * `ls-remote`: `git check-ref-format --branch` rechaza `:`, `*`, `?`, espacios y `@{-1}` (se compara la
    * salida con el nombre para que no se expanda), y se descartan además `-` (opción de Git), `+` y `refs/` al inicio: la app solo trabaja con
    * ramas locales, y un nombre `refs/tags/…` apuntaría a un tag.
    */

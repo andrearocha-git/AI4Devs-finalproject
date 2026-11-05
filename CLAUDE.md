@@ -59,7 +59,7 @@ Restricciones técnicas ya decididas (ADR-006.1 aceptado, ADR-003.1, ADR-007.1) 
 
 ## Build / test commands
 
-The scaffold exists (TK-00: `package.json`, `tsconfig.json`, `vitest.config.ts`, `eslint.config.js`) and the first module is implemented (TK-01, `src/database/`). Run everything from the repo root, with Node ≥ 22.13:
+The scaffold exists (TK-00: `package.json`, `tsconfig.json`, `vitest.config.ts`, `eslint.config.js`) and the Storage Layer (TK-01), the Service Layer pieces up to TK-02g and the CLI entry point for `devflow config` (TK-03a, `src/tui/`) are implemented. Run everything from the repo root, with Node ≥ 22.13:
 
 - Install: `npm install`
 - Typecheck: `npm run typecheck` (`tsc --noEmit`, covers `src/`, `tests/` and `vitest.config.ts`)
@@ -67,5 +67,6 @@ The scaffold exists (TK-00: `package.json`, `tsconfig.json`, `vitest.config.ts`,
 - Test (whole suite): `npm test` (`vitest run`)
 - Single test file: `npm test -- tests/unit/smoke.test.ts`
 - Single test by name: `npm test -- -t "<name pattern>"`
+- Run the CLI: `npm start -- <args>` (`tsx src/tui/cli.ts`; e.g. `npm start -- --help`, `npm start -- config`, `npm start -- config proyectos`). It needs the Windows environment variables `APPDATA` and `USERPROFILE`; on Linux/WSL `resolveDatabasePath` (`win32.join`) creates a stray file named with backslashes in the current directory, so the interactive run is tested on Windows.
 
-There is no `dev`, `build` or `start` script yet — add them when an entry point (`src/tui/cli.ts`) exists, and update this section.
+There is no `dev` or `build` script: `tsc` runs with `noEmit` and does not copy `schema.sql`, the migrations or `templates/`, so packaging (and the `bin` entry) is left for the Windows test milestone.

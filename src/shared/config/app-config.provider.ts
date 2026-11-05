@@ -43,6 +43,17 @@ export function resolveDatabasePath(env: Record<string, string | undefined> = pr
 }
 
 /**
+ * Carpeta de tickets por defecto: `<USERPROFILE>\DevFlowCLI\tickets`.
+ *
+ * @param env Variables de entorno (por defecto `process.env`).
+ * @returns La ruta en formato Windows, o `undefined` si `USERPROFILE` no está definida o está en blanco.
+ */
+export function defaultTicketsRoot(env: Record<string, string | undefined> = process.env): string | undefined {
+  const userProfile = text(env.USERPROFILE);
+  return userProfile ? win32.join(userProfile, "DevFlowCLI", "tickets") : undefined;
+}
+
+/**
  * Valida la configuración, completa los valores por defecto y la entrega inmutable.
  *
  * Se construye una sola vez (el Orquestador) y se inyecta por constructor a los demás componentes;
@@ -74,9 +85,7 @@ export class AppConfigProvider {
     if (!branchUserSuffix) problems.push("branchUserSuffix es obligatorio");
     else if (!SUFFIX_FORMAT.test(branchUserSuffix)) problems.push("branchUserSuffix debe cumplir ^[A-Z0-9]+$");
 
-    const userProfile = text(env.USERPROFILE);
-    const ticketsRootPath =
-      text(input.ticketsRootPath) ?? (userProfile ? win32.join(userProfile, "DevFlowCLI", "tickets") : undefined);
+    const ticketsRootPath = text(input.ticketsRootPath) ?? defaultTicketsRoot(env);
     if (!ticketsRootPath) problems.push("ticketsRootPath: no hay valor ni variable USERPROFILE para calcularlo");
 
     const databasePath = text(input.databasePath) ?? (text(env.APPDATA) ? resolveDatabasePath(env) : undefined);

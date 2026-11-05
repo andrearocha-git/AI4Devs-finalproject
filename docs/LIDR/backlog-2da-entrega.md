@@ -11,7 +11,7 @@
 | `docs/005-historias-de-usuario.md` | 3 historias: **US-01** (configurar, 6 CA), **US-02** (elegir y consultar el ticket en Jira, 6 CA), **US-03** (preparar rama, carpeta y documento con Ollama, 10 CA). |
 | `docs/006-tickets-de-trabajo.md` | **TK-00** y **TK-01** (hechos), **TK-02** (paraguas dividido en **TK-02a … TK-02g**), **TK-03** (paraguas dividido en **TK-03a** y **TK-03b**). |
 
-Estado: TK-00, TK-01, TK-02a, TK-02b, TK-02c, TK-02d y TK-02g implementados (347 tests, typecheck y lint en verde; TK-02a, TK-02b, TK-02c y TK-02d revisados y fusionados en `feature/TK-02`; TK-02g verificado con `/05` y pendiente de la revisión de Cursor). Todo lo demás está especificado y sin código.
+Estado: TK-00, TK-01, TK-02a, TK-02b, TK-02c, TK-02d, TK-02g y TK-03a implementados (431 tests, typecheck y lint en verde; TK-02a, TK-02b, TK-02c, TK-02d y TK-02g revisados y fusionados en `feature/TK-02`; TK-03a verificado con `/05`, comprobado contra el Jira real desde WSL y pendiente de la revisión de Cursor y de la prueba en Windows). Con TK-03a queda cerrado el Hito 1 en código. Todo lo demás está especificado y sin código.
 
 **Observación INVEST (sin modificar nada).** US-03 falla S (Small): 10 CA y esfuerzo Alto. TK-03 también es grande (dos comandos, cuatro prompts y todas las pantallas de resultado). Por eso el orden de abajo entrega las historias **por criterios de aceptación**, no de una vez, y TK-03 ya se dividió en TK-03a y TK-03b (§4).
 
@@ -41,7 +41,7 @@ Estado: TK-00, TK-01, TK-02a, TK-02b, TK-02c, TK-02d y TK-02g implementados (347
 | 1.2 | **TK-02b** Jira REST Client ✅ | Validar claves, `displayName`, clasificación de fallos | 1.1 |
 | 1.3 | **TK-02c** Git Manager ✅ | `validateRepository` y `createBranch` completos | 1.1 |
 | 1.4 | **TK-02g** Orquestador: gestión ✅ | Alta, edición y baja de proyectos y repositorios; sufijo; errores claros | 1.2, 1.3 |
-| 1.5 | **TK-03a** CLI base + `devflow config` | `cli.ts`, `config.command.ts`, prompts de alta | 1.4 |
+| 1.5 | **TK-03a** CLI base + `devflow config` ✅ | `cli.ts`, `config.command.ts`, prompts de alta | 1.4 |
 
 *Nota de orden:* 1.2 y 1.3 son independientes y pueden ir en paralelo. `createBranch` ya queda implementado aquí aunque aún nadie lo use; se verifica con repositorios temporales.
 

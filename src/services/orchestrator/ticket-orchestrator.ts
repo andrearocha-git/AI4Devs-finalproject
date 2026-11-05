@@ -1,4 +1,5 @@
 import type { SQLiteStorageManager } from "../../database/sqlite-storage-manager.js";
+import { normalizeJiraBaseUrl } from "../../shared/config/jira-base-url.js";
 import type { StepResult } from "../../shared/errors/result.types.js";
 import type { AppConfig, JiraProject, Repository } from "../../shared/types/config.types.js";
 import type { GitManager } from "../git/git-manager.js";
@@ -7,8 +8,24 @@ import type { JiraRestClient } from "../jira/jira-rest-client.js";
 /** Subconjunto del cliente de Jira que usa el Orquestador; permite inyectar un doble en los tests. */
 export type JiraGateway = Pick<JiraRestClient, "validateProjectKey" | "listAssignedTickets" | "getMyDisplayName">;
 
-/** Fábrica del cliente de Jira: se invoca con la configuración vigente en cada operación que llama a Jira. */
-export type JiraClientFactory = (config: AppConfig) => JiraGateway;
+/** Credenciales de Jira que escribe el usuario; la URL se normaliza al `origin` antes de usarse. */
+export interface JiraCredentials {
+  jiraBaseUrl: string;
+  jiraEmail: string;
+  jiraApiToken: string;
+}
+
+/** Lo que necesita un cliente de Jira: las credenciales ya normalizadas y el timeout por intento, en segundos. */
+export type JiraConnection = JiraCredentials & { jiraTimeoutSeconds: number };
+
+/** Timeout de Jira cuando aún no hay configuración guardada (el mismo valor por defecto de `AppConfigProvider`). */
+const DEFAULT_JIRA_TIMEOUT_SECONDS = 10;
+
+/**
+ * Fábrica del cliente de Jira: se invoca con la conexión vigente en cada operación que llama a Jira.
+ * Una `AppConfig` completa también es una `JiraConnection` válida.
+ */
+export type JiraClientFactory = (connection: JiraConnection) => JiraGateway;
 
 const DEFAULT_BASE_BRANCH = "main";
 
@@ -48,6 +65,21 @@ export class TicketOrchestrator {
     private readonly git: GitManager,
     private readonly createJiraClient: JiraClientFactory,
   ) {}
+
+  private closed = false;
+
+  /**
+   * Cierra la conexión con la base. Es idempotente: cerrar dos veces no lanza.
+   *
+   * Después de cerrar, las operaciones que usan la base lanzan. Un comando de un solo uso no lo necesita (el sistema cierra
+   * el archivo al terminar el proceso), pero en Windows un archivo abierto no se puede borrar, así que los tests y los
+   * llamadores de larga vida deben cerrarlo.
+   */
+  close(): void {
+    if (this.closed) return;
+    this.closed = true;
+    this.storage.close();
+  }
 
   /**
    * Lista las claves de proyecto dadas de alta.
@@ -161,7 +193,18 @@ export class TicketOrchestrator {
     if (key === undefined) {
       return this.unknownProject(`«${ticketId}» no es un ID de ticket válido (se espera, p. ej., SCRUM-12)`, false);
     }
-    const project = this.findProject(key);
+    return this.listRepositories(key);
+  }
+
+  /**
+   * Lista los repositorios de una clave de proyecto. No llama a Jira.
+   *
+   * @param jiraProjectKey Clave de un proyecto ya dado de alta; se normaliza a mayúsculas.
+   * @returns `Ok` con los repositorios ordenados por nombre (vacío si no tiene ninguno);
+   * `ErrorBloqueante('ErrorInesperado')` con las claves disponibles si la clave no está configurada.
+   */
+  listRepositories(jiraProjectKey: string): StepResult<Repository[]> {
+    const project = this.findProject(jiraProjectKey);
     if (project.kind !== "Ok") return project;
     return { kind: "Ok", value: this.storage.listRepositories(project.value.id) };
   }
@@ -220,7 +263,8 @@ export class TicketOrchestrator {
    *
    * @param config Campos a guardar. Los textos se guardan sin espacios sobrantes y uno en blanco se ignora (conserva el valor
    * guardado), como en `AppConfigProvider`. El sufijo de usuario, si viene, debe cumplir `^[A-Z0-9]+$` (p. ej. `AROCHA`).
-   * @throws {Error} Si el sufijo (ya recortado) no cumple el formato, en blanco incluido (no se guarda nada) o, en el primer alta, si faltan campos obligatorios
+   * @throws {Error} Si la URL de Jira no es válida (solo `http(s)`, sin usuario, query ni fragmento; se guarda su `origin`),
+   * si el sufijo (ya recortado) no cumple el formato, en blanco incluido (no se guarda nada) o, en el primer alta, si faltan campos obligatorios
    * (`jiraBaseUrl`, `jiraEmail`, `jiraApiToken`, `branchUserSuffix`, `ticketsRootPath`).
    */
   saveConfig(config: Partial<AppConfig>): void {
@@ -229,6 +273,11 @@ export class TicketOrchestrator {
       const trimmed = typeof value === "string" ? value.trim() : value;
       if (trimmed === "" && field !== "branchUserSuffix") continue;
       cleaned[field] = trimmed;
+    }
+    if (typeof cleaned.jiraBaseUrl === "string") {
+      const origin = normalizeJiraBaseUrl(cleaned.jiraBaseUrl);
+      if (origin === null) throw new Error(invalidJiraUrlMessage(cleaned.jiraBaseUrl));
+      cleaned.jiraBaseUrl = origin;
     }
     const suffix = cleaned.branchUserSuffix;
     if (suffix !== undefined && !SUFFIX_FORMAT.test(suffix as string)) {
@@ -243,11 +292,14 @@ export class TicketOrchestrator {
    * La sugerencia es la inicial del nombre más el último apellido, en mayúsculas y sin acentos
    * («Andrea Rocha» → `AROCHA`); un nombre de una sola palabra se usa completo. El usuario puede editarla.
    *
+   * @param credentials Credenciales aún sin guardar (primer arranque: `saveConfig` exige el sufijo, así que hay que sugerirlo
+   * antes de guardar). Si se omiten, se usan las de la configuración guardada. No se guarda nada en ningún caso.
    * @returns `Ok` con el sufijo; el fallo de Jira tal cual; o `ErrorBloqueante('ErrorInesperado')` si no hay configuración
-   * de Jira o el nombre no contiene letras A-Z ni dígitos (el usuario debe escribirlo a mano).
+   * de Jira (y no se dieron credenciales), la URL dada no es válida o el nombre no contiene letras A-Z ni dígitos
+   * (el usuario debe escribirlo a mano).
    */
-  async suggestBranchSuffix(): Promise<StepResult<string>> {
-    const jira = this.jiraClient();
+  async suggestBranchSuffix(credentials?: JiraCredentials): Promise<StepResult<string>> {
+    const jira = credentials ? this.clientFor(credentials) : this.jiraClient();
     if (jira.kind !== "Ok") return jira;
     const name = await jira.value.getMyDisplayName();
     if (name.kind !== "Ok") return name;
@@ -274,6 +326,23 @@ export class TicketOrchestrator {
     const keys = this.storage.listJiraProjects().map((p) => p.jiraProjectKey);
     if (keys.length === 0) return { kind: "Ok", value: [] };
     return jira.value.listAssignedTickets(keys);
+  }
+
+  /** Crea un cliente de Jira con credenciales sin guardar (URL normalizada) y el timeout guardado, o el de por defecto. */
+  private clientFor(credentials: JiraCredentials): StepResult<JiraGateway> {
+    const origin = normalizeJiraBaseUrl(credentials.jiraBaseUrl);
+    if (origin === null) {
+      return { kind: "ErrorBloqueante", subtype: "ErrorInesperado", message: invalidJiraUrlMessage(credentials.jiraBaseUrl) };
+    }
+    return {
+      kind: "Ok",
+      value: this.createJiraClient({
+        jiraBaseUrl: origin,
+        jiraEmail: credentials.jiraEmail.trim(),
+        jiraApiToken: credentials.jiraApiToken.trim(),
+        jiraTimeoutSeconds: this.storage.getAppConfig()?.jiraTimeoutSeconds ?? DEFAULT_JIRA_TIMEOUT_SECONDS,
+      }),
+    };
   }
 
   /** Crea el cliente de Jira con la configuración guardada, o indica que falta configurarla. */
@@ -306,6 +375,12 @@ function removeKeepingHistory(what: string, remove: () => void): void {
     }
     throw error;
   }
+}
+
+/** Mensaje de la URL de Jira no válida; no incluye la parte de la URL que pudiera llevar credenciales. */
+function invalidJiraUrlMessage(value: string): string {
+  const shown = value.includes("@") ? "(oculta, parece llevar usuario)" : `«${value.trim()}»`;
+  return `La URL de Jira ${shown} no es válida: debe ser http(s)://<sitio>.atlassian.net, sin usuario, parámetros ni fragmento.`;
 }
 
 /** Recorta los textos del repositorio; una rama base en blanco pasa a ausente. */

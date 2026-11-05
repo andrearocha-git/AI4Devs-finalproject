@@ -64,6 +64,23 @@ beforeEach(() => {
 });
 afterEach(() => fixture.storage.close());
 
+describe("close", () => {
+  it("cierra la conexión con la base: después, las operaciones que la usan lanzan", () => {
+    const own = setup();
+
+    own.orchestrator.close();
+
+    expect(() => own.orchestrator.listProjects()).toThrow();
+  });
+
+  it("es idempotente: cerrar dos veces no lanza", () => {
+    const own = setup();
+    own.orchestrator.close();
+
+    expect(() => own.orchestrator.close()).not.toThrow();
+  });
+});
+
 describe("E1 — proyectos", () => {
   it("addProject con Ok persiste la clave en mayúsculas con el nombre de Jira", async () => {
     fixture.jira.validateProjectKey.mockResolvedValue({ kind: "Ok", value: { key: "SCRUM", name: "Scrum Board" } });
@@ -373,6 +390,27 @@ describe("E2 — repositorios", () => {
     expect(() => fixture.orchestrator.removeRepository(1)).toThrow(boom);
   });
 
+  it("listRepositories devuelve los repositorios de la clave ordenados por nombre, sin llamar a Jira", async () => {
+    await fixture.orchestrator.addRepository({ ...REPO, name: "web", repoLocalPath: "/work/web" });
+    await fixture.orchestrator.addRepository(REPO);
+
+    const result = fixture.orchestrator.listRepositories("scrum");
+
+    expect(result.kind === "Ok" && result.value.map((r) => r.name)).toEqual(["api", "web"]);
+    expect(fixture.createJiraClient).not.toHaveBeenCalled();
+  });
+
+  it("listRepositories devuelve Ok vacío si la clave no tiene repositorios", () => {
+    expect(fixture.orchestrator.listRepositories("SCRUM")).toEqual({ kind: "Ok", value: [] });
+  });
+
+  it("listRepositories con una clave no configurada devuelve las claves disponibles", () => {
+    const result = fixture.orchestrator.listRepositories("OTRO");
+
+    expect(result).toMatchObject({ kind: "ErrorBloqueante", subtype: "ErrorInesperado" });
+    expect(result.kind === "ErrorBloqueante" && result.message).toContain("SCRUM");
+  });
+
   it("listRepositoriesForTicket deriva la clave del ID y devuelve sus repositorios sin llamar a Jira", async () => {
     await fixture.orchestrator.addRepository(REPO);
 
@@ -468,6 +506,27 @@ describe("E3 — configuración, sufijo sugerido y tickets asignados", () => {
       expect(fixture.orchestrator.getConfig()?.jiraEmail).toBe("dev@example.com");
     });
 
+    it.each([
+      ["https://equipo.atlassian.net/", "https://equipo.atlassian.net"],
+      [" HTTPS://Equipo.Atlassian.NET/jira/your-work ", "https://equipo.atlassian.net"],
+    ])("saveConfig guarda el origin de la URL de Jira: «%s» → %s", (input, expected) => {
+      fixture.orchestrator.saveConfig({ jiraBaseUrl: input });
+
+      expect(fixture.orchestrator.getConfig()?.jiraBaseUrl).toBe(expected);
+    });
+
+    it.each([
+      "ftp://equipo.atlassian.net",
+      "javascript:alert(1)",
+      "https://usuario:clave@equipo.atlassian.net",
+      "https://equipo.atlassian.net?x=1",
+      "https://equipo.atlassian.net#frag",
+      "equipo.atlassian.net",
+    ])("saveConfig rechaza la URL de Jira «%s» y no cambia lo guardado", (url) => {
+      expect(() => fixture.orchestrator.saveConfig({ jiraBaseUrl: url, jiraEmail: "otro@example.com" })).toThrow(/URL de Jira/);
+      expect(fixture.orchestrator.getConfig()).toMatchObject({ jiraBaseUrl: "https://example.atlassian.net", jiraEmail: "dev@example.com" });
+    });
+
     it.each(["arocha", "A-R", "AR OCHA", ""])("saveConfig rechaza el sufijo «%s» y no cambia lo guardado", (suffix) => {
       expect(() => fixture.orchestrator.saveConfig({ branchUserSuffix: suffix })).toThrow(/\^\[A-Z0-9\]\+\$/);
       expect(fixture.orchestrator.getConfig()?.branchUserSuffix).toBe("AROCHA");
@@ -502,6 +561,46 @@ describe("E3 — configuración, sufijo sugerido y tickets asignados", () => {
       const result = await fixture.orchestrator.suggestBranchSuffix();
 
       expect(result).toMatchObject({ kind: "ErrorBloqueante", subtype: "ErrorInesperado" });
+    });
+
+    describe("con credenciales explícitas (primer arranque)", () => {
+      const CREDENTIALS = { jiraBaseUrl: "https://Equipo.atlassian.net/", jiraEmail: "dev@example.com", jiraApiToken: "token-nuevo" };
+
+      it("consulta a Jira con ellas, sin configuración guardada, y no guarda nada", async () => {
+        const empty = setup(null);
+        empty.jira.getMyDisplayName.mockResolvedValue({ kind: "Ok", value: "Andrea Rocha" });
+
+        const result = await empty.orchestrator.suggestBranchSuffix(CREDENTIALS);
+
+        expect(result).toEqual({ kind: "Ok", value: "AROCHA" });
+        expect(empty.createJiraClient).toHaveBeenCalledWith({
+          jiraBaseUrl: "https://equipo.atlassian.net",
+          jiraEmail: "dev@example.com",
+          jiraApiToken: "token-nuevo",
+          jiraTimeoutSeconds: 10,
+        });
+        expect(empty.orchestrator.getConfig()).toBeNull();
+        empty.storage.close();
+      });
+
+      it("con configuración guardada usa las credenciales dadas y el timeout guardado", async () => {
+        fixture.storage.upsertAppConfig({ jiraTimeoutSeconds: 25 });
+        fixture.jira.getMyDisplayName.mockResolvedValue({ kind: "Ok", value: "Pedro Gómez" });
+
+        await fixture.orchestrator.suggestBranchSuffix(CREDENTIALS);
+
+        expect(fixture.createJiraClient).toHaveBeenCalledWith(
+          expect.objectContaining({ jiraApiToken: "token-nuevo", jiraTimeoutSeconds: 25 }),
+        );
+      });
+
+      it("con una URL inválida devuelve ErrorBloqueante sin crear el cliente", async () => {
+        const result = await fixture.orchestrator.suggestBranchSuffix({ ...CREDENTIALS, jiraBaseUrl: "ftp://x" });
+
+        expect(result).toMatchObject({ kind: "ErrorBloqueante", subtype: "ErrorInesperado" });
+        expect(result.kind === "ErrorBloqueante" && result.message).toContain("URL de Jira");
+        expect(fixture.createJiraClient).not.toHaveBeenCalled();
+      });
     });
 
     it("sin configuración de Jira indica ejecutar devflow config", async () => {

@@ -376,3 +376,31 @@ TK-02c se implementó con TDD sobre repositorios Git reales y se revisó en la P
 - Cobertura de `git-manager.ts`: 99 % de sentencias y 95 % de ramas (umbral 80 %).
 - Comprobaciones hechas a mano: que `check-ref-format` acepta `refs/tags/v1` y que un `fetch` con destino `refs/tags/…` escribe un tag; que `git switch <base>` crea la rama local desde `origin/<base>` si esa referencia ya está en el repositorio.
 - El agente reconoció un límite que ya había anticipado (la base no traída) antes de que Cursor lo señalara, y lo documentó en lugar de resolverlo con un comando que yo no uso.
+
+#### **FileSystem Manager y plantillas: de mi plantilla al documento, con dos pasadas de revisión de Cursor**
+
+TK-02d se implementó con TDD y se revisó en la PR #4 (`feature/TK-02d` → `feature/TK-02`). Es el primer ticket en que el producto escribe el documento que yo voy a completar, así que el criterio fue que se parezca al que ya uso.
+
+##### **Gobierno del Agente y del flujo de entrega (TK-02d)**
+
+- Las plantillas `bug.md.hbs` y `historia.md.hbs` se basan en mi `plantilla-user-story.md` (la tengo fuera del repositorio). La Fase 2 va tal cual está en ella y la IA no la toca; se comprobó con `diff` que es idéntica en las dos plantillas.
+- Autoricé de forma expresa lo que el contrato no permitía hacer solo: instalar `handlebars` (`package.json`) y crear `templates/documents/` con la sección correspondiente de `templates/README.md`.
+- Regla de commits respetada: el agente propuso cada grupo de cambios y esperó mi visto bueno; el `push` lo hice yo.
+
+##### **Decisiones de Arquitectura e Intervenciones (TK-02d)**
+
+- **Fase 2 del documento:** quedó como «Datos del desarrollo, Evidencias y Observaciones»; se quitó «Instrucciones de Pasaje a Producción». El cambio se propagó a `PRD`, `001`, `002` y `009`.
+- **Cobertura:** `/05-verificar-y-revisar` detectó que la cifra de cobertura de `local-file-storage.ts` que el agente había escrito no estaba medida (`vitest.config.ts` solo mide `src/services/**`): eran 91,7 % de sentencias y 77,8 % de ramas. Se añadió un test (6 casos) y subió a 100 %. **Decidí no ampliar el umbral de cobertura a `src/database/`**: ya estaba por encima del 95 %, ningún ticket lo pide y tocar la configuración arriesgaba romper `npm run test:coverage`.
+- **Primera pasada de la PR #4 (2 medios y 4 bajos, todos reales, corregidos con TDD):**
+  - `adjuntosDirName` sin validar permitía salir de la raíz de tickets; los tests en rojo llegaron a crear carpetas en `/tmp` (se borraron) y ahora se rechaza antes de crear nada.
+  - Un marcador `FASE1:FIN` dentro del texto cortaba el bloque al regenerar; se neutraliza en todos los textos que se renderizan.
+  - `writeDocument` rechaza una ruta fuera de la raíz, el mensaje de error distingue leer de escribir, la plantilla `bug` separa mejor sus líneas y se limpiaron dos frases obsoletas de `docs/002` y `PRD`.
+- **Segunda pasada:** Cursor aprobó la PR sin hallazgos medios ni altos. Los tres residuales bajos (marcador en documentos antiguos, nombres reservados de Windows y symlinks) se dejaron anotados en el contrato como decisiones diferidas, para no mover una rama aprobada.
+
+##### **Resultados de Calidad Obtenidos (TK-02d)**
+
+- Suite de pruebas: de 214 a 282 tests en verde (261 al cerrar E3, 267 tras la corrección de `/05` y 280 tras la primera pasada de la PR #4).
+- Cobertura de `src/services/filesystem/` ≥ 97 % de sentencias y 93 % de ramas, y 100 % en `local-file-storage.ts`.
+- `typecheck` y `lint` limpios.
+- Lo que no se pudo comprobar: el comportamiento en Windows, que es mi máquina de destino. Queda para el Hito 3.
+

@@ -383,7 +383,9 @@ Orden: TK-03a (Hito 1, ya con TK-02g) → TK-03b (Hito 2, con TK-02f).
 - **Archivos a Crear / Modificar:**
   - `src/tui/cli.ts`
   - `src/tui/commands/config.command.ts` *(nombres decididos el 2026-11-02, H-06: `devflow config` y `devflow config proyectos`; ningún documento base los definía, y sin ellos las tablas de configuración no podrían poblarse nunca)*
+  - `src/tui/commands/config-proyectos.command.ts` *(añadido al implementar: `devflow config proyectos` en su propio archivo)*
   - `src/tui/prompts/project-config.prompt.ts`
+  - `src/services/orchestrator/create-orchestrator.ts` *(añadido al implementar: raíz de composición que arma el Orquestador; `cli.ts` no puede importar la base, Jira ni Git por la regla de lint de capas)*
   - `tests/unit/tui/*.test.ts`
 
 - **Contratos e Interfaces (Input/Output):**
@@ -393,8 +395,8 @@ Orden: TK-03a (Hito 1, ya con TK-02g) → TK-03b (Hito 2, con TK-02f).
   1. `devflow config proyectos` permite agregar una clave (validada por el Orquestador), asociarle repositorios con su rama base y quitar claves o repositorios; y `devflow config` propone el sufijo de usuario sugerido desde Jira, que el usuario confirma o edita. *(CA9 del TK-03 original)*
 
 - **Definition of Done (DoD):**
-  - [ ] La TUI no importa clientes de Jira/Git/Ollama ni el storage manager — solo invoca al Orquestador (verificable por revisión de imports).
-  - [ ] Los nombres `devflow config` y `devflow config proyectos` están decididos (H-06); los flags y subcomandos concretos se fijan al refinar este ticket y se validan antes de cerrarlo.
+  - [x] La TUI no importa clientes de Jira/Git/Ollama ni el storage manager — solo invoca al Orquestador (verificable por revisión de imports).
+  - [x] Los nombres `devflow config` y `devflow config proyectos` están decididos (H-06); los flags y subcomandos concretos se fijan al refinar este ticket y se validan antes de cerrarlo. *(Fijados el 2026-11-05: ambos son interactivos, sin flags de configuración; solo `--help` y `--version`.)*
   - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---

@@ -8,12 +8,12 @@
 
 | Archivo | Contenido |
 |---|---|
-| `docs/005-historias-de-usuario.md` | 3 historias: **US-01** (configurar, 6 CA), **US-02** (elegir y consultar el ticket en Jira, 6 CA), **US-03** (preparar rama, carpeta y documento con Ollama, 9 CA). |
+| `docs/005-historias-de-usuario.md` | 3 historias: **US-01** (configurar, 6 CA), **US-02** (elegir y consultar el ticket en Jira, 6 CA), **US-03** (preparar rama, carpeta y documento con Ollama, 10 CA). |
 | `docs/006-tickets-de-trabajo.md` | **TK-00** y **TK-01** (hechos), **TK-02** (paraguas dividido en **TK-02a … TK-02g**), **TK-03** (paraguas dividido en **TK-03a** y **TK-03b**). |
 
-Estado: TK-00, TK-01, TK-02a y TK-02b implementados y verificados (147 tests, typecheck y lint en verde; TK-02a revisado y fusionado en `feature/TK-02`, TK-02b en revisión de PR). Todo lo demás está especificado y sin código.
+Estado: TK-00, TK-01, TK-02a, TK-02b y TK-02c implementados y verificados (197 tests, typecheck y lint en verde; TK-02a y TK-02b revisados y fusionados en `feature/TK-02`). Todo lo demás está especificado y sin código.
 
-**Observación INVEST (sin modificar nada).** US-03 falla S (Small): 9 CA y esfuerzo Alto. TK-03 también es grande (dos comandos, cuatro prompts y todas las pantallas de resultado). Por eso el orden de abajo entrega las historias **por criterios de aceptación**, no de una vez, y TK-03 ya se dividió en TK-03a y TK-03b (§4).
+**Observación INVEST (sin modificar nada).** US-03 falla S (Small): 10 CA y esfuerzo Alto. TK-03 también es grande (dos comandos, cuatro prompts y todas las pantallas de resultado). Por eso el orden de abajo entrega las historias **por criterios de aceptación**, no de una vez, y TK-03 ya se dividió en TK-03a y TK-03b (§4).
 
 ## 2. Principio de orden
 
@@ -39,7 +39,7 @@ Estado: TK-00, TK-01, TK-02a y TK-02b implementados y verificados (147 tests, ty
 |---|---|---|---|
 | 1.1 | **TK-02a** Base compartida ✅ | `StepResult`, configuración inyectable, resolutor de tipo, fixtures, regla de lint, umbral de cobertura | TK-01 |
 | 1.2 | **TK-02b** Jira REST Client ✅ | Validar claves, `displayName`, clasificación de fallos | 1.1 |
-| 1.3 | **TK-02c** Git Manager | `validateRepository` y `createBranch` completos | 1.1 |
+| 1.3 | **TK-02c** Git Manager ✅ | `validateRepository` y `createBranch` completos | 1.1 |
 | 1.4 | **TK-02g** Orquestador: gestión | Alta, edición y baja de proyectos y repositorios; sufijo; errores claros | 1.2, 1.3 |
 | 1.5 | **TK-03a** CLI base + `devflow config` | `cli.ts`, `config.command.ts`, prompts de alta | 1.4 |
 
@@ -66,7 +66,7 @@ Estado: TK-00, TK-01, TK-02a y TK-02b implementados y verificados (147 tests, ty
 
 *Nota de orden:* 2.1 y 2.2 son independientes (se pueden paralelizar). Si Ollama se retrasa, 2.2 puede entrar con solo el camino de fallback determinista y completarse después sin bloquear 2.3, siempre que el contrato del ticket lo apruebe.
 
-**Historias cubiertas:** US-02 CA1-CA6 y US-03 CA1-CA9.
+**Historias cubiertas:** US-02 CA1-CA6 y US-03 CA1-CA10.
 
 **Verificación del hito**
 
@@ -113,11 +113,12 @@ Estado: TK-00, TK-01, TK-02a y TK-02b implementados y verificados (147 tests, ty
 | US-03 CA1 | Rama, carpeta y documento | 02c · 02d · 02e · 02f | 2 |
 | US-03 CA2-3 | Cambios pendientes / pull fallido | 02c · 02f · 03b | 2 |
 | US-03 CA4 | Ollama caído → documento sin redactar | 02e · 02d · 02f | 2 |
-| US-03 CA5 | Rama ya existente | 02c · 02f (**H-04** abierto) | 2 |
+| US-03 CA5 | Rama ya existente | 02c · 02f (**H-04** resuelto) | 2 |
 | US-03 CA6 | Segundo repositorio y Fase 1 reutilizada | 02d · 02f | 2 |
 | US-03 CA7 | Clave sin repositorios: solo documento | 02f | 2 |
 | US-03 CA8 | `--base` de una sola vez | 02c · 02f · 03b | 2 |
 | US-03 CA9 | Reprocesar la Fase 1 (`--reprocesar`) | 02d · 02e · 02f · 03b | 2 |
+| US-03 CA10 | Rama solo en el remoto: se detiene con aviso | 02c · 02f · 03b | 2 |
 
 ## 6. Dependencias entre tickets
 

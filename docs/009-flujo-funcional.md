@@ -4,7 +4,7 @@
 >
 > Fuentes de verdad: `docs/PRD.md`, `docs/001-descripcion-general-del-producto.md`, `docs/002-arquitectura-del-sistema.md`, `docs/005-historias-de-usuario.md`, `docs/006-tickets-de-trabajo.md`, `docs/ADR-001-arquitectura-inicial.md`. Si este archivo contradice a esas fuentes, gana la fuente; corregir aquí.
 
-**Estado del proyecto:** desarrollo en curso, ticket por ticket. Implementados: TK-00 (scaffold), TK-01 (Storage Layer), TK-02a (base compartida: `StepResult`, configuración, resolutor de tipo de issue, regla de lint), TK-02b (cliente REST de Jira) y TK-02c (Git Manager). Todo lo demás es comportamiento *especificado*, aún sin código; los pasos que ya tienen parte implementada llevan la etiqueta `🚧 En desarrollo`.
+**Estado del proyecto:** desarrollo en curso, ticket por ticket. Implementados: TK-00 (scaffold), TK-01 (Storage Layer), TK-02a (base compartida: `StepResult`, configuración, resolutor de tipo de issue, regla de lint), TK-02b (cliente REST de Jira), TK-02c (Git Manager) y TK-02d (FileSystem Manager y plantillas). Todo lo demás es comportamiento *especificado*, aún sin código; los pasos que ya tienen parte implementada llevan la etiqueta `🚧 En desarrollo`.
 
 ## Cómo mantener este documento
 
@@ -140,7 +140,7 @@ Los pasos 1-3 son de **solo lectura** (`GitManager.inspectRepository`) y se ejec
 
 **Garantía:** nunca `commit`, `add` ni `push`; ningún archivo versionado se modifica.
 
-### 3.2 FileSystem Manager — carpetas — `📄 Especificado` · ADR-004.1 · TK-02
+### 3.2 FileSystem Manager — carpetas — `✅ Implementado y probado` · ADR-004.1 · TK-02d (`createTicketWorkspace`; el Orquestador aún no lo invoca, TK-02f)
 
 - Crea `<raíz de tickets>\ID\<repositorio>\adjuntos\` **fuera del repositorio Git** (clave sin repos: solo el documento, sin subcarpeta de repositorio).
 - Falta de permisos (antivirus, OneDrive, ruta bloqueada) → `ErrorBloqueante('PermisosInsuficientes')`: se detiene ese paso y se reporta qué se alcanzó a completar.
@@ -177,10 +177,10 @@ Los pasos 1-3 son de **solo lectura** (`GitManager.inspectRepository`) y se ejec
 - Resultado: `FallbackDeterminista(rawText)` → el texto crudo de Jira va en las secciones de Fase 1, marcado `⚠️ Generado sin Ollama — completar manualmente`.
 - La rama y las carpetas **ya fueron creadas**: el flujo no se bloquea.
 
-### 4.5 Renderizado del documento — `📄 Especificado` · TK-02 CA4
+### 4.5 Renderizado del documento — `✅ Implementado y probado` · TK-02d (`writeDocument`, `saveFase1`, `readFase1`; el Orquestador aún no los invoca, TK-02f)
 
-- `FileSystemManager.writeDocument` combina la Fase 1 con la plantilla de Fase 2 del tipo (Handlebars: `bug.md.hbs` / `historia.md.hbs`).
-- La Fase 1 queda delimitada por `<!-- DEVFLOW:FASE1:INICIO -->` / `<!-- DEVFLOW:FASE1:FIN -->`.
+- `FileSystemManager.writeDocument` combina el encabezado y la Fase 1 con la Fase 2 de la plantilla del tipo (Handlebars: `bug.md.hbs` / `historia.md.hbs`, basadas en la `plantilla-user-story.md` de la desarrolladora; la Fase 2 va vacía y la IA no la toca). Si el documento ya existe y no se pide regenerar, no lo toca.
+- La Fase 1 queda delimitada por `<!-- DEVFLOW:FASE1:INICIO -->` / `<!-- DEVFLOW:FASE1:FIN -->`. Con `regenerateFase1Only` solo se reemplaza el texto entre los marcadores; el encabezado y la Fase 2 quedan byte a byte iguales.
 - Se guarda `ID\.devflow\fase1.json` para reutilizarla con otro repositorio.
 
 ---
@@ -205,7 +205,7 @@ Los pasos 1-3 son de **solo lectura** (`GitManager.inspectRepository`) y se ejec
 
 ### 5.3 Fase 2 manual (fuera de la herramienta) — `📄 Especificado` · PRD §3
 
-El desarrollador abre el documento en su IDE y completa: **Objetos Modificados**, **Evidencias de Pruebas** (enlaces a `adjuntos/`) e **Instrucciones de Pasaje a Producción**. Cualquier bloque de código lo ingresa él, nunca el LLM. QA y DevOps encuentran la misma estructura y ubicación en todos los tickets del mismo tipo.
+El desarrollador abre el documento en su IDE y completa: **Datos del desarrollo** (tablas, stored procedures, backend, frontend y otros), **Evidencias** (pruebas unitarias y evidencias de funcionamiento, con enlaces a `adjuntos/`) y **Observaciones**. Cualquier bloque de código lo ingresa él, nunca el LLM. QA y DevOps encuentran la misma estructura y ubicación en todos los tickets del mismo tipo.
 
 ### 5.4 Reejecución e idempotencia — `📄 Especificado` · TK-02 CA4
 
@@ -265,3 +265,4 @@ Detectados al cruzar las fuentes (análisis pre-código, 2026-11-01). Cada uno i
 | 2026-11-04 | TK-02c implementado: `GitManager` (`inspectRepository`, `createBranch`, `validateRepository`) con la secuencia de ADR-007.1; paso 3.1 pasa a ✅. 197 tests, cobertura de `git-manager.ts` 96 % / 93 %. Commits `6fda82b`, `7bd9809`, `bda73e9`, `a406501`. | 3.1 · TK-02c |
 | 2026-11-04 | 2.ª revisión de la PR #3 (TK-02c): se elimina el `fetch origin <base>:<base>` (podía escribir tags); ahora `git switch <base>` + `git pull`, como el flujo manual. Se rechazan nombres que empiezan por `refs/`, se detecta merge/rebase/cherry-pick/revert en curso (`CambiosPendientes`) y los mensajes ocultan usuario y token de las URLs. Actualizados ADR-007.1, `002`, `006`, `CLAUDE.md` y este documento. | TK-02c |
 | 2026-11-04 | 3.ª pasada de la revisión de la PR #3 (TK-02c): la base que solo existe en el remoto da un error que pide `git fetch origin` (sin volver a hacer `fetch`); se valida la lectura de la rama actual; el runner distingue `maxBuffer` del timeout; el `PullFallido` dice en qué rama quedó el repositorio. Actualizados ADR-007.1, `002`, `006`, el contrato y este documento. | TK-02c |
+| 2026-11-05 | TK-02d implementado: `FileSystemManager` (`createTicketWorkspace`, `writeDocument`, `saveFase1`, `readFase1`), `LocalFileStorage` y plantillas `bug.md.hbs` / `historia.md.hbs` basadas en la plantilla de la desarrolladora. La Fase 2 pasa a ser «Datos del desarrollo, Evidencias y Observaciones» (se quita «Instrucciones de Pasaje a Producción»). Pasos 3.2 y 4.5 a ✅. Actualizados `PRD`, `001`, `002`, `006` y este documento. | 3.2 · 4.5 · TK-02d |

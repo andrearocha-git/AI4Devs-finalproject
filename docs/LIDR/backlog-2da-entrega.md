@@ -11,7 +11,7 @@
 | `docs/005-historias-de-usuario.md` | 3 historias: **US-01** (configurar, 6 CA), **US-02** (elegir y consultar el ticket en Jira, 6 CA), **US-03** (preparar rama, carpeta y documento con Ollama, 10 CA). |
 | `docs/006-tickets-de-trabajo.md` | **TK-00** y **TK-01** (hechos), **TK-02** (paraguas dividido en **TK-02a … TK-02g**), **TK-03** (paraguas dividido en **TK-03a** y **TK-03b**). |
 
-Estado: TK-00, TK-01, TK-02a, TK-02b y TK-02c implementados y verificados (197 tests, typecheck y lint en verde; TK-02a y TK-02b revisados y fusionados en `feature/TK-02`). Todo lo demás está especificado y sin código.
+Estado: TK-00, TK-01, TK-02a, TK-02b, TK-02c y TK-02d implementados (267 tests, typecheck y lint en verde; TK-02a, TK-02b y TK-02c revisados y fusionados en `feature/TK-02`; TK-02d pendiente de `/05` y de la revisión de Cursor). Todo lo demás está especificado y sin código.
 
 **Observación INVEST (sin modificar nada).** US-03 falla S (Small): 10 CA y esfuerzo Alto. TK-03 también es grande (dos comandos, cuatro prompts y todas las pantallas de resultado). Por eso el orden de abajo entrega las historias **por criterios de aceptación**, no de una vez, y TK-03 ya se dividió en TK-03a y TK-03b (§4).
 
@@ -59,7 +59,7 @@ Estado: TK-00, TK-01, TK-02a, TK-02b y TK-02c implementados y verificados (197 t
 
 | # | Ticket | Qué aporta | Depende de |
 |---|---|---|---|
-| 2.1 | **TK-02d** FileSystem Manager + plantillas | Carpeta y documento fuera del repo, Fase 1 idempotente, `fase1.json` | 1.1 |
+| 2.1 | **TK-02d** FileSystem Manager + plantillas ✅ | Carpeta y documento fuera del repo, Fase 1 idempotente, `fase1.json` | 1.1 |
 | 2.2 | **TK-02e** Ollama AI Transformer | Prompts, schemas, Ajv, posprocesado, fallback | 1.1 |
 | 2.3 | **TK-02f** Orquestador: `startTicket` | Flujo completo, `ticket_logs`, reutilización de Fase 1 | 1.2, 1.3, 2.1, 2.2 |
 | 2.4 | **TK-03b** `devflow start` | Selección de ticket y repositorio, carga manual, confirmación, progreso, pantallas de resultado | 2.3 |

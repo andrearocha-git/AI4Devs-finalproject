@@ -69,8 +69,8 @@ Una **herramienta CLI con interfaz de texto interactiva (TUI)** para Windows que
 - **Resiliencia del procesamiento con Ollama**: si el servicio no está en ejecución, no responde dentro de un timeout definido (por defecto 120 s: la generación medida en CPU tarda 30–105 s por ticket), o no tiene el modelo requerido instalado, la herramienta **no bloquea el flujo**. Crea igualmente la rama Git y la estructura de carpetas, y genera el documento Markdown con el texto crudo de Jira sin estructurar en las secciones correspondientes, marcado con el aviso `⚠️ Generado sin Ollama — completar manualmente`. El desarrollador puede continuar de inmediato y, opcionalmente, reprocesar el documento más tarde cuando Ollama esté disponible.
 - **Estructura de carpetas local por ticket y repositorio** (`<raíz de tickets>/ID/<repositorio>/adjuntos/`), generada automáticamente junto con el documento Markdown.
 - **Plantilla del documento, en dos fases explícitas** (con estructura idéntica por tipo de issue):
-  - **Fase 1 — Generada automáticamente al crear el ticket:** Descripción y Contexto, Casos de Uso, Criterios de Aceptación en Gherkin (procesados por Ollama a partir del texto de Jira).
-  - **Fase 2 — Completada manualmente por el desarrollador durante el ciclo de vida del ticket, antes del pasaje a producción:** Objetos Modificados, Evidencias de Pruebas (enlaces a `adjuntos/`), Instrucciones de Pasaje a Producción.
+  - **Fase 1 — Generada automáticamente al crear el ticket:** Descripción, Qué falla y Cómo reproducir (bugs) o User Story (historias), Criterios de Aceptación en Gherkin, Casos de Uso y Preguntas abiertas (procesados por Ollama a partir del texto de Jira).
+  - **Fase 2 — Completada manualmente por la desarrolladora durante el ciclo de vida del ticket:** Datos del desarrollo (tablas, stored procedures, backend, frontend y otros), Evidencias (pruebas unitarias y evidencias de funcionamiento, con enlaces a `adjuntos/`) y Observaciones. La IA no la toca.
 
 ---
 
@@ -85,7 +85,7 @@ Una **herramienta CLI con interfaz de texto interactiva (TUI)** para Windows que
 - **Sin autenticación OAuth con redirección a navegador.** La autenticación contra Jira se realiza exclusivamente mediante API Token / Personal Access Token configurado localmente, para no introducir un componente web dentro del flujo de la herramienta (ver §3).
 - **Sin soporte para tickets multi-repositorio en una misma ejecución.** Cada ejecución de la herramienta opera sobre un único repositorio local, elegido de la lista de la clave del ticket. Un ticket que requiera cambios en más de un repositorio (p. ej. backend y frontend) se procesa ejecutando la herramienta una vez por repositorio afectado, una tras otra; cada ejecución genera su propio documento.
 - **Sin documento ni rama para épicas.** Las épicas no se usan para desarrollar y no tienen plantilla: la herramienta solo avisa.
-- **Sin seguimiento del cierre de la Fase 2.** La herramienta registra el historial al terminar la generación de la Fase 1 (`ticket_logs`); no detecta ni registra cuándo el desarrollador completa la Fase 2 del documento (Objetos Modificados, Evidencias, Pasaje a Producción). Queda como mejora futura.
+- **Sin seguimiento del cierre de la Fase 2.** La herramienta registra el historial al terminar la generación de la Fase 1 (`ticket_logs`); no detecta ni registra cuándo el desarrollador completa la Fase 2 del documento (Datos del desarrollo, Evidencias, Observaciones). Queda como mejora futura.
 - **Sin reglas de prompts ni plantillas configurables por el usuario.** Los prompts y las plantillas por tipo de issue son contenido versionado de la aplicación, igual para todo el equipo.
 
 ---

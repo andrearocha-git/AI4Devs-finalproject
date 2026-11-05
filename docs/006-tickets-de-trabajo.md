@@ -242,22 +242,24 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
 - **Archivos a Crear / Modificar:**
   - `src/services/filesystem/filesystem-manager.ts`
   - `src/database/local-file-storage.ts` *(ambiguo: `002-arquitectura-del-sistema.md` §2.2 describe el "Local File Storage" como parte de la Storage Layer; se ubica junto a `sqlite-storage-manager.ts` por pertenecer ambos a la Storage Layer)*
-  - `templates/documents/{bug.md.hbs, historia.md.hbs}`
+  - `src/shared/types/documento-fase1.types.ts`
+  - `templates/documents/{bug.md.hbs, historia.md.hbs}` *(basadas en la `plantilla-user-story.md` de la desarrolladora: encabezado, Fase 1 generada y Fase 2 «Datos del desarrollo / Evidencias / Observaciones», que la IA no toca)*
   - `tests/unit/services/filesystem/*.test.ts` (directorios temporales)
 
 - **Contratos e Interfaces (Input/Output):**
-  - `FileSystemManager.createTicketWorkspace(input: { ticketId: string; repositoryName?: string; ticketsRootPath: string; adjuntosDirName: string }): Promise<StepResult<{ folderPath: string }>>`
+  - `new FileSystemManager({ ticketsRootPath, adjuntosDirName }, storage?)` — la raíz y el nombre de la subcarpeta de evidencias llegan por constructor *(decidido el 2026-11-05: `readFase1`/`saveFase1` no pueden localizar `fase1.json` sin la raíz)*.
+  - `FileSystemManager.createTicketWorkspace(input: { ticketId: string; repositoryName?: string }): Promise<StepResult<{ folderPath: string; documentPath: string }>>` — con repositorio crea `<raíz>/<ID>/<repo>/<adjuntos>`; sin repositorio, solo `<raíz>/<ID>`. `documentPath` = `<folderPath>/<ID>.md` (el archivo no se crea aquí). Los nombres de carpeta no pueden contener separadores ni ser `.` o `..`.
   - `FileSystemManager.readFase1(ticketId: string): Promise<StepResult<DocumentoFase1 | null>>` / `saveFase1(ticketId: string, fase1: DocumentoFase1): Promise<StepResult<void>>`
-  - `FileSystemManager.writeDocument(input: { documentPath: string; tipo: 'bug' | 'historia'; fase1: DocumentoFase1 | { rawText: string }; repo?: string; rama?: string; regenerateFase1Only: boolean }): Promise<StepResult<{ documentPath: string }>>`
+  - `FileSystemManager.writeDocument(input: { documentPath: string; tipo: 'bug' | 'historia'; fase1: DocumentoFase1 | { rawText: string }; repo?: string; rama?: string; encabezado?: { ticketId?, titulo?, jiraUrl?, desarrollador?, fecha?, proyecto? }; regenerateFase1Only: boolean }): Promise<StepResult<{ documentPath: string }>>`
   - `DocumentoFase1` es el tipo que produce TK-02e; en este ticket se define su interfaz mínima (ver TK-02e) para no bloquear el desarrollo en paralelo *(asumido: el tipo vive en `src/shared/types/`)*.
 
 - **Criterios de Aceptación Técnicos:**
   1. (CA4 original) `FileSystemManager`: re-ejecutar sobre un ticket ya iniciado regenera solo el bloque de Fase 1 (delimitado por los marcadores `<!-- DEVFLOW:FASE1:INICIO -->` / `<!-- DEVFLOW:FASE1:FIN -->`), preservando intacto el contenido de Fase 2 ya escrito por el desarrollador; ejecutar el mismo ticket con un segundo repositorio crea una carpeta y un documento propios y copia la Fase 1 guardada en `fase1.json`.
 
 - **Definition of Done (DoD):**
-  - [ ] Ningún archivo se crea dentro del repositorio Git del desarrollador.
-  - [ ] Un documento renderizado con `{ rawText }` lleva el aviso `⚠️ Generado sin Ollama`.
-  - [ ] Hay al menos un test para `Ok` y para `ErrorBloqueante('PermisosInsuficientes')`.
+  - [x] Ningún archivo se crea dentro del repositorio Git del desarrollador.
+  - [x] Un documento renderizado con `{ rawText }` lleva el aviso `⚠️ Generado sin Ollama`.
+  - [x] Hay al menos un test para `Ok` y para `ErrorBloqueante('PermisosInsuficientes')`.
   - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---

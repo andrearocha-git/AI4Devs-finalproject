@@ -228,6 +228,28 @@ describe("E2 — repositorios", () => {
     expect(result.kind === "Ok" && result.value).toMatchObject({ name: "api", defaultBaseBranch: "release" });
   });
 
+  it.each([
+    ["nombre", { name: "  " }],
+    ["ruta", { repoLocalPath: "  " }],
+  ])("addRepository con %s en blanco devuelve ErrorBloqueante sin llamar a Git ni escribir nada", async (_campo, blank) => {
+    const result = await fixture.orchestrator.addRepository({ ...REPO, ...blank });
+
+    expect(result).toMatchObject({ kind: "ErrorBloqueante", subtype: "ErrorInesperado" });
+    expect(fixture.git.validateRepository).not.toHaveBeenCalled();
+    expect(fixture.storage.listRepositories(projectId)).toEqual([]);
+  });
+
+  it("updateRepository con nombre en blanco devuelve ErrorBloqueante sin llamar a Git", async () => {
+    await fixture.orchestrator.addRepository(REPO);
+    fixture.git.validateRepository.mockClear();
+
+    const result = await fixture.orchestrator.updateRepository({ ...REPO, name: " " });
+
+    expect(result).toMatchObject({ kind: "ErrorBloqueante", subtype: "ErrorInesperado" });
+    expect(result.kind === "ErrorBloqueante" && result.message).toContain("nombre");
+    expect(fixture.git.validateRepository).not.toHaveBeenCalled();
+  });
+
   it("addRepository acepta la clave de proyecto en minúsculas", async () => {
     const result = await fixture.orchestrator.addRepository({ ...REPO, jiraProjectKey: "scrum" });
 

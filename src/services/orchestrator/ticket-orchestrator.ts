@@ -100,10 +100,13 @@ export class TicketOrchestrator {
    * @param input Proyecto, nombre, ruta y rama base; ver {@link RepositoryInput}. Los textos se recortan, así que `"api "` y `"api"`
    * son el mismo repositorio. Sin rama base se conserva la del repositorio existente con ese nombre y, solo si es nuevo, se usa `main`.
    * @returns `Ok` con el repositorio guardado; el `ErrorBloqueante` o el `FallbackManual` de Git tal cual (sin escribir nada);
-   * o `ErrorBloqueante('ErrorInesperado')` con las claves disponibles si el proyecto no está configurado (sin llamar a Git).
+   * o `ErrorBloqueante('ErrorInesperado')` si el nombre o la ruta quedan en blanco, o con las claves disponibles si el proyecto
+   * no está configurado (en ambos casos sin llamar a Git).
    */
   async addRepository(rawInput: RepositoryInput): Promise<StepResult<Repository>> {
     const input = normalizeRepositoryInput(rawInput);
+    const blank = blankRepositoryField(input);
+    if (blank) return blank;
     const project = this.findProject(input.jiraProjectKey);
     if (project.kind !== "Ok") return project;
     const existing = this.storage.listRepositories(project.value.id).find((r) => r.name === input.name);
@@ -115,12 +118,14 @@ export class TicketOrchestrator {
    * No permite renombrarlo: se identifica por `(proyecto, nombre)`.
    *
    * @param input Los mismos campos que {@link addRepository}, recortados igual. Sin `defaultBaseBranch` se conserva (y valida) la ya guardada.
-   * @returns `Ok` con el repositorio actualizado (mismo `id`); el `ErrorBloqueante` de Git tal cual, sin cambiar lo guardado;
-   * `ErrorBloqueante('RepositorioNoEncontrado')` si el repositorio no existe en ese proyecto; o `ErrorBloqueante('ErrorInesperado')`
-   * si el proyecto no está configurado.
+   * @returns `Ok` con el repositorio actualizado (mismo `id`); el `ErrorBloqueante` o el `FallbackManual` de Git tal cual, sin cambiar
+   * lo guardado; `ErrorBloqueante('RepositorioNoEncontrado')` si el repositorio no existe en ese proyecto; o
+   * `ErrorBloqueante('ErrorInesperado')` si el proyecto no está configurado o el nombre o la ruta quedan en blanco.
    */
   async updateRepository(rawInput: RepositoryInput): Promise<StepResult<Repository>> {
     const input = normalizeRepositoryInput(rawInput);
+    const blank = blankRepositoryField(input);
+    if (blank) return blank;
     const project = this.findProject(input.jiraProjectKey);
     if (project.kind !== "Ok") return project;
     const existing = this.storage.listRepositories(project.value.id).find((r) => r.name === input.name);
@@ -311,6 +316,17 @@ function normalizeRepositoryInput(input: RepositoryInput): RepositoryInput {
     name: input.name.trim(),
     repoLocalPath: input.repoLocalPath.trim(),
     ...(defaultBaseBranch ? { defaultBaseBranch } : {}),
+  };
+}
+
+/** `ErrorBloqueante` si el nombre o la ruta quedaron vacíos tras recortarlos; `null` si están completos. */
+function blankRepositoryField(input: RepositoryInput): StepResult<never> | null {
+  const missing = input.name === "" ? "nombre" : input.repoLocalPath === "" ? "ruta" : null;
+  if (missing === null) return null;
+  return {
+    kind: "ErrorBloqueante",
+    subtype: "ErrorInesperado",
+    message: `El ${missing} del repositorio no puede estar en blanco.`,
   };
 }
 

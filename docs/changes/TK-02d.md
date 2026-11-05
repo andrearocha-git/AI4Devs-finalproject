@@ -133,3 +133,13 @@ Registro de la revisión de la PR #4 de Cursor (2026-11-05; 2 hallazgos medios y
 - **Plantilla `bug.md.hbs` (baja):** `{{/if}}` y `### Preguntas abiertas` en líneas separadas; el render sin `casosDeUso` es idéntico al anterior (se comprobó). Archivo de `templates/` modificado, cubierto por tu autorización de crear las plantillas.
 - **Docs (baja):** `docs/002` (frase de idempotencia) y `docs/PRD.md` (bullet «sin código») ya no citan «Objetos Modificados» ni «Pasaje a Producción».
 - Resultado: 13 tests nuevos (280 en total).
+
+Cierre de la PR #4 y decisiones diferidas (2026-11-05):
+
+La segunda pasada de Cursor aprobó la PR #4 sin hallazgos medios ni altos y la desarrolladora la fusionó en `feature/TK-02` (`fac13c5`). Para no mover una rama ya aprobada, lo que quedó se difiere y se anota aquí:
+
+- **Marcador real dentro del bloque de Fase 1 de un documento antiguo o editado a mano (baja):** `neutralizeMarkers` protege los documentos que genera la herramienta, pero `fase1Span` usa el primer `indexOf(FIN)`; un documento escrito antes de esa protección, o editado a mano con el marcador literal dentro del bloque, se puede regenerar mal.
+- **Nombres reservados de Windows (baja):** `isSafeSegment` no rechaza `CON`, `NUL`, `COM1`… ni segmentos con `:` (`C:`). Solo afecta en Windows; se revisa con la prueba en ese sistema (Hito 3).
+- **Symlinks (baja):** un enlace simbólico bajo `ticketsRootPath` que apunte fuera de la raíz no se detecta; la comprobación de ruta es léxica (`path.relative`).
+- **Prueba en Windows (Hito 3):** los tests de `FileSystemManager` usan directorios temporales de la plataforma y solo se han corrido en Linux (WSL); la máquina de destino es Windows sin WSL.
+- **Empaquetado de `templates/` (TK-03):** `templates/` (`issue-types.json` y `documents/`) se lee con una ruta relativa al módulo; fallará si se emite a `dist/` sin copiar `templates/`.

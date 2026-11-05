@@ -260,7 +260,7 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
   - [x] Ningún archivo se crea dentro del repositorio Git del desarrollador.
   - [x] Un documento renderizado con `{ rawText }` lleva el aviso `⚠️ Generado sin Ollama`.
   - [x] Hay al menos un test para `Ok` y para `ErrorBloqueante('PermisosInsuficientes')`.
-  - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
+  - [x] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---
 

@@ -44,7 +44,7 @@ Los métodos sin criterio numerado (`listAssignedTickets`, `suggestBranchSuffix`
 | Escenario | Criterios cubiertos | Test | Estado |
 |---|---|---|---|
 | E1 | CA1, CA3, DoD-a | `tests/unit/services/orchestrator/ticket-orchestrator.config.test.ts` › «E1 — proyectos» (14 casos: alta con `Ok`, 4 fallos de Jira sin escribir, sin configuración, listado, baja sin y con historial, clave normalizada en la baja, error ajeno relanzado) | Hecho |
-| E2 | CA1, CA2, CA3, DoD-a | `tests/unit/services/orchestrator/ticket-orchestrator.config.test.ts` › «E2 — repositorios» (30 casos: alta con y sin rama base, re-alta que conserva la rama, recorte de nombre, ruta y rama, rama en blanco, nombre o ruta en blanco, Git en `FallbackManual`, clave en minúsculas, validación de Git rechazada, clave no configurada, 4 de `updateRepository`, baja sin y con historial, error ajeno relanzado, 4 de `listRepositoriesForTicket`) | Hecho |
+| E2 | CA1, CA2, CA3, DoD-a | `tests/unit/services/orchestrator/ticket-orchestrator.config.test.ts` › «E2 — repositorios» (32 casos: alta con y sin rama base, re-alta que conserva la rama, recorte de nombre, ruta y rama, rama en blanco, nombre o ruta en blanco, Git en `FallbackManual`, clave en minúsculas, validación de Git rechazada, clave no configurada, 4 de `updateRepository`, baja sin y con historial, error ajeno relanzado, 4 de `listRepositoriesForTicket`) | Hecho |
 | E3 | US-01 CA4 (servicio), DoD-a | `tests/unit/services/orchestrator/ticket-orchestrator.config.test.ts` › «E3 — configuración, sufijo sugerido y tickets asignados» (19 casos: `getConfig`/`saveConfig` con recorte de espacios, texto en blanco ignorado y 4 sufijos inválidos, 5 nombres → sufijo, fallo de Jira, nombre sin A-Z0-9, sin configuración, `listAssignedTickets` con claves, sin proyectos y sin configuración) | Hecho |
 
 DoD-b (revisión mergeada) no es un escenario: se tilda tras la merge.
@@ -122,3 +122,9 @@ Tercera pasada de Cursor (6 commits; sin hallazgos medios ni altos):
 - **Baja, corregida:** el `@returns` de `updateRepository` no nombraba el `FallbackManual` de Git; el de `addRepository` tampoco mencionaba el caso de nombre o ruta en blanco.
 - **Sin cambio:** el subtipo compartido `RepositorioNoEncontrado` y la validación de `jiraBaseUrl`, como ya estaba registrado.
 - Verificación: `typecheck` y `lint` limpios; 345 tests en verde (63 de este ticket).
+
+Cuarta pasada de Cursor (8 commits; sin hallazgos medios ni altos):
+
+- **Baja, corregida:** el mensaje de la ruta en blanco decía «El ruta del repositorio…» (artículo equivocado) y el test solo comprobaba `kind` y subtipo. Ahora dice «La ruta del repositorio no puede estar en blanco.»; se añadió un test que compara el mensaje exacto del nombre y de la ruta.
+- **Sin cambio:** el subtipo compartido `RepositorioNoEncontrado` y la validación de `jiraBaseUrl`, como ya estaba registrado.
+- Verificación: `typecheck` y `lint` limpios; 347 tests en verde (65 de este ticket).

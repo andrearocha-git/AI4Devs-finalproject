@@ -17,7 +17,7 @@ Nunca ejecuta `commit`, `add` ni `push`, y nunca ramifica desde una base desactu
   - Repo inexistente → `ErrorBloqueante('RepositorioNoEncontrado')`.
   - Cambios pendientes → `ErrorBloqueante('CambiosPendientes')` sin ejecutar pull ni creación.
   - Rama ya existente → `Ok({ alreadyExisted: true })` sin pull, creación ni cambio de rama (H-04). _(ampliado el 2026-11-03: si la rama solo existe en `origin`, se detiene con `ErrorBloqueante('RamaExistenteEnRemoto')`, ver «Decisiones y desvíos»)_
-  - Parado en la base → `git pull --ff-only origin <base>`; parado en otra rama → `git switch <base>` y luego el mismo pull. _(cambiado el 2026-11-04, ver «Registro de la 2.ª revisión de la PR #3»)_
+  - Parado en la base → `git pull --no-rebase --ff-only origin <base>`; parado en otra rama → `git switch <base>` y luego el mismo pull. _(cambiado el 2026-11-04, ver «Registro de la 2.ª revisión de la PR #3»)_
   - Pull fallido → `ErrorBloqueante('PullFallido')` sin crear la rama.
   - Caso feliz → crea la rama una sola vez con `git switch -c <rama> <base>`.
   - En ningún path se ejecuta `commit`, `add` ni `push` (spy sobre el runner).
@@ -130,7 +130,7 @@ Corrección tras la revisión de la PR #3 (2026-11-04, hallazgo de gravedad alta
 
 - **`git pull` respetaba `pull.rebase` y `branch.<base>.rebase`:** con historial divergente y esa configuración (global o del repositorio), `git pull --ff-only origin <base>` reescribía el commit local con un rebase y `createBranch` ramificaba desde una base que lo incluía, contra ADR-007.1; si el rebase tenía conflicto, el repositorio quedaba a mitad de un rebase. Ahora el pull es `git pull --no-rebase --ff-only origin <base>`, que anula ambas opciones: una base divergente da `PullFallido` y no se toca la historia ni el working tree. Un test lo reproduce (RED) con `pull.rebase=true` y `branch.main.rebase=true`. El camino de `fetch origin <base>:<base>` no pasa por `pull` y no se ve afectado.
 - **Test aprobado modificado con autorización del desarrollador:** la aserción de E2 «parado en la base» pasó de `["pull", "--ff-only", "origin", "main"]` a `["pull", "--no-rebase", "--ff-only", "origin", "main"]`, porque el comando cambió.
-- **Documentación pendiente:** el comando se cita sin `--no-rebase` en ADR-007.1, `docs/002`, `docs/006`, `docs/009` y `CLAUDE.md`; falta sincronizarlo.
+- **Documentación:** el comando se citaba sin `--no-rebase` en ADR-007.1, `docs/002`, `docs/006`, `docs/009` y `CLAUDE.md`; sincronizado el 2026-11-04.
 
 Segunda tanda de la revisión de la PR #3 (2026-11-04, hallazgos de gravedad media y baja de Cursor, aprobados por el desarrollador, aplicados con TDD):
 
@@ -148,3 +148,13 @@ Registro de la 2.ª revisión de la PR #3 (2026-11-04), autorizada por la desarr
 - **Token en el `stderr` (media):** los mensajes de `validateRepository`, `PullFallido`, `git switch` y `git status` pasan por `redactCredentials`, que quita `usuario:token@` de las URLs. El test con un `origin` con credenciales pasó en verde sin cambios porque este Git ya enmascara la contraseña; la defensa se probó con un runner que simula el `fatal:` con la URL completa.
 - Nuevos tests: 9 (206 en total); cobertura de `git-manager.ts` 98 % sentencias / 96 % ramas.
 - Docs sincronizados: ADR-007.1, `docs/002`, `docs/006`, `docs/009` y `CLAUDE.md`.
+
+Registro de la 3.ª pasada de la revisión de la PR #3 (2026-11-04; 1 hallazgo medio y varios bajos de Cursor):
+
+- **Base solo en el remoto (media):** sin el `fetch`, `git switch <base>` solo encuentra la base si existe en local o como `origin/<base>` ya traída; `git switch` no consulta la red. **Decisión asumida, coherente con el flujo manual de la desarrolladora (sin `fetch`):** no se vuelve a introducir un `fetch`; el corte se documenta y se prueba. Si el `switch` falla, `ErrorInesperado` con un mensaje que pide ejecutar `git fetch origin`, sin `pull` ni rama nueva y sin cambiar de rama. Un test nuevo cubre el caso «remoto puro» (el test de `--base develop` existente borra solo la rama local y conserva `origin/develop`; se aclaró su título). Alternativa descartada: un `fetch` acotado a `refs/heads/<base>`. Documentado en ADR-007.1.
+- **`git branch --show-current` (baja):** ahora un código de salida distinto de cero es `ErrorInesperado` (antes se ignoraba). La comparación entre `Main` y `main` en Windows no se cambió: un `git switch` sobre la rama en la que ya se está es inocuo.
+- **`maxBuffer` (baja):** el runner distingue el corte por salida demasiado larga (`ERR_CHILD_PROCESS_STDIO_MAXBUFFER`) del timeout; nueva opción `maxBufferBytes` de `createGitRunner` (por defecto 10 MiB).
+- **Rama en la que queda el repositorio tras `PullFallido` (baja):** el mensaje dice que quedó en la base y de qué rama venía el usuario. Cursor sugería que la TUI lo diga; el texto ya viaja en el `message`.
+- **Docs (baja):** ADR-007.1 (consecuencia 🔴), `docs/002` (celda de Git Local Engine) y este contrato (CA1 con `--no-rebase`; la sincronización de la 1.ª revisión ya no figura como pendiente).
+- **Tests (baja):** nuevo caso de `validateRepository` con `origin` inalcanzable; el `.gitconfig` aislado se vacía después de cada test (`pull.rebase=true` ya no se arrastra al siguiente).
+- Resultado: 212 tests; cobertura de `git-manager.ts` 99 % sentencias / 95 % ramas.

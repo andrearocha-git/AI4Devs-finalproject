@@ -93,6 +93,8 @@ function outsideAllowList(calls: string[][], allowed: string[]): string[] {
 
 afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+  // Un test puede dejar `pull.rebase` y similares en el .gitconfig aislado; el siguiente debe empezar limpio.
+  writeFileSync(join(isolatedHome, ".gitconfig"), "");
 });
 
 describe("E1 — inspectRepository: solo lectura (TK-02c CA1 inspectRepository, DoD-b)", () => {
@@ -352,7 +354,7 @@ describe("E2 — createBranch con rama nueva: actualización de la base y creaci
     expect(outsideAllowList(calls, CAN_WRITE)).toEqual([]);
   });
 
-  it("rama base distinta de la configurada (--base): crea la rama desde ella aunque no exista en local", async () => {
+  it("rama base distinta de la configurada (--base): crea la rama desde ella aunque no exista en local (con origin/<base> ya traída)", async () => {
     const env = createEnv();
     git(env.repo, "branch", "develop");
     git(env.repo, "push", "origin", "develop");
@@ -692,5 +694,141 @@ describe("Revisión de la PR #3 (2.ª pasada): sin tags ni refs completas, opera
       expect(result.message).not.toContain(TOKEN);
       expect(result.message).toContain("github.com");
     }
+  });
+});
+
+describe("3.ª pasada de la revisión de la PR #3: base sin traer, errores del runner y mensajes", () => {
+  /** Crea `branch` en `origin` desde otro clon: el repositorio bajo prueba no la conoce (ni local ni `origin/<branch>`). */
+  function createRemoteOnlyBranch(env: TestEnv, branch: string): void {
+    const other = join(env.root, "otro-clon-remota");
+    git(env.root, "clone", env.origin, other);
+    git(other, "checkout", "main");
+    git(other, "checkout", "-b", branch);
+    git(other, "push", "origin", branch);
+  }
+
+  it("base que solo existe en origin y nunca se trajo → ErrorInesperado que pide traerla, sin pull ni rama nueva", async () => {
+    const env = createEnv();
+    createRemoteOnlyBranch(env, "develop");
+    git(env.repo, "checkout", "-b", "otra");
+    const { runner, calls } = spyRunner();
+
+    const result = await new GitManager(runner).createBranch({ repoLocalPath: env.repo, branchName: BRANCH, baseBranch: "develop" });
+
+    expect(result).toMatchObject({ kind: "ErrorBloqueante", subtype: "ErrorInesperado" });
+    if (result.kind !== "ErrorBloqueante") return;
+    expect(result.message).toContain("develop");
+    expect(result.message).toMatch(/git fetch/);
+    expect(subcommands(calls)).not.toContain("pull");
+    expect(calls.filter((args) => args[0] === "switch")).toEqual([["switch", "develop"]]);
+    expect(git(env.repo, "branch", "--show-current").trim()).toBe("otra");
+    expect(git(env.repo, "branch", "--list", BRANCH).trim()).toBe("");
+  });
+
+  it("si git branch --show-current falla → ErrorInesperado, sin switch ni pull", async () => {
+    const env = createEnv();
+    const failing: GitRunner = async (cwd, args) =>
+      args[0] === "branch" ? { exitCode: 128, stdout: "", stderr: "fatal: no se puede leer HEAD" } : runGitCommand(cwd, args);
+    const { runner, calls } = (() => {
+      const recorded: string[][] = [];
+      return { runner: ((cwd, args) => (recorded.push(args), failing(cwd, args))) as GitRunner, calls: recorded };
+    })();
+
+    const result = await new GitManager(runner).createBranch({ repoLocalPath: env.repo, branchName: BRANCH, baseBranch: "main" });
+
+    expect(result).toMatchObject({ kind: "ErrorBloqueante", subtype: "ErrorInesperado" });
+    expect(subcommands(calls)).not.toContain("switch");
+    expect(subcommands(calls)).not.toContain("pull");
+  });
+
+  it("PullFallido tras venir de otra rama dice en qué rama quedó el repositorio y de cuál venía", async () => {
+    const env = createEnv();
+    git(env.repo, "checkout", "-b", "otra");
+    rmSync(env.origin, { recursive: true, force: true });
+
+    const result = await new GitManager().createBranch({ repoLocalPath: env.repo, branchName: BRANCH, baseBranch: "main" });
+
+    expect(result).toMatchObject({ kind: "ErrorBloqueante", subtype: "PullFallido" });
+    if (result.kind !== "ErrorBloqueante") return;
+    expect(result.message).toContain("«otra»");
+    expect(result.message).toMatch(/qued[óo] en la rama base «main»/);
+  });
+
+  it("PullFallido estando ya en la base no menciona ningún cambio de rama", async () => {
+    const env = createEnv();
+    rmSync(env.origin, { recursive: true, force: true });
+
+    const result = await new GitManager().createBranch({ repoLocalPath: env.repo, branchName: BRANCH, baseBranch: "main" });
+
+    expect(result).toMatchObject({ kind: "ErrorBloqueante", subtype: "PullFallido" });
+    if (result.kind !== "ErrorBloqueante") return;
+    expect(result.message).not.toMatch(/qued[óo]/);
+  });
+
+  it("validateRepository con origin inalcanzable → ErrorInesperado con el motivo, no RepositorioNoEncontrado", async () => {
+    const env = createEnv();
+    rmSync(env.origin, { recursive: true, force: true });
+
+    const result = await new GitManager().validateRepository({ repoLocalPath: env.repo, baseBranch: "main" });
+
+    expect(result).toMatchObject({ kind: "ErrorBloqueante", subtype: "ErrorInesperado" });
+  });
+
+  it("runner: una salida que supera maxBuffer se informa como tal, no como «tiempo de espera»", async () => {
+    const env = createEnv();
+    const runner = createGitRunner({ maxBufferBytes: 5 });
+
+    const result = await runner(env.repo, ["log", "--oneline"]);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toMatch(/demasiado larga|buffer/i);
+    expect(result.stderr).not.toMatch(/tiempo de espera/i);
+  });
+});
+
+describe("Contrato del flujo: secuencia exacta de comandos Git de createBranch (regla de CLAUDE.md, ADR-007.1)", () => {
+  /**
+   * Fija el flujo manual de la desarrolladora: `git status`, ir a la base, `git pull`, `git checkout -b`. Si este test falla porque
+   * alguien añadió, quitó o reordenó un comando, no se «arregla» el test: el cambio de flujo necesita autorización expresa y debe
+   * anotarse en «Decisiones y desvíos» de docs/changes/TK-02c.md.
+   */
+  const BEFORE_UPDATE = [
+    ["rev-parse", "--is-inside-work-tree", "--show-prefix"],
+    ["check-ref-format", "--branch", BRANCH],
+    ["check-ref-format", "--branch", "main"],
+    ["status", "--porcelain"],
+    [
+      "rev-parse",
+      "--git-path", "rebase-merge",
+      "--git-path", "rebase-apply",
+      "--git-path", "REBASE_HEAD",
+      "--git-path", "MERGE_HEAD",
+      "--git-path", "CHERRY_PICK_HEAD",
+      "--git-path", "REVERT_HEAD",
+    ],
+    ["rev-parse", "--verify", "--quiet", `refs/heads/${BRANCH}`],
+    ["ls-remote", "--exit-code", "--heads", "origin", `refs/heads/${BRANCH}`],
+    ["branch", "--show-current"],
+  ];
+  const PULL = ["pull", "--no-rebase", "--ff-only", "origin", "main"];
+  const CREATE = ["switch", "-c", BRANCH, "main"];
+
+  it("parado en la base: comprobaciones, pull y switch -c, en ese orden y nada más", async () => {
+    const env = createEnv();
+    const { runner, calls } = spyRunner();
+
+    await new GitManager(runner).createBranch({ repoLocalPath: env.repo, branchName: BRANCH, baseBranch: "main" });
+
+    expect(calls).toEqual([...BEFORE_UPDATE, PULL, CREATE]);
+  });
+
+  it("parado en otra rama: las mismas comprobaciones, switch a la base, pull y switch -c, en ese orden y nada más", async () => {
+    const env = createEnv();
+    git(env.repo, "checkout", "-b", "otra");
+    const { runner, calls } = spyRunner();
+
+    await new GitManager(runner).createBranch({ repoLocalPath: env.repo, branchName: BRANCH, baseBranch: "main" });
+
+    expect(calls).toEqual([...BEFORE_UPDATE, ["switch", "main"], PULL, CREATE]);
   });
 });

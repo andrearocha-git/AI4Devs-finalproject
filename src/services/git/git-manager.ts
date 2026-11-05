@@ -26,6 +26,8 @@ export type GitRunner = (cwd: string, args: string[]) => Promise<GitCommandResul
 export interface GitRunnerOptions {
   /** Tiempo máximo por comando, en milisegundos; al vencer se corta el proceso. Por defecto 120 000 (2 min). */
   timeoutMs?: number;
+  /** Tamaño máximo de la salida de un comando, en bytes; al superarlo se corta el proceso. Por defecto 10 MiB. */
+  maxBufferBytes?: number;
 }
 
 /**
@@ -38,14 +40,18 @@ export interface GitRunnerOptions {
  */
 export function createGitRunner(options: GitRunnerOptions = {}): GitRunner {
   const timeoutMs = options.timeoutMs ?? 120_000;
+  const maxBuffer = options.maxBufferBytes ?? 10 * 1024 * 1024;
   return (cwd, args) =>
     new Promise((resolve) => {
       execFile(
         "git",
         args,
-        { cwd, env: { ...process.env, GIT_TERMINAL_PROMPT: "0" }, encoding: "utf8", maxBuffer: 10 * 1024 * 1024, timeout: timeoutMs },
+        { cwd, env: { ...process.env, GIT_TERMINAL_PROMPT: "0" }, encoding: "utf8", maxBuffer, timeout: timeoutMs },
         (error, stdout, stderr) => {
           if (!error) return resolve({ exitCode: 0, stdout, stderr });
+          if (error.code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") {
+            return resolve({ exitCode: -1, stdout, stderr: `La salida de «git ${args[0] ?? ""}» fue demasiado larga (más de ${maxBuffer} bytes) y se cortó.` });
+          }
           if (error.killed) {
             const seconds = timeoutMs / 1000;
             return resolve({ exitCode: -1, stdout, stderr: `Tiempo de espera agotado (${seconds} s) ejecutando «git ${args[0] ?? ""}».` });
@@ -147,14 +153,14 @@ export class GitManager {
    * Repite la verificación de `inspectRepository` (el árbol pudo cambiar mientras el usuario confirmaba). Si la rama ya existe en local
    * no hace nada más. Si no está parado en la base (otra rama o HEAD desacoplado) ejecuta `git switch <base>`; el árbol está limpio, así que no pierde nada.
    * Luego `git pull --no-rebase --ff-only origin <base>` (`--no-rebase` anula `pull.rebase` y `branch.<base>.rebase`: la base nunca se reescribe).
-   * Por último `git switch -c <rama> <base>`, que deja el repositorio parado en la rama nueva. Si el pull falla, el repositorio queda parado en la base. Nunca ejecuta `commit`, `add` ni `push`.
+   * Por último `git switch -c <rama> <base>`, que deja el repositorio parado en la rama nueva. Si el pull falla, el repositorio queda parado en la base y el mensaje lo dice. La base debe existir en local o como `origin/<base>` ya traída: `git switch` no consulta la red, y la app no hace `fetch`. Nunca ejecuta `commit`, `add` ni `push`.
    *
    * @param input.repoLocalPath Ruta local del repositorio.
    * @param input.branchName Rama del ticket; debe ser un nombre de rama válido para Git (no puede empezar por «-» ni «+»).
    * @param input.baseBranch Rama base (la configurada o la del override `--base`), con las mismas reglas de nombre; no se modifica la configuración.
    * @returns `Ok` con la rama creada, o con `alreadyExisted: true` (sin escribir nada ni cambiar de rama) si ya existía en local; los mismos `ErrorBloqueante` de `inspectRepository`;
    *   `ErrorBloqueante('PullFallido')` con el motivo de Git si la base no se pudo actualizar (nunca se ramifica desde una base vieja);
-   *   `ErrorBloqueante('ErrorInesperado')` si un nombre de rama no es válido o `git switch` falla.
+   *   `ErrorBloqueante('ErrorInesperado')` si un nombre de rama no es válido, no se puede leer la rama actual o `git switch` falla (por ejemplo, la base solo existe en el remoto y nunca se trajo: el mensaje pide ejecutar `git fetch origin`).
    *   Los mensajes de error no incluyen usuario ni token de las URLs del remoto.
    */
   async createBranch(input: {
@@ -167,16 +173,29 @@ export class GitManager {
     if (checked.kind !== "Ok") return checked;
     if (checked.value.existsLocally) return { kind: "Ok", value: { branchName, baseBranch, alreadyExisted: true } };
 
+    // Flujo congelado (ADR-007.1, regla de CLAUDE.md): es el manual de la desarrolladora — ir a la base, pull, crear la rama. No añadir
+    // ni reordenar comandos ni reintroducir `fetch`; lo fija el test «Contrato del flujo». Cambiarlo requiere su autorización expresa.
     const current = await this.runner(repoLocalPath, ["branch", "--show-current"]);
-    if (current.stdout.trim() !== baseBranch) {
+    if (current.exitCode !== 0) {
+      return blocked("ErrorInesperado", `No se pudo leer la rama actual de ${repoLocalPath}: ${redactCredentials(current.stderr.trim())}`);
+    }
+    const previousBranch = current.stdout.trim();
+    const switchedToBase = previousBranch !== baseBranch;
+    if (switchedToBase) {
       const moved = await this.runner(repoLocalPath, ["switch", baseBranch]);
       if (moved.exitCode !== 0) {
-        return blocked("ErrorInesperado", `No se pudo cambiar a la rama base «${baseBranch}»: ${redactCredentials(moved.stderr.trim())}`);
+        return blocked(
+          "ErrorInesperado",
+          `No se pudo cambiar a la rama base «${baseBranch}». Si solo existe en el remoto y tu repositorio aún no la ha traído, ejecuta «git fetch origin» y vuelve a intentar. Git: ${redactCredentials(moved.stderr.trim())}`,
+        );
       }
     }
     const update = await this.runner(repoLocalPath, ["pull", "--no-rebase", "--ff-only", "origin", baseBranch]);
     if (update.exitCode !== 0) {
-      return blocked("PullFallido", `No se pudo actualizar la rama base «${baseBranch}» desde «origin»: ${redactCredentials(update.stderr.trim())}`);
+      const moved = switchedToBase
+        ? ` El repositorio quedó en la rama base «${baseBranch}»${previousBranch === "" ? "" : ` (estabas en «${previousBranch}»)`}.`
+        : "";
+      return blocked("PullFallido", `No se pudo actualizar la rama base «${baseBranch}» desde «origin»: ${redactCredentials(update.stderr.trim())}${moved}`);
     }
 
     const created = await this.runner(repoLocalPath, ["switch", "-c", branchName, baseBranch]);

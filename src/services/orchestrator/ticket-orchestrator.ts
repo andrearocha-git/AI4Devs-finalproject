@@ -83,18 +83,19 @@ export class TicketOrchestrator {
   /**
    * Quita una clave de proyecto (y, en cascada, sus repositorios). No falla si la clave no existe.
    *
-   * @param key Clave de proyecto.
+   * @param key Clave de proyecto; se normaliza a mayúsculas, como en {@link addProject}.
    * @throws {Error} Con un mensaje claro si el proyecto tiene tickets registrados en el historial; no se borra nada.
    */
   removeProject(key: string): void {
-    removeKeepingHistory(`el proyecto ${key}`, () => this.storage.removeJiraProject(key));
+    const normalized = key.trim().toUpperCase();
+    removeKeepingHistory(`el proyecto ${normalized}`, () => this.storage.removeJiraProject(normalized));
   }
 
   /**
    * Da de alta un repositorio local tras validarlo con Git (repositorio, remoto `origin` y rama base en el remoto).
    *
    * Solo persiste si la validación devuelve `Ok`. Si ya existe un repositorio con ese nombre en el proyecto,
-   * se actualiza su ruta conservando el `id`.
+   * se actualiza su ruta conservando el `id` y, si se omite `defaultBaseBranch`, también su rama base.
    *
    * @param input Proyecto, nombre, ruta y rama base (`main` si se omite); ver {@link RepositoryInput}.
    * @returns `Ok` con el repositorio guardado; el `ErrorBloqueante` de Git tal cual; o `ErrorBloqueante('ErrorInesperado')`
@@ -103,7 +104,8 @@ export class TicketOrchestrator {
   async addRepository(input: RepositoryInput): Promise<StepResult<Repository>> {
     const project = this.findProject(input.jiraProjectKey);
     if (project.kind !== "Ok") return project;
-    return this.validateAndSave(project.value, input, input.defaultBaseBranch ?? DEFAULT_BASE_BRANCH);
+    const existing = this.storage.listRepositories(project.value.id).find((r) => r.name === input.name);
+    return this.validateAndSave(project.value, input, input.defaultBaseBranch ?? existing?.defaultBaseBranch ?? DEFAULT_BASE_BRANCH);
   }
 
   /**
@@ -149,7 +151,7 @@ export class TicketOrchestrator {
   listRepositoriesForTicket(ticketId: string): StepResult<Repository[]> {
     const key = TICKET_ID_FORMAT.exec(ticketId.trim())?.[1];
     if (key === undefined) {
-      return this.unknownProject(`«${ticketId}» no es un ID de ticket válido (se espera, p. ej., SCRUM-12)`);
+      return this.unknownProject(`«${ticketId}» no es un ID de ticket válido (se espera, p. ej., SCRUM-12)`, false);
     }
     const project = this.findProject(key);
     if (project.kind !== "Ok") return project;
@@ -164,14 +166,18 @@ export class TicketOrchestrator {
     return this.unknownProject(`La clave de proyecto «${normalized}» no está configurada`);
   }
 
-  /** Error de «proyecto no configurado» con las claves que sí lo están. */
-  private unknownProject(reason: string): StepResult<never> {
+  /**
+   * Error de «proyecto no configurado» con las claves que sí lo están.
+   *
+   * @param suggestAdding `false` cuando la causa es un ID mal escrito: ahí no se sugiere dar de alta una clave.
+   */
+  private unknownProject(reason: string, suggestAdding = true): StepResult<never> {
     const keys = this.storage.listJiraProjects().map((p) => p.jiraProjectKey);
     const available = keys.length > 0 ? keys.join(", ") : "ninguna";
     return {
       kind: "ErrorBloqueante",
       subtype: "ErrorInesperado",
-      message: `${reason}. Claves disponibles: ${available}. Agrega la clave con «devflow config proyectos».`,
+      message: `${reason}. Claves disponibles: ${available}.${suggestAdding ? " Agrega la clave con «devflow config proyectos»." : ""}`,
     };
   }
 
@@ -204,15 +210,23 @@ export class TicketOrchestrator {
   /**
    * Guarda la configuración global; solo cambian los campos indicados.
    *
-   * @param config Campos a guardar. El sufijo de usuario, si viene, debe cumplir `^[A-Z0-9]+$` (p. ej. `AROCHA`).
-   * @throws {Error} Si el sufijo no cumple el formato (no se guarda nada) o, en el primer alta, si faltan campos obligatorios
+   * @param config Campos a guardar. Los textos se guardan sin espacios sobrantes y uno en blanco se ignora (conserva el valor
+   * guardado), como en `AppConfigProvider`. El sufijo de usuario, si viene, debe cumplir `^[A-Z0-9]+$` (p. ej. `AROCHA`).
+   * @throws {Error} Si el sufijo (ya recortado) no cumple el formato, en blanco incluido (no se guarda nada) o, en el primer alta, si faltan campos obligatorios
    * (`jiraBaseUrl`, `jiraEmail`, `jiraApiToken`, `branchUserSuffix`, `ticketsRootPath`).
    */
   saveConfig(config: Partial<AppConfig>): void {
-    if (config.branchUserSuffix !== undefined && !SUFFIX_FORMAT.test(config.branchUserSuffix)) {
-      throw new Error(`El sufijo de usuario «${config.branchUserSuffix}» no es válido: debe cumplir ^[A-Z0-9]+$ (p. ej. AROCHA).`);
+    const cleaned: Record<string, unknown> = {};
+    for (const [field, value] of Object.entries(config)) {
+      const trimmed = typeof value === "string" ? value.trim() : value;
+      if (trimmed === "" && field !== "branchUserSuffix") continue;
+      cleaned[field] = trimmed;
     }
-    this.storage.upsertAppConfig(config);
+    const suffix = cleaned.branchUserSuffix;
+    if (suffix !== undefined && !SUFFIX_FORMAT.test(suffix as string)) {
+      throw new Error(`El sufijo de usuario «${suffix as string}» no es válido: debe cumplir ^[A-Z0-9]+$ (p. ej. AROCHA).`);
+    }
+    this.storage.upsertAppConfig(cleaned as Partial<AppConfig>);
   }
 
   /**

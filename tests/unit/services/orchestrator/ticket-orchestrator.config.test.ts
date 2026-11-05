@@ -116,6 +116,21 @@ describe("E1 — proyectos", () => {
     expect(fixture.storage.getJiraProject("SCRUM")).toBeNull();
   });
 
+  it.each(["scrum", " SCRUM ", "Scrum"])("removeProject normaliza la clave «%s» como addProject", (key) => {
+    fixture.storage.upsertJiraProject({ jiraProjectKey: "SCRUM", jiraProjectName: "Scrum" });
+
+    fixture.orchestrator.removeProject(key);
+
+    expect(fixture.storage.getJiraProject("SCRUM")).toBeNull();
+  });
+
+  it("removeProject con historial nombra la clave normalizada en el mensaje", () => {
+    const project = fixture.storage.upsertJiraProject({ jiraProjectKey: "SCRUM", jiraProjectName: "Scrum" });
+    addHistory(fixture.storage, project.id, null);
+
+    expect(() => fixture.orchestrator.removeProject("scrum")).toThrow(/proyecto SCRUM:/);
+  });
+
   it("removeProject con historial lanza un mensaje claro (sin el texto crudo de SQLite) y deja el proyecto intacto", () => {
     const project = fixture.storage.upsertJiraProject({ jiraProjectKey: "SCRUM", jiraProjectName: "Scrum" });
     addHistory(fixture.storage, project.id, null);
@@ -171,6 +186,16 @@ describe("E2 — repositorios", () => {
     expect(result.kind === "Ok" && result.value.defaultBaseBranch).toBe("main");
   });
 
+  it("addRepository sobre un repositorio existente sin defaultBaseBranch conserva (y valida) la rama guardada", async () => {
+    await fixture.orchestrator.addRepository({ ...REPO, defaultBaseBranch: "develop" });
+
+    const result = await fixture.orchestrator.addRepository({ ...REPO, repoLocalPath: "/work/api2" });
+
+    expect(fixture.git.validateRepository).toHaveBeenLastCalledWith({ repoLocalPath: "/work/api2", baseBranch: "develop" });
+    expect(result.kind === "Ok" && result.value).toMatchObject({ repoLocalPath: "/work/api2", defaultBaseBranch: "develop" });
+    expect(fixture.storage.listRepositories(projectId)).toHaveLength(1);
+  });
+
   it("addRepository acepta la clave de proyecto en minúsculas", async () => {
     const result = await fixture.orchestrator.addRepository({ ...REPO, jiraProjectKey: "scrum" });
 
@@ -184,6 +209,16 @@ describe("E2 — repositorios", () => {
     const result = await fixture.orchestrator.addRepository(REPO);
 
     expect(result).toEqual(rejected);
+    expect(fixture.storage.listRepositories(projectId)).toEqual([]);
+  });
+
+  it("addRepository con la validación de Git en FallbackManual la devuelve tal cual y no escribe nada", async () => {
+    const manual = { kind: "FallbackManual", reason: "network_timeout" };
+    fixture.git.validateRepository.mockResolvedValue(manual);
+
+    const result = await fixture.orchestrator.addRepository(REPO);
+
+    expect(result).toEqual(manual);
     expect(fixture.storage.listRepositories(projectId)).toEqual([]);
   });
 
@@ -297,12 +332,33 @@ describe("E2 — repositorios", () => {
     expect(fixture.createJiraClient).not.toHaveBeenCalled();
   });
 
-  it("listRepositoriesForTicket con un ID mal formado devuelve ErrorBloqueante con las claves disponibles", () => {
+  it("listRepositoriesForTicket con un ID mal formado devuelve ErrorBloqueante con las claves disponibles, sin llamar a Jira", () => {
     const result = fixture.orchestrator.listRepositoriesForTicket("scrum12");
 
     expect(result).toMatchObject({ kind: "ErrorBloqueante", subtype: "ErrorInesperado" });
     expect(result.kind === "ErrorBloqueante" && result.message).toContain("scrum12");
     expect(result.kind === "ErrorBloqueante" && result.message).toContain("SCRUM");
+    expect(fixture.createJiraClient).not.toHaveBeenCalled();
+  });
+
+  it("listRepositoriesForTicket con un ID mal formado pide corregir el ID, no dar de alta una clave", () => {
+    const result = fixture.orchestrator.listRepositoriesForTicket("scrum12");
+
+    expect(result.kind === "ErrorBloqueante" && result.message).not.toContain("devflow config proyectos");
+  });
+
+  it("listRepositoriesForTicket con una clave no configurada sí sugiere darla de alta", () => {
+    const result = fixture.orchestrator.listRepositoriesForTicket("OTRO-1");
+
+    expect(result.kind === "ErrorBloqueante" && result.message).toContain("devflow config proyectos");
+  });
+
+  it("listRepositoriesForTicket acepta el ID en minúsculas", async () => {
+    await fixture.orchestrator.addRepository(REPO);
+
+    const result = fixture.orchestrator.listRepositoriesForTicket("scrum-12");
+
+    expect(result.kind === "Ok" && result.value.map((r) => r.name)).toEqual(["api"]);
   });
 
   it("indica que no hay claves configuradas cuando la lista está vacía", async () => {
@@ -335,6 +391,18 @@ describe("E3 — configuración, sufijo sugerido y tickets asignados", () => {
         jiraEmail: "otro@example.com",
         jiraBaseUrl: "https://example.atlassian.net",
       });
+    });
+
+    it("saveConfig recorta los espacios de los textos, como AppConfigProvider", () => {
+      fixture.orchestrator.saveConfig({ branchUserSuffix: "PGOMEZ ", jiraEmail: " otro@example.com " });
+
+      expect(fixture.orchestrator.getConfig()).toMatchObject({ branchUserSuffix: "PGOMEZ", jiraEmail: "otro@example.com" });
+    });
+
+    it("saveConfig ignora un texto en blanco y conserva el valor guardado", () => {
+      fixture.orchestrator.saveConfig({ jiraEmail: "   " });
+
+      expect(fixture.orchestrator.getConfig()?.jiraEmail).toBe("dev@example.com");
     });
 
     it.each(["arocha", "A-R", "AR OCHA", ""])("saveConfig rechaza el sufijo «%s» y no cambia lo guardado", (suffix) => {

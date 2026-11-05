@@ -44,7 +44,7 @@ Los métodos sin criterio numerado (`listAssignedTickets`, `suggestBranchSuffix`
 | Escenario | Criterios cubiertos | Test | Estado |
 |---|---|---|---|
 | E1 | CA1, CA3, DoD-a | `tests/unit/services/orchestrator/ticket-orchestrator.config.test.ts` › «E1 — proyectos» (14 casos: alta con `Ok`, 4 fallos de Jira sin escribir, sin configuración, listado, baja sin y con historial, clave normalizada en la baja, error ajeno relanzado) | Hecho |
-| E2 | CA1, CA2, CA3, DoD-a | `tests/unit/services/orchestrator/ticket-orchestrator.config.test.ts` › «E2 — repositorios» (27 casos: alta con y sin rama base, re-alta que conserva la rama, recorte de nombre, ruta y rama, rama en blanco, Git en `FallbackManual`, clave en minúsculas, validación de Git rechazada, clave no configurada, 4 de `updateRepository`, baja sin y con historial, error ajeno relanzado, 4 de `listRepositoriesForTicket`) | Hecho |
+| E2 | CA1, CA2, CA3, DoD-a | `tests/unit/services/orchestrator/ticket-orchestrator.config.test.ts` › «E2 — repositorios» (30 casos: alta con y sin rama base, re-alta que conserva la rama, recorte de nombre, ruta y rama, rama en blanco, nombre o ruta en blanco, Git en `FallbackManual`, clave en minúsculas, validación de Git rechazada, clave no configurada, 4 de `updateRepository`, baja sin y con historial, error ajeno relanzado, 4 de `listRepositoriesForTicket`) | Hecho |
 | E3 | US-01 CA4 (servicio), DoD-a | `tests/unit/services/orchestrator/ticket-orchestrator.config.test.ts` › «E3 — configuración, sufijo sugerido y tickets asignados» (19 casos: `getConfig`/`saveConfig` con recorte de espacios, texto en blanco ignorado y 4 sufijos inválidos, 5 nombres → sufijo, fallo de Jira, nombre sin A-Z0-9, sin configuración, `listAssignedTickets` con claves, sin proyectos y sin configuración) | Hecho |
 
 DoD-b (revisión mergeada) no es un escenario: se tilda tras la merge.
@@ -115,3 +115,10 @@ Segunda pasada de Cursor (4 commits; los dos medios anteriores quedaron cerrados
 - **Baja, corregida:** el TSDoc de `addRepository` decía que `main` se usa siempre que se omite la rama (solo cuando el repositorio es nuevo) y su `@returns` no nombraba el `FallbackManual` de Git.
 - **Sin cambio:** el subtipo compartido `RepositorioNoEncontrado` (decisión en TK-03a) y la validación de `jiraBaseUrl` (decisión 5), como ya estaban registrados.
 - Verificación: `typecheck` y `lint` limpios; 342 tests en verde (60 de este ticket).
+
+Tercera pasada de Cursor (6 commits; sin hallazgos medios ni altos):
+
+- **Baja, corregida:** un nombre en blanco se guardaba vacío (`name: ""`) si Git aceptaba la ruta, y `updateRepository` buscaba un repositorio llamado `""`. Ahora `addRepository` y `updateRepository` devuelven `ErrorBloqueante('ErrorInesperado')` sin llamar a Git ni escribir si el nombre queda en blanco tras recortarlo. _(Ampliado por el mismo motivo a la ruta en blanco.)_
+- **Baja, corregida:** el `@returns` de `updateRepository` no nombraba el `FallbackManual` de Git; el de `addRepository` tampoco mencionaba el caso de nombre o ruta en blanco.
+- **Sin cambio:** el subtipo compartido `RepositorioNoEncontrado` y la validación de `jiraBaseUrl`, como ya estaba registrado.
+- Verificación: `typecheck` y `lint` limpios; 345 tests en verde (63 de este ticket).

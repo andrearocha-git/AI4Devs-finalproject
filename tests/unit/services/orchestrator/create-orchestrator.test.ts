@@ -5,6 +5,7 @@ import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createOrchestrator } from "../../../../src/services/orchestrator/create-orchestrator.js";
+import type { TicketOrchestrator } from "../../../../src/services/orchestrator/ticket-orchestrator.js";
 
 const BASE_URL = "https://equipo.atlassian.net";
 
@@ -14,16 +15,27 @@ afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
 let dir = "";
+let opened: TicketOrchestrator[] = [];
+/** Crea un Orquestador y lo registra para cerrarlo al terminar el test (en Windows no se puede borrar un archivo abierto). */
+function open(databasePath: string): TicketOrchestrator {
+  const orchestrator = createOrchestrator({ databasePath });
+  opened.push(orchestrator);
+  return orchestrator;
+}
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "devflow-compose-"));
+  opened = [];
 });
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(() => {
+  for (const orchestrator of opened) orchestrator.close();
+  rmSync(dir, { recursive: true, force: true });
+});
 
 describe("E1 — createOrchestrator (raíz de composición)", () => {
   it("crea la carpeta de la base, la migra y devuelve un Orquestador funcional en una base nueva", () => {
     const databasePath = join(dir, "DevFlowCLI", "devflow.db");
 
-    const orchestrator = createOrchestrator({ databasePath });
+    const orchestrator = open(databasePath);
 
     expect(existsSync(databasePath)).toBe(true);
     expect(orchestrator.getConfig()).toBeNull();
@@ -32,7 +44,7 @@ describe("E1 — createOrchestrator (raíz de composición)", () => {
 
   it("reabrir una base existente conserva lo guardado (migraciones idempotentes)", () => {
     const databasePath = join(dir, "devflow.db");
-    createOrchestrator({ databasePath }).saveConfig({
+    open(databasePath).saveConfig({
       jiraBaseUrl: BASE_URL,
       jiraEmail: "dev@example.com",
       jiraApiToken: "token",
@@ -40,13 +52,13 @@ describe("E1 — createOrchestrator (raíz de composición)", () => {
       ticketsRootPath: "/tickets",
     });
 
-    const reopened = createOrchestrator({ databasePath });
+    const reopened = open(databasePath);
 
     expect(reopened.getConfig()).toMatchObject({ jiraEmail: "dev@example.com", branchUserSuffix: "AROCHA" });
   });
 
   it("el cliente de Jira se arma con la configuración guardada (URL, email, token y timeout)", async () => {
-    const orchestrator = createOrchestrator({ databasePath: join(dir, "devflow.db") });
+    const orchestrator = open(join(dir, "devflow.db"));
     orchestrator.saveConfig({
       jiraBaseUrl: BASE_URL,
       jiraEmail: "dev@example.com",

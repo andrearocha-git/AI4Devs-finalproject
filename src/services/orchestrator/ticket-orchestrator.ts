@@ -66,6 +66,21 @@ export class TicketOrchestrator {
     private readonly createJiraClient: JiraClientFactory,
   ) {}
 
+  private closed = false;
+
+  /**
+   * Cierra la conexión con la base. Es idempotente: cerrar dos veces no lanza.
+   *
+   * Después de cerrar, las operaciones que usan la base lanzan. Un comando de un solo uso no lo necesita (el sistema cierra
+   * el archivo al terminar el proceso), pero en Windows un archivo abierto no se puede borrar, así que los tests y los
+   * llamadores de larga vida deben cerrarlo.
+   */
+  close(): void {
+    if (this.closed) return;
+    this.closed = true;
+    this.storage.close();
+  }
+
   /**
    * Lista las claves de proyecto dadas de alta.
    *

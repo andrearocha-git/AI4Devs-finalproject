@@ -113,7 +113,11 @@ export async function main(argv: string[] = process.argv): Promise<void> {
     prompts: createInquirerPrompts(),
     out: (line) => console.log(line),
   });
-  await buildProgram(handlers).parseAsync(argv);
+  try {
+    await buildProgram(handlers).parseAsync(argv);
+  } finally {
+    orchestrator?.close();
+  }
 }
 
 // Solo se ejecuta cuando el archivo se lanza directamente (`npm start`), no al importarlo desde los tests.

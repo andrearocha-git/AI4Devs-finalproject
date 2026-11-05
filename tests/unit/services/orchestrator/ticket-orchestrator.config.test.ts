@@ -64,6 +64,23 @@ beforeEach(() => {
 });
 afterEach(() => fixture.storage.close());
 
+describe("close", () => {
+  it("cierra la conexión con la base: después, las operaciones que la usan lanzan", () => {
+    const own = setup();
+
+    own.orchestrator.close();
+
+    expect(() => own.orchestrator.listProjects()).toThrow();
+  });
+
+  it("es idempotente: cerrar dos veces no lanza", () => {
+    const own = setup();
+    own.orchestrator.close();
+
+    expect(() => own.orchestrator.close()).not.toThrow();
+  });
+});
+
 describe("E1 — proyectos", () => {
   it("addProject con Ok persiste la clave en mayúsculas con el nombre de Jira", async () => {
     fixture.jira.validateProjectKey.mockResolvedValue({ kind: "Ok", value: { key: "SCRUM", name: "Scrum Board" } });

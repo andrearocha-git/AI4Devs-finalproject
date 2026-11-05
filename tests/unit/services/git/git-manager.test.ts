@@ -832,3 +832,33 @@ describe("Contrato del flujo: secuencia exacta de comandos Git de createBranch (
     expect(calls).toEqual([...BEFORE_UPDATE, ["switch", "main"], PULL, CREATE]);
   });
 });
+
+describe("Cierre de TK-02c: mensaje de git switch -c fallido tras un pull correcto", () => {
+  /** Runner real que hace fallar `git switch -c` (la creación de la rama) con un `fatal:` simulado. */
+  const failingCreate: GitRunner = async (cwd, args) =>
+    args[0] === "switch" && args[1] === "-c" ? { exitCode: 128, stdout: "", stderr: "fatal: no se pudo crear la rama" } : runGitCommand(cwd, args);
+
+  it("venía de otra rama: ErrorInesperado que dice que el repositorio quedó en la base y de cuál venía", async () => {
+    const env = createEnv();
+    git(env.repo, "checkout", "-b", "otra");
+
+    const result = await new GitManager(failingCreate).createBranch({ repoLocalPath: env.repo, branchName: BRANCH, baseBranch: "main" });
+
+    expect(result).toMatchObject({ kind: "ErrorBloqueante", subtype: "ErrorInesperado" });
+    if (result.kind !== "ErrorBloqueante") return;
+    expect(result.message).toContain("fatal: no se pudo crear la rama");
+    expect(result.message).toContain("«otra»");
+    expect(result.message).toMatch(/qued[óo] en la rama base «main»/);
+    expect(git(env.repo, "branch", "--show-current").trim()).toBe("main");
+  });
+
+  it("ya estaba en la base: el mensaje no menciona ningún cambio de rama", async () => {
+    const env = createEnv();
+
+    const result = await new GitManager(failingCreate).createBranch({ repoLocalPath: env.repo, branchName: BRANCH, baseBranch: "main" });
+
+    expect(result).toMatchObject({ kind: "ErrorBloqueante", subtype: "ErrorInesperado" });
+    if (result.kind !== "ErrorBloqueante") return;
+    expect(result.message).not.toMatch(/qued[óo]/);
+  });
+});

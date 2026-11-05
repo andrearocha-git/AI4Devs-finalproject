@@ -162,6 +162,6 @@ Registro de la 3.ª pasada de la revisión de la PR #3 (2026-11-04; 1 hallazgo m
 Decisiones diferidas al cerrar la PR #3 (2026-11-05, aprobada por Cursor sin hallazgos medios ni altos; la desarrolladora decidió no mover la rama aprobada):
 
 - **Sugerencia de `git fetch origin`:** hoy aparece en cualquier fallo de `git switch <base>`; conviene acotarla al caso «la rama no existe». El `stderr` de Git va al final del mensaje y mitiga el riesgo. Sin cambiar el flujo congelado.
-- **`git switch -c` fallido tras un pull correcto:** el repositorio queda en la base y el mensaje no lo dice (sí lo dice `PullFallido`). Pendiente de corregir con su test.
+- **`git switch -c` fallido tras un pull correcto:** el repositorio queda en la base y el mensaje no lo decía (sí lo decía `PullFallido`). **Corregido el 2026-11-05**, a petición de la desarrolladora: el mensaje reutiliza el aviso de `PullFallido` («quedó en la rama base «X» (estabas en «Y»)») cuando hubo que moverse a la base; si ya estaba en ella no se añade nada. Solo cambia el texto; la secuencia de comandos no se toca (el test «Contrato del flujo» sigue en verde). 2 tests nuevos en «Cierre de TK-02c».
 - **`Main` frente a `main` en Windows:** la rama actual se compara tal cual; un `git switch` redundante a la misma rama es inocuo. Se deja sin normalizar a propósito.
 - **`docs/LIDR/prompts-2da-entrega.md`** cita el `fetch` anterior: es una bitácora histórica, no una especificación de producto.

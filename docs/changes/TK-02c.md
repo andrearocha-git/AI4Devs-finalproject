@@ -158,3 +158,10 @@ Registro de la 3.ª pasada de la revisión de la PR #3 (2026-11-04; 1 hallazgo m
 - **Docs (baja):** ADR-007.1 (consecuencia 🔴), `docs/002` (celda de Git Local Engine) y este contrato (CA1 con `--no-rebase`; la sincronización de la 1.ª revisión ya no figura como pendiente).
 - **Tests (baja):** nuevo caso de `validateRepository` con `origin` inalcanzable; el `.gitconfig` aislado se vacía después de cada test (`pull.rebase=true` ya no se arrastra al siguiente).
 - Resultado: 212 tests; cobertura de `git-manager.ts` 99 % sentencias / 95 % ramas.
+
+Decisiones diferidas al cerrar la PR #3 (2026-11-05, aprobada por Cursor sin hallazgos medios ni altos; la desarrolladora decidió no mover la rama aprobada):
+
+- **Sugerencia de `git fetch origin`:** hoy aparece en cualquier fallo de `git switch <base>`; conviene acotarla al caso «la rama no existe». El `stderr` de Git va al final del mensaje y mitiga el riesgo. Sin cambiar el flujo congelado.
+- **`git switch -c` fallido tras un pull correcto:** el repositorio queda en la base y el mensaje no lo dice (sí lo dice `PullFallido`). Pendiente de corregir con su test.
+- **`Main` frente a `main` en Windows:** la rama actual se compara tal cual; un `git switch` redundante a la misma rama es inocuo. Se deja sin normalizar a propósito.
+- **`docs/LIDR/prompts-2da-entrega.md`** cita el `fetch` anterior: es una bitácora histórica, no una especificación de producto.

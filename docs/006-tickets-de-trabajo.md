@@ -226,7 +226,7 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
 - **Definition of Done (DoD):**
   - [x] `GitManager` no ejecuta `commit`, `add` ni `push` en ningún path de código.
   - [x] Hay al menos un test para `Ok` y para cada subtipo de `ErrorBloqueante` que produce.
-  - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
+  - [x] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---
 

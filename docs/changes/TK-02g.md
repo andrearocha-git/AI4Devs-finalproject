@@ -43,9 +43,9 @@ Los métodos sin criterio numerado (`listAssignedTickets`, `suggestBranchSuffix`
 
 | Escenario | Criterios cubiertos | Test | Estado |
 |---|---|---|---|
-| E1 | CA1, CA3, DoD-a | `tests/unit/services/orchestrator/ticket-orchestrator.config.test.ts` › «E1 — proyectos» (10 casos: alta con `Ok`, 4 fallos de Jira sin escribir, sin configuración, listado, baja sin y con historial, error ajeno relanzado) | Hecho |
-| E2 | CA1, CA2, CA3, DoD-a | `tests/unit/services/orchestrator/ticket-orchestrator.config.test.ts` › «E2 — repositorios» (18 casos: alta con y sin rama base, clave en minúsculas, validación de Git rechazada, clave no configurada, 4 de `updateRepository`, baja sin y con historial, error ajeno relanzado, 4 de `listRepositoriesForTicket`) | Hecho |
-| E3 | US-01 CA4 (servicio), DoD-a | `tests/unit/services/orchestrator/ticket-orchestrator.config.test.ts` › «E3 — configuración, sufijo sugerido y tickets asignados» (17 casos: `getConfig`/`saveConfig` con 4 sufijos inválidos, 5 nombres → sufijo, fallo de Jira, nombre sin A-Z0-9, sin configuración, `listAssignedTickets` con claves, sin proyectos y sin configuración) | Hecho |
+| E1 | CA1, CA3, DoD-a | `tests/unit/services/orchestrator/ticket-orchestrator.config.test.ts` › «E1 — proyectos» (14 casos: alta con `Ok`, 4 fallos de Jira sin escribir, sin configuración, listado, baja sin y con historial, clave normalizada en la baja, error ajeno relanzado) | Hecho |
+| E2 | CA1, CA2, CA3, DoD-a | `tests/unit/services/orchestrator/ticket-orchestrator.config.test.ts` › «E2 — repositorios» (23 casos: alta con y sin rama base, re-alta que conserva la rama, Git en `FallbackManual`, clave en minúsculas, validación de Git rechazada, clave no configurada, 4 de `updateRepository`, baja sin y con historial, error ajeno relanzado, 4 de `listRepositoriesForTicket`) | Hecho |
+| E3 | US-01 CA4 (servicio), DoD-a | `tests/unit/services/orchestrator/ticket-orchestrator.config.test.ts` › «E3 — configuración, sufijo sugerido y tickets asignados» (19 casos: `getConfig`/`saveConfig` con recorte de espacios, texto en blanco ignorado y 4 sufijos inválidos, 5 nombres → sufijo, fallo de Jira, nombre sin A-Z0-9, sin configuración, `listAssignedTickets` con claves, sin proyectos y sin configuración) | Hecho |
 
 DoD-b (revisión mergeada) no es un escenario: se tilda tras la merge.
 
@@ -92,3 +92,19 @@ Los puntos 1 a 6 anteriores quedaron aprobados con el contrato. Decisiones tomad
 - Se exportan `JiraGateway`, `JiraClientFactory` y `RepositoryInput` (esta última evita repetir la entrada de `addRepository` y `updateRepository`).
 - Refactor: la traducción del error de clave foránea quedó en un único helper (`removeKeepingHistory`).
 - Verificación al cierre: `typecheck` y `lint` limpios; 327 tests en verde (45 de este ticket).
+
+### Registro de la revisión de Cursor (PR de TK-02g, 2026-11-05)
+
+Dos hallazgos de severidad media, ambos corregidos con test en rojo primero:
+
+- `removeProject` no normalizaba la clave (`trim().toUpperCase()`, como `addProject`): `removeProject("scrum")` no borraba nada y tampoco avisaba. Ahora normaliza, y el mensaje de historial nombra la clave normalizada.
+- `addRepository` sin `defaultBaseBranch` mandaba siempre `main`, y en una re-alta del mismo nombre pisaba la rama guardada (`develop` → `main`). Ahora conserva (y valida) la rama del repositorio existente; `main` solo se usa en el primer alta.
+- Verificación tras la corrección: `typecheck` y `lint` limpios; 332 tests en verde (50 de este ticket).
+
+Resto de la revisión (severidad baja y tests que faltaban):
+
+- Un ID mal formado en `listRepositoriesForTicket` ya no termina en «Agrega la clave con devflow config proyectos» (la corrección es el ID); la clave no configurada sí lo sugiere.
+- `saveConfig` recorta los textos y trata uno en blanco como ausente (conserva lo guardado), como `AppConfigProvider`; el sufijo se valida ya recortado y uno en blanco se rechaza. La validación de `jiraBaseUrl` sigue fuera (decisión 5).
+- **Sin cambio, pendiente de decisión:** `updateRepository` sobre un repositorio inexistente y `validateRepository` de Git comparten el subtipo `RepositorioNoEncontrado` (se distinguen solo por el `message`). Separarlos exige un subtipo nuevo en `result.types.ts` (TK-02a) y que la TUI los trate distinto; se decide al refinar TK-03a.
+- Tests añadidos: Git en `FallbackManual`, ID en minúsculas, ID mal formado sin llamar a Jira, los dos mensajes distintos y los dos casos de recorte.
+- Verificación: `typecheck` y `lint` limpios; 338 tests en verde (56 de este ticket).

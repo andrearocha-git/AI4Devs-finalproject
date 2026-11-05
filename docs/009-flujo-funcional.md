@@ -4,7 +4,7 @@
 >
 > Fuentes de verdad: `docs/PRD.md`, `docs/001-descripcion-general-del-producto.md`, `docs/002-arquitectura-del-sistema.md`, `docs/005-historias-de-usuario.md`, `docs/006-tickets-de-trabajo.md`, `docs/ADR-001-arquitectura-inicial.md`. Si este archivo contradice a esas fuentes, gana la fuente; corregir aquí.
 
-**Estado del proyecto:** desarrollo en curso, ticket por ticket. Implementados: TK-00 (scaffold), TK-01 (Storage Layer), TK-02a (base compartida: `StepResult`, configuración, resolutor de tipo de issue, regla de lint), TK-02b (cliente REST de Jira), TK-02c (Git Manager) y TK-02d (FileSystem Manager y plantillas). Todo lo demás es comportamiento *especificado*, aún sin código; los pasos que ya tienen parte implementada llevan la etiqueta `🚧 En desarrollo`.
+**Estado del proyecto:** desarrollo en curso, ticket por ticket. Implementados: TK-00 (scaffold), TK-01 (Storage Layer), TK-02a (base compartida: `StepResult`, configuración, resolutor de tipo de issue, regla de lint), TK-02b (cliente REST de Jira), TK-02c (Git Manager), TK-02d (FileSystem Manager y plantillas) y TK-02g (Orquestador: gestión de configuración, proyectos y repositorios). Todo lo demás es comportamiento *especificado*, aún sin código; los pasos que ya tienen parte implementada llevan la etiqueta `🚧 En desarrollo`.
 
 ## Cómo mantener este documento
 
@@ -45,26 +45,28 @@ Ref.: `002` §2.2.1.
 
 > Procedimiento de instalación concreto: ver hueco **H-05**.
 
-### 1.2 Primer arranque en frío — `🚧 En desarrollo` · TK-01, TK-02a (`SQLiteStorageManager` y `AppConfigProvider` implementados; falta el Orquestador que los instancia)
+### 1.2 Primer arranque en frío — `🚧 En desarrollo` · TK-01, TK-02a (`SQLiteStorageManager` y `AppConfigProvider` implementados; el Orquestador de TK-02g los usa, pero aún no hay punto de entrada que lo instancie, TK-03a)
 
 - `getAppConfig()` devuelve `null` sin lanzar excepción (TK-01 CA6).
 - `SQLiteStorageManager` aplica las migraciones de forma idempotente (TK-01 CA7) y crea `devflow.db` en modo **WAL** con las 4 tablas: `app_config`, `jira_projects`, `repositories`, `ticket_logs`.
 - La configuración se resuelve **una sola vez** al arrancar y el Orquestador la inyecta por constructor a Jira, Ollama, Git y FileSystem. Ningún componente de integración lee SQLite.
 
-### 1.3 `devflow config` — sufijo de usuario y credenciales — `📄 Especificado` · US-01 CA4 · TK-03a
+### 1.3 `devflow config` — sufijo de usuario y credenciales — `🚧 En desarrollo` · US-01 CA4 · TK-02g, TK-03a (`getConfig`, `saveConfig` y `suggestBranchSuffix` implementados en el Orquestador; falta la TUI)
 
 1. El usuario carga `jira_base_url`, email y API Token en `app_config`.
 2. El Orquestador llama a `GET /myself`, toma el `displayName` y propone el sufijo: inicial del nombre + último apellido, sin acentos y en mayúsculas (p. ej. `AROCHA`).
-3. El usuario confirma o edita; se guarda como `branch_user_suffix`.
+3. El usuario confirma o edita; se guarda como `branch_user_suffix`. El sufijo es configurable por cada desarrollador (p. ej. `AROCHA`, `PGOMEZ`) y `saveConfig` rechaza el que no cumpla `^[A-Z0-9]+$`. Si el nombre no deja ningún carácter válido, la sugerencia falla y el usuario lo escribe a mano.
 
 > Los nombres de los comandos `devflow config` y `devflow config proyectos` están decididos (hueco **H-06**, resuelto). El token se guarda en claro en `app_config` en el MVP (H-05, decidido; ver `002` §2.5).
 
-### 1.4 `devflow config proyectos` — claves y repositorios — `🚧 En desarrollo` · US-01 CA1-3, CA5-6 · TK-02/TK-03a (`validateProjectKey` implementado en TK-02b; faltan Git, Orquestador y TUI)
+### 1.4 `devflow config proyectos` — claves y repositorios — `🚧 En desarrollo` · US-01 CA1-3, CA5-6 · TK-02b, TK-02c, TK-02g/TK-03a (`validateProjectKey`, `validateRepository` y los métodos de alta, edición y baja del Orquestador implementados; falta la TUI)
 
 - **Alta de clave:** se valida con `GET /rest/api/2/project/{key}` (la JQL ignora sin error las claves inexistentes). Ante un 404 se llama a `/myself`: **401 = token inválido**, **200 = la clave no existe**. Se guarda con el nombre del proyecto.
 - **Alta de repositorio** (0..N por clave): nombre (`backend`), ruta local y rama base (por defecto `main`). `GitManager.validateRepository` comprueba que sea un repo Git con remoto `origin` y que la rama base exista en el remoto.
 - **Edición:** *upsert* por `jira_project_key` y por `(jira_project_id, name)`; no quedan duplicados (TK-01 CA2). Borrar una clave borra en cascada sus repositorios (TK-01 CA3).
 - **Guarda:** sin ninguna clave configurada, `devflow start` indica que hay que dar de alta al menos una (US-01 CA6).
+
+- **Baja con historial:** quitar una clave o un repositorio con tickets en `ticket_logs` se rechaza con un mensaje claro (no el error de SQLite) y no borra nada (TK-02g).
 
 **Resiliencia:** clave inválida, ruta que no es repo Git o rama base inexistente → se rechaza el alta con el motivo. No queda estado parcial.
 
@@ -266,3 +268,4 @@ Detectados al cruzar las fuentes (análisis pre-código, 2026-11-01). Cada uno i
 | 2026-11-04 | 2.ª revisión de la PR #3 (TK-02c): se elimina el `fetch origin <base>:<base>` (podía escribir tags); ahora `git switch <base>` + `git pull`, como el flujo manual. Se rechazan nombres que empiezan por `refs/`, se detecta merge/rebase/cherry-pick/revert en curso (`CambiosPendientes`) y los mensajes ocultan usuario y token de las URLs. Actualizados ADR-007.1, `002`, `006`, `CLAUDE.md` y este documento. | TK-02c |
 | 2026-11-04 | 3.ª pasada de la revisión de la PR #3 (TK-02c): la base que solo existe en el remoto da un error que pide `git fetch origin` (sin volver a hacer `fetch`); se valida la lectura de la rama actual; el runner distingue `maxBuffer` del timeout; el `PullFallido` dice en qué rama quedó el repositorio. Actualizados ADR-007.1, `002`, `006`, el contrato y este documento. | TK-02c |
 | 2026-11-05 | TK-02d implementado: `FileSystemManager` (`createTicketWorkspace`, `writeDocument`, `saveFase1`, `readFase1`), `LocalFileStorage` y plantillas `bug.md.hbs` / `historia.md.hbs` basadas en la plantilla de la desarrolladora. La Fase 2 pasa a ser «Datos del desarrollo, Evidencias y Observaciones» (se quita «Instrucciones de Pasaje a Producción»). Pasos 3.2 y 4.5 a ✅. Actualizados `PRD`, `001`, `002`, `006` y este documento. | 3.2 · 4.5 · TK-02d |
+| 2026-11-05 | TK-02g implementado: `TicketOrchestrator` con `listProjects`/`addProject`/`removeProject`, `addRepository`/`updateRepository`/`removeRepository`/`listRepositoriesForTicket`, `getConfig`/`saveConfig`, `suggestBranchSuffix` y `listAssignedTickets`. El alta solo persiste si Jira o Git validan; la baja con historial da un mensaje claro. Pasos 1.3 y 1.4 siguen en desarrollo hasta la TUI (TK-03a). 327 tests. Commit `0cf542a`; la revisión de Cursor corrigió la normalización de la clave en `removeProject` y la rama base en la re-alta (338 tests). | 1.3 · 1.4 · TK-02g |

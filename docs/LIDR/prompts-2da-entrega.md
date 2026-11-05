@@ -344,3 +344,35 @@ Míos:
 4. Observaciones diferidas: tipo de issue vacío, carga de plantillas en dist/ (TK-03), validar jiraBaseUrl como URL en AppConfigProvider (TK-02g / TK-03a) y prueba contra Jira real de los otros tres métodos.
 5. Prueba en Windows (Hito 3), pendiente porque el desarrollo corre en WSL.
 ```
+
+---
+
+## Bitácora en el desarrollo TK-02c
+
+### Bitácora de Trabajo con Agente (TK-02c)
+
+#### **Git Manager: del primer diseño al flujo manual congelado, con tres pasadas de revisión de Cursor**
+
+TK-02c se implementó con TDD sobre repositorios Git reales y se revisó en la PR #3 (`feature/TK-02c` → `feature/TK-02`). La revisión no encontró problemas de lógica del producto sino bordes de Git, y terminó con una decisión mía de producto: el flujo de la herramienta tiene que ser el que yo uso a mano.
+
+##### **Gobierno del Agente y del flujo de entrega (TK-02c)**
+
+- Antes de programar pedí ampliar US-03 CA5 con una regla de rama: si la rama del ticket existe en local, la herramienta avisa y consulta en la confirmación única; si existe solo en `origin`, se detiene con `RamaExistenteEnRemoto`; nunca crea ni publica ramas en el remoto (el `push` es mío). Quedó como CA10 y como subtipo de error nuevo.
+- Regla de commits respetada: el agente propuso cada grupo de cambios y esperó mi visto bueno; el `push` lo hice yo. Un «commitea» valió solo para ese grupo.
+- Primera revisión de la PR #3 (un hallazgo alto): `git pull --ff-only` respetaba `pull.rebase` y `branch.<base>.rebase`, así que con historial divergente podía reescribir un commit local. Se corrigió con `--no-rebase`, y los tests pasaron a aislar la configuración de Git de quien los corre (`HOME`, `USERPROFILE`, `GIT_CONFIG_GLOBAL`). También se validaron los nombres de rama con `git check-ref-format` y se añadió un timeout de 120 s al runner.
+
+##### **Decisiones de Arquitectura e Intervenciones (TK-02c)**
+
+- Segunda pasada (3 hallazgos medios, todos reales): el `fetch` con refspec podía escribir un tag si la base se llamaba `refs/tags/v1`; un rebase parado en `edit` no se detectaba porque `git status --porcelain` sale vacío; el `stderr` de Git podía repetir el token de un `origin` con credenciales en la URL.
+- **Mi intervención principal:** dije que no se usen tags y que quería que la herramienta se comporte como yo trabajo a mano: `git status`, ir a la rama base si no estoy en ella, `git pull`, `git checkout -b`, y con eso basta. Antes de aceptar la propuesta del agente le pregunté qué era un *refspec*; me lo explicó y comparamos su flujo con el mío. Se eliminó el `fetch`: ahora es `git switch <base>` si no está en ella y luego `git pull --no-rebase --ff-only`. Autoricé cambiar los 4 tests aprobados que afirmaban el `fetch`.
+- Los nombres que empiezan por `refs/` se rechazan; un merge, rebase, cherry-pick o revert en curso corta con `CambiosPendientes`; los mensajes ocultan usuario y token de las URLs.
+- Tercera pasada: sin el `fetch`, una base que solo existe en el servidor y nunca se trajo falla en `git switch`. Decidimos no reintroducir el `fetch` (es lo que me pasaría a mano) y dar un error que pide `git fetch origin`. También se validó la lectura de la rama actual, se distinguió el corte por `maxBuffer` del timeout, y el `PullFallido` dice en qué rama quedó el repositorio.
+- Para que el flujo no se vuelva a tocar pedí tres capas: un test «Contrato del flujo» con la secuencia exacta de comandos (se comprobó que falla al meter un `fetch`), una regla en `CLAUDE.md` y un comentario en `createBranch`.
+- Cursor aprobó la PR sin hallazgos medios ni altos. Los cuatro bajos restantes se dejaron anotados en el contrato como decisiones diferidas, para no mover una rama ya aprobada.
+
+##### **Resultados de Calidad Obtenidos (TK-02c)**
+
+- Suite de pruebas: de 147 a 214 tests en verde (197 al implementar TK-02c, 206 tras la segunda pasada y 214 tras la tercera y el test de contrato del flujo).
+- Cobertura de `git-manager.ts`: 99 % de sentencias y 95 % de ramas (umbral 80 %).
+- Comprobaciones hechas a mano: que `check-ref-format` acepta `refs/tags/v1` y que un `fetch` con destino `refs/tags/…` escribe un tag; que `git switch <base>` crea la rama local desde `origin/<base>` si esa referencia ya está en el repositorio.
+- El agente reconoció un límite que ya había anticipado (la base no traída) antes de que Cursor lo señalara, y lo documentó en lugar de resolverlo con un comando que yo no uso.

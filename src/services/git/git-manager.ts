@@ -153,7 +153,7 @@ export class GitManager {
    * Repite la verificación de `inspectRepository` (el árbol pudo cambiar mientras el usuario confirmaba). Si la rama ya existe en local
    * no hace nada más. Si no está parado en la base (otra rama o HEAD desacoplado) ejecuta `git switch <base>`; el árbol está limpio, así que no pierde nada.
    * Luego `git pull --no-rebase --ff-only origin <base>` (`--no-rebase` anula `pull.rebase` y `branch.<base>.rebase`: la base nunca se reescribe).
-   * Por último `git switch -c <rama> <base>`, que deja el repositorio parado en la rama nueva. Si el pull falla, el repositorio queda parado en la base y el mensaje lo dice. La base debe existir en local o como `origin/<base>` ya traída: `git switch` no consulta la red, y la app no hace `fetch`. Nunca ejecuta `commit`, `add` ni `push`.
+   * Por último `git switch -c <rama> <base>`, que deja el repositorio parado en la rama nueva. Si el pull o la creación de la rama fallan, el repositorio queda parado en la base y el mensaje lo dice. La base debe existir en local o como `origin/<base>` ya traída: `git switch` no consulta la red, y la app no hace `fetch`. Nunca ejecuta `commit`, `add` ni `push`.
    *
    * @param input.repoLocalPath Ruta local del repositorio.
    * @param input.branchName Rama del ticket; debe ser un nombre de rama válido para Git (no puede empezar por «-» ni «+»).
@@ -190,17 +190,21 @@ export class GitManager {
         );
       }
     }
+    // Si hubo que moverse a la base y algo falla después, el repositorio queda en ella: el mensaje lo dice para que no sorprenda.
+    const movedNote = switchedToBase
+      ? ` El repositorio quedó en la rama base «${baseBranch}»${previousBranch === "" ? "" : ` (estabas en «${previousBranch}»)`}.`
+      : "";
     const update = await this.runner(repoLocalPath, ["pull", "--no-rebase", "--ff-only", "origin", baseBranch]);
     if (update.exitCode !== 0) {
-      const moved = switchedToBase
-        ? ` El repositorio quedó en la rama base «${baseBranch}»${previousBranch === "" ? "" : ` (estabas en «${previousBranch}»)`}.`
-        : "";
-      return blocked("PullFallido", `No se pudo actualizar la rama base «${baseBranch}» desde «origin»: ${redactCredentials(update.stderr.trim())}${moved}`);
+      return blocked("PullFallido", `No se pudo actualizar la rama base «${baseBranch}» desde «origin»: ${redactCredentials(update.stderr.trim())}${movedNote}`);
     }
 
     const created = await this.runner(repoLocalPath, ["switch", "-c", branchName, baseBranch]);
     if (created.exitCode !== 0) {
-      return blocked("ErrorInesperado", `No se pudo crear la rama «${branchName}» desde «${baseBranch}»: ${redactCredentials(created.stderr.trim())}`);
+      return blocked(
+        "ErrorInesperado",
+        `No se pudo crear la rama «${branchName}» desde «${baseBranch}»: ${redactCredentials(created.stderr.trim())}${movedNote}`,
+      );
     }
     return { kind: "Ok", value: { branchName, baseBranch, alreadyExisted: false } };
   }

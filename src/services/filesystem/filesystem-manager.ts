@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { join } from "node:path";
+import { isAbsolute, join, relative, sep } from "node:path";
 import Handlebars from "handlebars";
 import { errorCode, LocalFileStorage } from "../../database/local-file-storage.js";
 import type { StepResult } from "../../shared/errors/result.types.js";
@@ -64,10 +64,11 @@ export class FileSystemManager {
    * Crea `<raíz>/<ID>/<repositorio>/<adjuntos>/`; sin repositorio (clave sin repositorios) crea solo `<raíz>/<ID>/`. Es idempotente: no
    * borra ni modifica lo que ya haya.
    *
-   * @param input.ticketId ID del ticket; se usa como nombre de carpeta, así que no puede contener separadores ni ser `.` o `..`.
+   * @param input.ticketId ID del ticket; se usa como nombre de carpeta, así que no puede contener separadores ni ser `.` o `..`. El
+   *   `adjuntosDirName` de la configuración está sujeto a la misma regla.
    * @param input.repositoryName Nombre de la carpeta del repositorio, con las mismas reglas; omitido, no se crea subcarpeta de repositorio.
    * @returns `Ok({ folderPath, documentPath })`, con `documentPath` = `<folderPath>/<ID>.md` (el archivo no se crea aquí);
-   *   `ErrorBloqueante('ErrorInesperado')` si un segmento no es válido (no se crea nada) o el disco falla por otro motivo;
+   *   `ErrorBloqueante('ErrorInesperado')` si un segmento (o el `adjuntosDirName`) no es válido (no se crea nada) o el disco falla por otro motivo;
    *   `ErrorBloqueante('PermisosInsuficientes')` si el sistema no permite crear una carpeta, con la ruta que falló y lo que se alcanzó a crear.
    */
   async createTicketWorkspace(input: {
@@ -78,6 +79,7 @@ export class FileSystemManager {
     for (const segment of repositoryName === undefined ? [ticketId] : [ticketId, repositoryName]) {
       if (!isSafeSegment(segment)) return invalidSegment(segment);
     }
+    if (repositoryName !== undefined && !isSafeSegment(this.config.adjuntosDirName)) return invalidSegment(this.config.adjuntosDirName);
 
     const ticketFolder = join(this.config.ticketsRootPath, ticketId);
     const folderPath = repositoryName === undefined ? ticketFolder : join(ticketFolder, repositoryName);
@@ -107,7 +109,8 @@ export class FileSystemManager {
    * Con `regenerateFase1Only: true` reemplaza únicamente el texto entre los marcadores de Fase 1 y deja byte a byte igual el resto
    * (encabezado y Fase 2); si el documento aún no existe, lo crea completo.
    *
-   * @param input.documentPath Ruta del documento (la que devuelve `createTicketWorkspace`); se crean las carpetas que falten.
+   * @param input.documentPath Ruta del documento (la que devuelve `createTicketWorkspace`); se crean las carpetas que falten. Debe colgar
+   *   de la raíz de tickets: nunca se escribe fuera de ella.
    * @param input.tipo Plantilla a usar: `bug` o `historia`.
    * @param input.fase1 La Fase 1 estructurada, o `{ rawText }` del fallback: el bloque lleva `⚠️ Generado sin Ollama` y el texto crudo.
    * @param input.repo Nombre del repositorio, para el encabezado.
@@ -115,7 +118,7 @@ export class FileSystemManager {
    * @param input.encabezado Datos del encabezado; lo que falte queda en blanco.
    * @param input.regenerateFase1Only `true` para reprocesar solo la Fase 1 de un documento existente.
    * @returns `Ok({ documentPath })`; `ErrorBloqueante('PermisosInsuficientes')` si el sistema no deja escribir;
-   *   `ErrorBloqueante('ErrorInesperado')` si falta la plantilla, el disco falla por otro motivo o, al regenerar, el documento existente
+   *   `ErrorBloqueante('ErrorInesperado')` si `documentPath` queda fuera de la raíz de tickets, falta la plantilla, el disco falla por otro motivo o, al regenerar, el documento existente
    *   no tiene los marcadores de Fase 1 (en ese caso no se modifica).
    */
   async writeDocument(input: {
@@ -128,15 +131,18 @@ export class FileSystemManager {
     regenerateFase1Only: boolean;
   }): Promise<StepResult<{ documentPath: string }>> {
     const { documentPath } = input;
+    if (!this.isUnderRoot(documentPath)) {
+      return { kind: "ErrorBloqueante", subtype: "ErrorInesperado", message: `El documento «${documentPath}» queda fuera de la carpeta de tickets.` };
+    }
     try {
       const exists = await this.storage.exists(documentPath);
       if (exists && !input.regenerateFase1Only) return { kind: "Ok", value: { documentPath } };
       const template = await this.storage.read(join(TEMPLATES_DIR, `${input.tipo}.md.hbs`));
       const document = handlebars.compile(template, { noEscape: true })({
-        ...input.encabezado,
-        repo: input.repo,
-        rama: input.rama,
-        ...input.fase1,
+        ...neutralizeMarkers(input.encabezado),
+        repo: neutralizeMarkers(input.repo),
+        rama: neutralizeMarkers(input.rama),
+        ...neutralizeMarkers(input.fase1),
       });
       if (!exists) {
         await this.storage.write(documentPath, document);
@@ -200,8 +206,14 @@ export class FileSystemManager {
       if (error instanceof SyntaxError) {
         return { kind: "ErrorBloqueante", subtype: "ErrorInesperado", message: `«${path}» no es un JSON válido.` };
       }
-      return diskFailure(error, path);
+      return diskFailure(error, path, "leer");
     }
+  }
+
+  /** `true` si la ruta cuelga de la raíz de tickets (no es la propia raíz, ni una hermana con el mismo prefijo, ni sale con `..`). */
+  private isUnderRoot(path: string): boolean {
+    const rel = relative(this.config.ticketsRootPath, path);
+    return rel !== "" && rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
   }
 
   private fase1Path(ticketId: string): string {
@@ -232,6 +244,22 @@ function fase1Span(document: string): { start: number; end: number } | null {
   return { start: open + FASE1_INICIO.length, end: close };
 }
 
+/**
+ * Escapa, en todos los textos del valor, los marcadores de Fase 1 (`<!-- DEVFLOW:FASE1:INICIO -->` / `FIN`) para que los únicos que
+ * haya en el documento sean los de la plantilla. Sin esto, un texto pegado de otro documento (por ejemplo en la descripción de Jira)
+ * cortaría el bloque al regenerar. El marcador sigue siendo legible, solo deja de ser un comentario HTML.
+ */
+function neutralizeMarkers<T>(value: T): T {
+  if (typeof value === "string") {
+    return value.replace(/<!--(\s*DEVFLOW:FASE1:(?:INICIO|FIN)\s*)-->/g, "&lt;!--$1--&gt;") as T;
+  }
+  if (Array.isArray(value)) return value.map((item) => neutralizeMarkers(item)) as T;
+  if (typeof value === "object" && value !== null) {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, neutralizeMarkers(item)])) as T;
+  }
+  return value;
+}
+
 /** `true` si el valor tiene la forma mínima de un {@link DocumentoFase1}. */
 function isDocumentoFase1(value: unknown): value is DocumentoFase1 {
   if (typeof value !== "object" || value === null) return false;
@@ -246,11 +274,11 @@ function isDocumentoFase1(value: unknown): value is DocumentoFase1 {
 }
 
 /** Traduce un error de disco al contrato: permisos → `PermisosInsuficientes`; cualquier otro → `ErrorInesperado`. */
-function diskFailure(error: unknown, path: string): StepResult<never> {
+function diskFailure(error: unknown, path: string, action: "leer" | "escribir" = "escribir"): StepResult<never> {
   if (PERMISSION_CODES.has(errorCode(error) ?? "")) {
-    return { kind: "ErrorBloqueante", subtype: "PermisosInsuficientes", message: `Sin permisos para escribir «${path}».` };
+    return { kind: "ErrorBloqueante", subtype: "PermisosInsuficientes", message: `Sin permisos para ${action} «${path}».` };
   }
-  return { kind: "ErrorBloqueante", subtype: "ErrorInesperado", message: `No se pudo escribir «${path}».` };
+  return { kind: "ErrorBloqueante", subtype: "ErrorInesperado", message: `No se pudo ${action} «${path}».` };
 }
 
 /** `true` si el texto sirve como nombre de una sola carpeta: no vacío, ni `.` ni `..`, sin separadores de ruta. */

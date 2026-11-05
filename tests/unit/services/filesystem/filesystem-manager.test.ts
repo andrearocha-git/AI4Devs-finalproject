@@ -544,3 +544,90 @@ describe("E3 — Fase 1 reutilizable y regeneración que preserva la Fase 2 (TK-
     expect(readdirSync(join(root, "SCRUM-7"), { withFileTypes: true }).map((e) => e.name).sort()).toEqual([".devflow", "backend", "frontend"]);
   });
 });
+
+describe("Revisión de la PR #4 de TK-02d: adjuntosDirName, rutas fuera de la raíz, marcadores en el contenido y mensajes", () => {
+  it.each(["../../../projects/mi-repo", "..", ".", "", "a/b", "a\\b", "../fuera"])(
+    "adjuntosDirName no válido («%s») → ErrorInesperado sin crear ninguna carpeta",
+    async (adjuntosDirName) => {
+      const root = tempRoot();
+      const { ops, created } = recordingOps();
+
+      const result = await manager(root, ops, adjuntosDirName).createTicketWorkspace({ ticketId: "SCRUM-1", repositoryName: "backend" });
+
+      expect(result).toMatchObject({ kind: "ErrorBloqueante", subtype: "ErrorInesperado" });
+      expect(created).toEqual([]);
+      expect(readdirSync(root)).toEqual([]);
+    },
+  );
+
+  it("sin repositorio no se usa adjuntosDirName, así que uno no válido no impide crear la carpeta del ticket", async () => {
+    const root = tempRoot();
+
+    const result = await manager(root, undefined, "../fuera").createTicketWorkspace({ ticketId: "SCRUM-1" });
+
+    expect(result.kind).toBe("Ok");
+  });
+
+  it.each([
+    { caso: "dos niveles por encima de la raíz", documentPath: (root: string) => join(root, "..", "fuera.md") },
+    { caso: "una carpeta hermana cuyo nombre empieza igual que la raíz", documentPath: (root: string) => `${root}-hermana${sep}SCRUM-7.md` },
+    { caso: "una ruta absoluta ajena", documentPath: () => join(tmpdir(), "devflow-ajeno", "SCRUM-7.md") },
+  ])("writeDocument con un documentPath en $caso → ErrorInesperado y no escribe nada", async ({ documentPath }) => {
+    const root = tempRoot();
+    const path = documentPath(root);
+    const { ops } = recordingOps();
+
+    const result = await manager(root, ops).writeDocument({ documentPath: path, tipo: "historia", fase1: HISTORIA, regenerateFase1Only: false });
+
+    expect(result).toMatchObject({ kind: "ErrorBloqueante", subtype: "ErrorInesperado" });
+    expect(await new LocalFileStorage().exists(path)).toBe(false);
+    rmSync(`${root}-hermana`, { recursive: true, force: true });
+  });
+
+  it("el marcador de cierre dentro del texto no corta el bloque: queda escapado, único, y la regeneración no deja una Fase 1 incompleta", async () => {
+    const root = tempRoot();
+    const fs = manager(root);
+    const documentPath = join(root, "SCRUM-7", "backend", "SCRUM-7.md");
+    const conMarcadores = `Pegado de un doc anterior: ${INICIO} contenido ${FIN} fin del pegado`;
+    await fs.writeDocument({ documentPath, tipo: "historia", fase1: { rawText: conMarcadores }, encabezado: ENCABEZADO, regenerateFase1Only: false });
+    const first = readFileSync(documentPath, "utf8");
+    writeFileSync(documentPath, first.replace("| **Otros** | Config, dependencias, etc. |", "| **Otros** | Flyway V12 |"));
+
+    const result = await fs.writeDocument({
+      documentPath,
+      tipo: "historia",
+      fase1: { ...HISTORIA, resumen: `Nuevo resumen con ${FIN} dentro`, preguntasAbiertas: ["¿Última pregunta del bloque?"] },
+      encabezado: ENCABEZADO,
+      regenerateFase1Only: true,
+    });
+
+    expect(result.kind).toBe("Ok");
+    const after = readFileSync(documentPath, "utf8");
+    expect(first.split(INICIO)).toHaveLength(2);
+    expect(first.split(FIN)).toHaveLength(2);
+    expect(first).toContain("Pegado de un doc anterior");
+    expect(after.split(INICIO)).toHaveLength(2);
+    expect(after.split(FIN)).toHaveLength(2);
+    expect(fase1Block(after)).toContain("Nuevo resumen con");
+    expect(fase1Block(after)).toContain("¿Última pregunta del bloque?");
+    expect(after).toContain("Flyway V12");
+  });
+
+  it("un fallo de lectura de fase1.json dice «leer» y uno de escritura dice «escribir»", async () => {
+    const root = tempRoot();
+    await manager(root).saveFase1("SCRUM-7", HISTORIA);
+    const denied = (key: "readFile" | "writeFile"): FileOps =>
+      ({
+        ...fsPromises,
+        [key]: async () => {
+          throw Object.assign(new Error("EACCES"), { code: "EACCES" });
+        },
+      }) as FileOps;
+
+    const read = await manager(root, denied("readFile")).readFase1("SCRUM-7");
+    const saved = await manager(root, denied("writeFile")).saveFase1("SCRUM-7", HISTORIA);
+
+    expect(read).toMatchObject({ kind: "ErrorBloqueante", subtype: "PermisosInsuficientes", message: expect.stringMatching(/leer/i) });
+    expect(saved).toMatchObject({ kind: "ErrorBloqueante", subtype: "PermisosInsuficientes", message: expect.stringMatching(/escribir/i) });
+  });
+});

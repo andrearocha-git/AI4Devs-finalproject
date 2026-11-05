@@ -113,7 +113,7 @@ Estado: TK-00, TK-01, TK-02a, TK-02b y TK-02c implementados y verificados (197 t
 | US-03 CA1 | Rama, carpeta y documento | 02c · 02d · 02e · 02f | 2 |
 | US-03 CA2-3 | Cambios pendientes / pull fallido | 02c · 02f · 03b | 2 |
 | US-03 CA4 | Ollama caído → documento sin redactar | 02e · 02d · 02f | 2 |
-| US-03 CA5 | Rama ya existente | 02c · 02f (**H-04** abierto) | 2 |
+| US-03 CA5 | Rama ya existente | 02c · 02f (**H-04** resuelto) | 2 |
 | US-03 CA6 | Segundo repositorio y Fase 1 reutilizada | 02d · 02f | 2 |
 | US-03 CA7 | Clave sin repositorios: solo documento | 02f | 2 |
 | US-03 CA8 | `--base` de una sola vez | 02c · 02f · 03b | 2 |

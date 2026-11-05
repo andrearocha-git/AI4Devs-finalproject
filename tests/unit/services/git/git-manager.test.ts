@@ -335,7 +335,7 @@ describe("E2 — createBranch con rama nueva: actualización de la base y creaci
     expect(outsideAllowList(calls, CAN_WRITE)).toEqual([]);
   });
 
-  it("parado en otra rama: git fetch origin <base>:<base> (sin pull) y la rama nueva parte de la base actualizada", async () => {
+  it("parado en otra rama: git switch <base>, luego git pull (sin fetch) y la rama nueva parte de la base actualizada", async () => {
     const env = createEnv();
     git(env.repo, "checkout", "-b", "otra");
     publishCommitToOrigin(env, "main", "de-origin.txt");
@@ -344,9 +344,9 @@ describe("E2 — createBranch con rama nueva: actualización de la base y creaci
     const result = await new GitManager(runner).createBranch({ repoLocalPath: env.repo, branchName: BRANCH, baseBranch: "main" });
 
     expect(result).toEqual({ kind: "Ok", value: { branchName: BRANCH, baseBranch: "main", alreadyExisted: false } });
-    expect(calls).toContainEqual(["fetch", "origin", "main:main"]);
-    expect(subcommands(calls)).not.toContain("pull");
-    expect(calls.filter((args) => args[0] === "switch")).toEqual([["switch", "-c", BRANCH, "main"]]);
+    expect(calls.filter((args) => args[0] === "switch")).toEqual([["switch", "main"], ["switch", "-c", BRANCH, "main"]]);
+    expect(calls).toContainEqual(["pull", "--no-rebase", "--ff-only", "origin", "main"]);
+    expect(subcommands(calls)).not.toContain("fetch");
     expect(git(env.repo, "ls-tree", "--name-only", BRANCH)).toContain("de-origin.txt");
     expect(git(env.repo, "ls-tree", "--name-only", "main")).toContain("de-origin.txt");
     expect(outsideAllowList(calls, CAN_WRITE)).toEqual([]);
@@ -362,8 +362,9 @@ describe("E2 — createBranch con rama nueva: actualización de la base y creaci
     const result = await new GitManager(runner).createBranch({ repoLocalPath: env.repo, branchName: BRANCH, baseBranch: "develop" });
 
     expect(result).toEqual({ kind: "Ok", value: { branchName: BRANCH, baseBranch: "develop", alreadyExisted: false } });
-    expect(calls).toContainEqual(["fetch", "origin", "develop:develop"]);
-    expect(calls.filter((args) => args[0] === "switch")).toEqual([["switch", "-c", BRANCH, "develop"]]);
+    expect(calls).toContainEqual(["pull", "--no-rebase", "--ff-only", "origin", "develop"]);
+    expect(calls.filter((args) => args[0] === "switch")).toEqual([["switch", "develop"], ["switch", "-c", BRANCH, "develop"]]);
+    expect(subcommands(calls)).not.toContain("fetch");
   });
 
   it.each([
@@ -382,7 +383,7 @@ describe("E2 — createBranch con rama nueva: actualización de la base y creaci
     expect(outsideAllowList(calls, READ_ONLY)).toEqual([]);
   });
 
-  it("HEAD desacoplado cuenta como «otra rama»: git fetch origin <base>:<base> y rama nueva desde la base actualizada", async () => {
+  it("HEAD desacoplado cuenta como «otra rama»: git switch <base>, git pull y rama nueva desde la base actualizada", async () => {
     const env = createEnv();
     git(env.repo, "checkout", "--detach");
     publishCommitToOrigin(env, "main", "de-origin.txt");
@@ -391,8 +392,9 @@ describe("E2 — createBranch con rama nueva: actualización de la base y creaci
     const result = await new GitManager(runner).createBranch({ repoLocalPath: env.repo, branchName: BRANCH, baseBranch: "main" });
 
     expect(result).toEqual({ kind: "Ok", value: { branchName: BRANCH, baseBranch: "main", alreadyExisted: false } });
-    expect(calls).toContainEqual(["fetch", "origin", "main:main"]);
-    expect(subcommands(calls)).not.toContain("pull");
+    expect(calls).toContainEqual(["switch", "main"]);
+    expect(calls).toContainEqual(["pull", "--no-rebase", "--ff-only", "origin", "main"]);
+    expect(subcommands(calls)).not.toContain("fetch");
     expect(git(env.repo, "ls-tree", "--name-only", BRANCH)).toContain("de-origin.txt");
   });
 });
@@ -475,7 +477,7 @@ describe("E3 — createBranch: reutilizar rama existente y cortes antes de crear
     expect(git(env.repo, "branch", "--list", BRANCH).trim()).toBe("");
   });
 
-  it("origin inalcanzable parado en otra rama → ErrorBloqueante('PullFallido') (fetch fallido) y sin crear la rama", async () => {
+  it("origin inalcanzable parado en otra rama → ErrorBloqueante('PullFallido') (pull fallido tras pasar a la base) y sin crear la rama", async () => {
     const env = createEnv();
     git(env.repo, "checkout", "-b", "otra");
     rmSync(env.origin, { recursive: true, force: true });
@@ -484,8 +486,8 @@ describe("E3 — createBranch: reutilizar rama existente y cortes antes de crear
     const result = await new GitManager(runner).createBranch({ repoLocalPath: env.repo, branchName: BRANCH, baseBranch: "main" });
 
     expect(result).toMatchObject({ kind: "ErrorBloqueante", subtype: "PullFallido" });
-    expect(calls).toContainEqual(["fetch", "origin", "main:main"]);
-    expect(subcommands(calls)).not.toContain("switch");
+    expect(calls).toContainEqual(["pull", "--no-rebase", "--ff-only", "origin", "main"]);
+    expect(calls.filter((args) => args[0] === "switch")).toEqual([["switch", "main"]]);
   });
 
   it("base local divergente del remoto → ErrorBloqueante('PullFallido') y nunca se ramifica desde la base vieja", async () => {
@@ -530,7 +532,7 @@ describe("E3 — createBranch: reutilizar rama existente y cortes antes de crear
     },
   );
 
-  it("base divergente parado en otra rama → PullFallido (fetch que no es fast-forward) y sin crear la rama", async () => {
+  it("base divergente parado en otra rama → PullFallido (pull que no es fast-forward) y sin crear la rama", async () => {
     const env = createEnv();
     writeFileSync(join(env.repo, "local.txt"), "solo local\n");
     git(env.repo, "add", "local.txt");
@@ -543,8 +545,8 @@ describe("E3 — createBranch: reutilizar rama existente y cortes antes de crear
     const result = await new GitManager(runner).createBranch({ repoLocalPath: env.repo, branchName: BRANCH, baseBranch: "main" });
 
     expect(result).toMatchObject({ kind: "ErrorBloqueante", subtype: "PullFallido" });
-    expect(calls).toContainEqual(["fetch", "origin", "main:main"]);
-    expect(subcommands(calls)).not.toContain("switch");
+    expect(calls).toContainEqual(["pull", "--no-rebase", "--ff-only", "origin", "main"]);
+    expect(calls.filter((args) => args[0] === "switch")).toEqual([["switch", "main"]]);
     expect(git(env.repo, "rev-parse", "main").trim()).toBe(mainBefore);
     expect(git(env.repo, "branch", "--list", BRANCH).trim()).toBe("");
   });
@@ -580,5 +582,115 @@ describe("runGitCommand: timeout (revisión de la PR #3)", () => {
     const result = await createGitRunner({ timeoutMs: 10_000 })(env.repo, ["rev-parse", "--is-inside-work-tree"]);
 
     expect(result).toMatchObject({ exitCode: 0, stdout: "true\n" });
+  });
+});
+
+describe("Revisión de la PR #3 (2.ª pasada): sin tags ni refs completas, operaciones en curso y tokens en los mensajes", () => {
+  const TOKEN = "ghp_s3cr3t";
+
+  it.each([
+    { branchName: "refs/tags/v1", baseBranch: "main" },
+    { branchName: BRANCH, baseBranch: "refs/tags/v1" },
+    { branchName: BRANCH, baseBranch: "refs/heads/main" },
+  ])("nombre que empieza por refs/ ($branchName sobre $baseBranch) → ErrorInesperado sin tocar tags ni ramas", async (input) => {
+    const env = createEnv();
+    git(env.repo, "tag", "v1");
+    git(env.repo, "push", "origin", "v1");
+    git(env.repo, "checkout", "-b", "otra");
+    const { runner, calls } = spyRunner();
+
+    const result = await new GitManager(runner).createBranch({ repoLocalPath: env.repo, ...input });
+
+    expect(result).toMatchObject({ kind: "ErrorBloqueante", subtype: "ErrorInesperado" });
+    expect(outsideAllowList(calls, READ_ONLY)).toEqual([]);
+    expect(git(env.repo, "tag", "--list").trim()).toBe("v1");
+    expect(git(env.repo, "branch", "--show-current").trim()).toBe("otra");
+  });
+
+  it("validateRepository y inspectRepository también rechazan nombres que empiezan por refs/", async () => {
+    const env = createEnv();
+    const manager = new GitManager();
+
+    expect(await manager.validateRepository({ repoLocalPath: env.repo, baseBranch: "refs/heads/main" })).toMatchObject({
+      kind: "ErrorBloqueante",
+      subtype: "ErrorInesperado",
+    });
+    expect(await manager.inspectRepository({ repoLocalPath: env.repo, branchName: "refs/tags/v1" })).toMatchObject({
+      kind: "ErrorBloqueante",
+      subtype: "ErrorInesperado",
+    });
+  });
+
+  /** Deja un rebase interactivo parado en `edit`: índice limpio, `git status --porcelain` vacío y HEAD desacoplado. */
+  function startRebaseStoppedAtEdit(env: TestEnv): void {
+    writeFileSync(join(env.repo, "a.txt"), "a\n");
+    git(env.repo, "add", "a.txt");
+    git(env.repo, "commit", "-m", "a");
+    git(env.repo, "-c", "sequence.editor=sed -i s/^pick/edit/", "rebase", "-i", "HEAD~1");
+    expect(git(env.repo, "status", "--porcelain").trim()).toBe("");
+  }
+
+  it.each(["inspectRepository", "createBranch"] as const)(
+    "rebase en curso con el índice limpio (%s) → CambiosPendientes que lo menciona, sin fetch, pull ni switch",
+    async (method) => {
+      const env = createEnv();
+      startRebaseStoppedAtEdit(env);
+      const headBefore = git(env.repo, "rev-parse", "HEAD").trim();
+      const { runner, calls } = spyRunner();
+      const manager = new GitManager(runner);
+
+      const result =
+        method === "inspectRepository"
+          ? await manager.inspectRepository({ repoLocalPath: env.repo, branchName: BRANCH })
+          : await manager.createBranch({ repoLocalPath: env.repo, branchName: BRANCH, baseBranch: "main" });
+
+      expect(result).toMatchObject({ kind: "ErrorBloqueante", subtype: "CambiosPendientes" });
+      if (result.kind !== "ErrorBloqueante") return;
+      expect(result.message).toMatch(/rebase/i);
+      expect(outsideAllowList(calls, READ_ONLY)).toEqual([]);
+      expect(git(env.repo, "rev-parse", "HEAD").trim()).toBe(headBefore);
+    },
+  );
+
+  it("cherry-pick, revert y merge en curso (marcadores de .git) también cortan con CambiosPendientes", async () => {
+    for (const marker of ["CHERRY_PICK_HEAD", "REVERT_HEAD", "MERGE_HEAD"]) {
+      const env = createEnv();
+      writeFileSync(join(env.repo, ".git", marker), git(env.repo, "rev-parse", "HEAD"));
+
+      const result = await new GitManager().inspectRepository({ repoLocalPath: env.repo, branchName: BRANCH });
+
+      expect(result, marker).toMatchObject({ kind: "ErrorBloqueante", subtype: "CambiosPendientes" });
+    }
+  });
+
+  it("PullFallido no repite el token de un origin con credenciales en la URL", async () => {
+    const env = createEnv();
+    git(env.repo, "remote", "set-url", "origin", `http://usuario:${TOKEN}@127.0.0.1:1/repo.git`);
+
+    const result = await new GitManager().createBranch({ repoLocalPath: env.repo, branchName: BRANCH, baseBranch: "main" });
+
+    expect(result).toMatchObject({ kind: "ErrorBloqueante", subtype: "PullFallido" });
+    if (result.kind !== "ErrorBloqueante") return;
+    expect(result.message).not.toContain(TOKEN);
+  });
+
+  it("los errores de validateRepository, git switch y git status no repiten el token de la URL", async () => {
+    const leak = `fatal: unable to access 'https://usuario:${TOKEN}@github.com/o/r.git/': Could not resolve host`;
+    const failing = (subcommand: string): GitRunner => async (cwd, args) => {
+      const real = await runGitCommand(cwd, args);
+      return args[0] === subcommand && !(subcommand === "switch" && args[1] !== "-c") ? { exitCode: 128, stdout: "", stderr: leak } : real;
+    };
+    const env = createEnv();
+
+    const validate = await new GitManager(failing("ls-remote")).validateRepository({ repoLocalPath: env.repo, baseBranch: "main" });
+    const create = await new GitManager(failing("switch")).createBranch({ repoLocalPath: env.repo, branchName: BRANCH, baseBranch: "main" });
+    const status = await new GitManager(failing("status")).inspectRepository({ repoLocalPath: env.repo, branchName: BRANCH });
+
+    for (const result of [validate, create, status]) {
+      expect(result).toMatchObject({ kind: "ErrorBloqueante", subtype: "ErrorInesperado" });
+      if (result.kind !== "ErrorBloqueante") return;
+      expect(result.message).not.toContain(TOKEN);
+      expect(result.message).toContain("github.com");
+    }
   });
 });

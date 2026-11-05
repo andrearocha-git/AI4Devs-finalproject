@@ -4,7 +4,7 @@
 >
 > Fuentes de verdad: `docs/PRD.md`, `docs/001-descripcion-general-del-producto.md`, `docs/002-arquitectura-del-sistema.md`, `docs/005-historias-de-usuario.md`, `docs/006-tickets-de-trabajo.md`, `docs/ADR-001-arquitectura-inicial.md`. Si este archivo contradice a esas fuentes, gana la fuente; corregir aquí.
 
-**Estado del proyecto:** desarrollo en curso, ticket por ticket. Implementados: TK-00 (scaffold), TK-01 (Storage Layer), TK-02a (base compartida: `StepResult`, configuración, resolutor de tipo de issue, regla de lint) y TK-02b (cliente REST de Jira). Todo lo demás es comportamiento *especificado*, aún sin código; los pasos que ya tienen parte implementada llevan la etiqueta `🚧 En desarrollo`.
+**Estado del proyecto:** desarrollo en curso, ticket por ticket. Implementados: TK-00 (scaffold), TK-01 (Storage Layer), TK-02a (base compartida: `StepResult`, configuración, resolutor de tipo de issue, regla de lint), TK-02b (cliente REST de Jira) y TK-02c (Git Manager). Todo lo demás es comportamiento *especificado*, aún sin código; los pasos que ya tienen parte implementada llevan la etiqueta `🚧 En desarrollo`.
 
 ## Cómo mantener este documento
 
@@ -121,20 +121,20 @@ Según `templates/issue-types.json`:
 
 Cada paso emite `onStep(paso, estado)` hacia la TUI para el spinner. Si la clave **no tiene repositorios**, el paso Git se omite y solo se genera el documento (US-03 CA7).
 
-### 3.1 Git Manager (ADR-007.1) — `📄 Especificado` · US-03 CA1-3, CA5, CA8 · TK-02
+### 3.1 Git Manager (ADR-007.1) — `✅ Implementado y probado` · US-03 CA1-3, CA5, CA8 · TK-02
 
 Rama: `<prefijo>/<ID>-<SUFIJO>` (p. ej. `features/SCRUM-1-AROCHA`).
 
 Los pasos 1-3 son de **solo lectura** (`GitManager.inspectRepository`) y se ejecutan **antes** de la confirmación; los pasos 4-5 (`createBranch`) van **después**, y `createBranch` repite el `git status` por seguridad.
 
 1. **Verifica el repositorio.** Si no existe → `ErrorBloqueante('RepositorioNoEncontrado')`.
-2. **`git status --porcelain`.** Con cambios pendientes (modificados, staged o sin trackear) → `ErrorBloqueante('CambiosPendientes')` con la lista de archivos; se registra `branch_status = 'pending_changes'` y se corta **antes de crear nada**. No hay `stash` automático.
+2. **`git status --porcelain`.** Con cambios pendientes (modificados, staged o sin trackear) o con un merge, rebase, cherry-pick o revert en curso → `ErrorBloqueante('CambiosPendientes')` con la lista de archivos; se registra `branch_status = 'pending_changes'` y se corta **antes de crear nada**. No hay `stash` automático.
 3. **Rama ya existente.**
    - **En local** → `Ok(alreadyExisted)`; la confirmación avisa que existe y consulta si se usa la misma (si no, se cancela). Si se acepta, continúa con carpeta y documento, sin pull ni creación; no cambia de rama (H-04 resuelto).
    - **Solo en `origin`** (`git ls-remote --heads`, solo lectura) → `ErrorBloqueante('RamaExistenteEnRemoto')` antes de la confirmación, `branch_status = 'error'`; el usuario la verifica y la configura a mano. La app **nunca crea ni publica ramas en el remoto** (el `push` es del usuario).
 4. **Actualiza la rama base** sin importar la rama actual:
-   - parado en la base: `git pull --no-rebase --ff-only origin <base>`;
-   - parado en otra rama: `git fetch origin <base>:<base>`.
+   - si no está parado en la base (otra rama o HEAD desacoplado): `git switch <base>`;
+   - luego `git pull --no-rebase --ff-only origin <base>`. Si el pull falla, el repositorio queda parado en la base.
    Si falla (sin red, historial divergente, credenciales) → `ErrorBloqueante('PullFallido')`, `branch_status = 'error'`. **Nunca** se ramifica desde una base desactualizada.
 5. **Crea la rama:** `git switch -c <rama> <base>`. `--base` aplica solo a esta ejecución y no cambia la configuración del repositorio.
 
@@ -262,3 +262,5 @@ Detectados al cruzar las fuentes (análisis pre-código, 2026-11-01). Cada uno i
 | 2026-11-03 | Regla de rama existente de TK-02c: en local → aviso y consulta en la confirmación; solo en `origin` → `ErrorBloqueante('RamaExistenteEnRemoto')` (nuevo subtipo); nunca se crea ni publica en el remoto. Nuevo US-03 CA10 y CA5 ajustado en `005`; actualizados `002`, `006` (TK-02c, TK-02f, TK-03b) y este documento. | H-04 · US-03 · TK-02c · TK-02f · TK-03b |
 | 2026-11-04 | Revisión de la PR #3 (TK-02c): el pull de la base lleva `--no-rebase` (ignora `pull.rebase`); los nombres de rama y base se validan con `git check-ref-format` antes de usarlos en `ls-remote` y `fetch`; el runner de Git tiene timeout. Actualizados `002`, `006`, ADR-007.1, `CLAUDE.md` y este documento. | TK-02c |
 | 2026-11-03 | TK-02a y TK-02b implementados: `StepResult`, `AppConfigProvider`, resolutor de tipo de issue (`branchType`; el prefijo lo arma el Orquestador) y cliente REST de Jira (búsqueda por `/rest/api/2/search/jql`, porque `/search` responde 410). Actualizados el estado del proyecto y los pasos 1.2, 1.4, 2.3, 2.4 y 2.5. | TK-02a · TK-02b |
+| 2026-11-04 | TK-02c implementado: `GitManager` (`inspectRepository`, `createBranch`, `validateRepository`) con la secuencia de ADR-007.1; paso 3.1 pasa a ✅. 197 tests, cobertura de `git-manager.ts` 96 % / 93 %. Commits `6fda82b`, `7bd9809`, `bda73e9`, `a406501`. | 3.1 · TK-02c |
+| 2026-11-04 | 2.ª revisión de la PR #3 (TK-02c): se elimina el `fetch origin <base>:<base>` (podía escribir tags); ahora `git switch <base>` + `git pull`, como el flujo manual. Se rechazan nombres que empiezan por `refs/`, se detecta merge/rebase/cherry-pick/revert en curso (`CambiosPendientes`) y los mensajes ocultan usuario y token de las URLs. Actualizados ADR-007.1, `002`, `006`, `CLAUDE.md` y este documento. | TK-02c |

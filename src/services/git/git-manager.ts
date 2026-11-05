@@ -1,4 +1,6 @@
 import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import type { StepResult } from "../../shared/errors/result.types.js";
 
 /** Resultado de un comando Git: nunca lanza por un código de salida distinto de cero, lo informa en `exitCode`. */
@@ -61,6 +63,21 @@ export const runGitCommand: GitRunner = createGitRunner();
 /** `git ls-remote --exit-code` termina con este código cuando ninguna referencia coincide. */
 const LS_REMOTE_NO_MATCH = 2;
 
+/** Marcadores de `.git` que Git deja mientras una operación sigue abierta, con el nombre que se le muestra al usuario. */
+const OPERATIONS_IN_PROGRESS: ReadonlyArray<readonly [gitPath: string, name: string]> = [
+  ["rebase-merge", "rebase"],
+  ["rebase-apply", "rebase"],
+  ["REBASE_HEAD", "rebase"],
+  ["MERGE_HEAD", "merge"],
+  ["CHERRY_PICK_HEAD", "cherry-pick"],
+  ["REVERT_HEAD", "revert"],
+];
+
+/** Quita el usuario y la contraseña (`https://usuario:token@host` → `https://host`) de las URLs que Git repite en sus errores. */
+function redactCredentials(text: string): string {
+  return text.replace(/\b([a-z][a-z0-9+.-]*:\/\/)[^/\s@]+@/gi, "$1");
+}
+
 /** Argumentos para consultar si `origin` tiene la rama; la referencia completa evita coincidencias por sufijo. */
 function lsRemoteHeads(branch: string): string[] {
   return ["ls-remote", "--exit-code", "--heads", "origin", `refs/heads/${branch}`];
@@ -101,7 +118,7 @@ export class GitManager {
       return blocked("RepositorioNoEncontrado", `La rama base «${baseBranch}» no existe en el remoto «origin» de ${repoLocalPath}.`);
     }
     if (base.exitCode !== 0) {
-      return blocked("ErrorInesperado", `No se pudo consultar el remoto «origin» de ${repoLocalPath}: ${base.stderr.trim()}`);
+      return blocked("ErrorInesperado", `No se pudo consultar el remoto «origin» de ${repoLocalPath}: ${redactCredentials(base.stderr.trim())}`);
     }
     return { kind: "Ok", value: undefined };
   }
@@ -128,9 +145,9 @@ export class GitManager {
    * Actualiza la rama base y crea la rama del ticket a partir de ella. Se ejecuta después de la confirmación del usuario.
    *
    * Repite la verificación de `inspectRepository` (el árbol pudo cambiar mientras el usuario confirmaba). Si la rama ya existe en local
-   * no hace nada más. Parado en la base ejecuta
-   * `git pull --no-rebase --ff-only origin <base>` (`--no-rebase` anula `pull.rebase` y `branch.<base>.rebase`: la base nunca se reescribe); parado en otra rama (o con HEAD desacoplado) ejecuta `git fetch origin <base>:<base>`.
-   * Luego `git switch -c <rama> <base>`, que deja el repositorio parado en la rama nueva. Nunca ejecuta `commit`, `add` ni `push`.
+   * no hace nada más. Si no está parado en la base (otra rama o HEAD desacoplado) ejecuta `git switch <base>`; el árbol está limpio, así que no pierde nada.
+   * Luego `git pull --no-rebase --ff-only origin <base>` (`--no-rebase` anula `pull.rebase` y `branch.<base>.rebase`: la base nunca se reescribe).
+   * Por último `git switch -c <rama> <base>`, que deja el repositorio parado en la rama nueva. Si el pull falla, el repositorio queda parado en la base. Nunca ejecuta `commit`, `add` ni `push`.
    *
    * @param input.repoLocalPath Ruta local del repositorio.
    * @param input.branchName Rama del ticket; debe ser un nombre de rama válido para Git (no puede empezar por «-» ni «+»).
@@ -138,6 +155,7 @@ export class GitManager {
    * @returns `Ok` con la rama creada, o con `alreadyExisted: true` (sin escribir nada ni cambiar de rama) si ya existía en local; los mismos `ErrorBloqueante` de `inspectRepository`;
    *   `ErrorBloqueante('PullFallido')` con el motivo de Git si la base no se pudo actualizar (nunca se ramifica desde una base vieja);
    *   `ErrorBloqueante('ErrorInesperado')` si un nombre de rama no es válido o `git switch` falla.
+   *   Los mensajes de error no incluyen usuario ni token de las URLs del remoto.
    */
   async createBranch(input: {
     repoLocalPath: string;
@@ -150,16 +168,20 @@ export class GitManager {
     if (checked.value.existsLocally) return { kind: "Ok", value: { branchName, baseBranch, alreadyExisted: true } };
 
     const current = await this.runner(repoLocalPath, ["branch", "--show-current"]);
-    const updateArgs =
-      current.stdout.trim() === baseBranch ? ["pull", "--no-rebase", "--ff-only", "origin", baseBranch] : ["fetch", "origin", `${baseBranch}:${baseBranch}`];
-    const update = await this.runner(repoLocalPath, updateArgs);
+    if (current.stdout.trim() !== baseBranch) {
+      const moved = await this.runner(repoLocalPath, ["switch", baseBranch]);
+      if (moved.exitCode !== 0) {
+        return blocked("ErrorInesperado", `No se pudo cambiar a la rama base «${baseBranch}»: ${redactCredentials(moved.stderr.trim())}`);
+      }
+    }
+    const update = await this.runner(repoLocalPath, ["pull", "--no-rebase", "--ff-only", "origin", baseBranch]);
     if (update.exitCode !== 0) {
-      return blocked("PullFallido", `No se pudo actualizar la rama base «${baseBranch}» desde «origin»: ${update.stderr.trim()}`);
+      return blocked("PullFallido", `No se pudo actualizar la rama base «${baseBranch}» desde «origin»: ${redactCredentials(update.stderr.trim())}`);
     }
 
     const created = await this.runner(repoLocalPath, ["switch", "-c", branchName, baseBranch]);
     if (created.exitCode !== 0) {
-      return blocked("ErrorInesperado", `No se pudo crear la rama «${branchName}» desde «${baseBranch}»: ${created.stderr.trim()}`);
+      return blocked("ErrorInesperado", `No se pudo crear la rama «${branchName}» desde «${baseBranch}»: ${redactCredentials(created.stderr.trim())}`);
     }
     return { kind: "Ok", value: { branchName, baseBranch, alreadyExisted: false } };
   }
@@ -176,12 +198,20 @@ export class GitManager {
 
     const status = await this.runner(repoLocalPath, ["status", "--porcelain"]);
     if (status.exitCode !== 0) {
-      return blocked("ErrorInesperado", `No se pudo leer el estado de ${repoLocalPath}: ${status.stderr.trim()}`);
+      return blocked("ErrorInesperado", `No se pudo leer el estado de ${repoLocalPath}: ${redactCredentials(status.stderr.trim())}`);
     }
     if (status.stdout.trim() !== "") {
       return blocked(
         "CambiosPendientes",
         `El repositorio ${repoLocalPath} tiene cambios pendientes; resuélvelos y vuelve a ejecutar:\n${status.stdout.trimEnd()}`,
+      );
+    }
+
+    const inProgress = await this.operationInProgress(repoLocalPath);
+    if (inProgress !== null) {
+      return blocked(
+        "CambiosPendientes",
+        `El repositorio ${repoLocalPath} tiene un ${inProgress} en curso; termínalo o cancélalo y vuelve a ejecutar.`,
       );
     }
 
@@ -201,15 +231,29 @@ export class GitManager {
   /**
    * Devuelve el primer nombre que no sea un nombre de rama válido, o `null` si todos lo son. Se valida antes de armar el patrón de
    * `ls-remote` o el refspec de `fetch`: `git check-ref-format --branch` rechaza `:`, `*`, `?`, espacios y `@{-1}` (se compara la
-   * salida con el nombre para que no se expanda), y se descartan además `-` (opción de Git) y `+` (fuerza el refspec) al inicio.
+   * salida con el nombre para que no se expanda), y se descartan además `-` (opción de Git), `+` y `refs/` al inicio: la app solo trabaja con
+   * ramas locales, y un nombre `refs/tags/…` apuntaría a un tag.
    */
   private async firstInvalidBranchName(repoLocalPath: string, names: string[]): Promise<string | null> {
     for (const name of names) {
-      if (name === "" || name.startsWith("-") || name.startsWith("+")) return name;
+      if (name === "" || name.startsWith("-") || name.startsWith("+") || name.startsWith("refs/")) return name;
       const result = await this.runner(repoLocalPath, ["check-ref-format", "--branch", name]);
       if (result.exitCode !== 0 || result.stdout.trim() !== name) return name;
     }
     return null;
+  }
+
+  /**
+   * Nombre de la operación de Git abierta (`rebase`, `merge`, `cherry-pick` o `revert`), o `null` si no hay ninguna. `git status --porcelain`
+   * sale vacío con un rebase parado en `edit`, así que se miran los marcadores de `.git` (que pueden vivir fuera de la carpeta en
+   * worktrees, de ahí `--git-path`).
+   */
+  private async operationInProgress(repoLocalPath: string): Promise<string | null> {
+    const paths = await this.runner(repoLocalPath, ["rev-parse", ...OPERATIONS_IN_PROGRESS.flatMap(([gitPath]) => ["--git-path", gitPath])]);
+    if (paths.exitCode !== 0) return null;
+    const resolved = paths.stdout.split("\n").map((line) => line.trim());
+    const found = OPERATIONS_IN_PROGRESS.find((_, index) => resolved[index] && existsSync(resolve(repoLocalPath, resolved[index])));
+    return found ? found[1] : null;
   }
 
   /** `true` solo si la ruta es la raíz de un repositorio: una subcarpeta tiene un prefijo no vacío respecto de la raíz. */

@@ -140,7 +140,7 @@ sequenceDiagram
             alt La rama ya existe
                 GITM-->>ORCH: Ok(alreadyExisted)
             else Se puede crear la rama
-                GITM->>GITM: git pull --no-rebase --ff-only origin base (o git fetch origin base:base)
+                GITM->>GITM: git switch base (si no está en ella) y git pull --no-rebase --ff-only origin base
                 alt El pull falla
                     GITM-->>ORCH: ErrorBloqueante(PullFallido)
                     ORCH->>SQL: registrarHistorial(ID-123, repositorio, branch_status = error)
@@ -208,7 +208,7 @@ Toda la configuración que necesitan estos componentes (credenciales de Jira, ho
   1. Verifica que el repositorio exista (`ErrorBloqueante` si no).
   2. `git status --porcelain`: si hay cambios pendientes (modificados, staged o sin trackear), se detiene y los lista (`ErrorBloqueante`); el desarrollador los commitea o guarda y vuelve a ejecutar. No hay `stash` automático.
   3. Si la rama ya existe **en local**, informa, el Orquestador consulta si se usa la misma y, si se acepta, continúa con la carpeta y el documento, sin pull ni creación. Si no está en local pero existe en `origin` (`git ls-remote --heads`, solo lectura), se detiene con `ErrorBloqueante('RamaExistenteEnRemoto')` para que el usuario la verifique y la configure a mano; la app nunca crea ni publica ramas en el remoto.
-  4. Actualiza la rama base sin importar la rama actual: `git pull --no-rebase --ff-only origin <base>` si está en ella, o `git fetch origin <base>:<base>` si está en otra.
+  4. Actualiza la rama base sin importar la rama actual: `git switch <base>` si no está parado en ella y luego `git pull --no-rebase --ff-only origin <base>`.
   5. Crea la rama con `git switch -c <rama> <base>`.
   6. Si el pull falla (sin red, base local divergente, credenciales de Git), es un `ErrorBloqueante`: nunca se crea la rama desde una base vieja.
   7. La rama base es la configurada por repositorio (por defecto `main`); un override puntual con `--base` no cambia la configuración.
@@ -233,7 +233,7 @@ Antes de iniciar la implementación (TK-01, TK-02, TK-03), se audita aquí la vi
 |---|---|---|---|
 | **Jira REST Client** | HTTP directo contra la API REST v2 de Jira Cloud, autenticado con email + API Token ([ADR-001.1](ADR-001-arquitectura-inicial.md#adr-0011-interfaz-clitui-frente-a-aplicación-gráfica-guiweb), [ADR-005.1](ADR-001-arquitectura-inicial.md#adr-0051-integración-directa-con-jira-rest-api-frente-a-consumo-vía-mcp-server)) | ✅ **Alta** — protocolo HTTP estándar, sin infraestructura adicional ni flujo de navegador | Reintento único con backoff corto; 4 causas de fallo clasificadas (timeout, 401/403, 404, 429; ante un 404 se confirma con `/myself`) → `FallbackManual` con carga manual por TUI, sin bloquear el resto del flujo |
 | **Ollama Local** | HTTP/JSON contra el servicio local de Ollama (`ollama_host`, por defecto `http://localhost:11434`) ([ADR-003.1](ADR-001-arquitectura-inicial.md#adr-0031-llm-local-ollama-con-fallback-determinista-frente-a-apis-cloud-openaianthropic)) | ✅ **Alta**, condicionada a que el desarrollador tenga Ollama instalado y un modelo descargado — su ausencia degrada el resultado, no bloquea la herramienta | Timeout configurable (`ollama_timeout_seconds`, 120 s por defecto) + salida estructurada con schema, validación Ajv y posprocesado determinista → `FallbackDeterminista` (texto crudo sin estructurar, marcado `⚠️ Generado sin Ollama`) |
-| **Git Local Engine** | Invocación de comandos Git (`git status`, `git pull --no-rebase --ff-only` / `git fetch`, `git switch -c`) sobre el repositorio local vía CLI ([ADR-007.1](ADR-001-arquitectura-inicial.md#adr-0071-ampliación-del-alcance-del-git-manager--verificación-del-working-directory-y-rama-creada-desde-la-base-actualizada)) | ✅ **Alta** — Git ya es una dependencia asumida por el flujo de trabajo diario del equipo | Sin degradación silenciosa (ver Git Manager, arriba): repo inexistente, cambios pendientes o pull fallido → `ErrorBloqueante`; rama ya existente se reporta como resultado normal, no como error. Nunca `commit`, `add` ni `push` |
+| **Git Local Engine** | Invocación de comandos Git (`git status`, `git switch`, `git pull --no-rebase --ff-only`, `git switch -c`) sobre el repositorio local vía CLI ([ADR-007.1](ADR-001-arquitectura-inicial.md#adr-0071-ampliación-del-alcance-del-git-manager--verificación-del-working-directory-y-rama-creada-desde-la-base-actualizada)) | ✅ **Alta** — Git ya es una dependencia asumida por el flujo de trabajo diario del equipo | Sin degradación silenciosa (ver Git Manager, arriba): repo inexistente, cambios pendientes o pull fallido → `ErrorBloqueante`; rama ya existente se reporta como resultado normal, no como error. Nunca `commit`, `add` ni `push` |
 | **SQLite (DDL local)** | Motor embebido de archivo único, sin proceso servidor, vía `node:sqlite` ([ADR-002.1](ADR-001-arquitectura-inicial.md#adr-0021-persistencia-en-sqlite-embebida-frente-a-archivos-planos-jsonyaml)) | ✅ **Alta** — cero infraestructura, drivers maduros disponibles en cualquier stack | Modo WAL para tolerar escrituras concurrentes (dos ejecuciones del CLI a la vez); sin red de por medio, el único fallo realista es de permisos/disco → `ErrorBloqueante` |
 
 **2. Requisitos Previos del Entorno Windows**

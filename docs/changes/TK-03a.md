@@ -114,6 +114,11 @@ DoD-b (nombres y subcomandos validados) se cierra al aprobar este contrato; DoD-
 - **Pendiente para la prueba en Windows (Hito 3):** el CLI interactivo con teclado real (menú, token enmascarado, Ctrl+C), la ruta real de la base (`%APPDATA%\DevFlowCLI\devflow.db`) y de la carpeta de tickets, Git con rutas `C:\...` y `npm test` completo (sobre todo `GitManager` y `FileSystemManager`).
 - **`CLAUDE.md` (autorizado por la desarrolladora, 2026-11-05):** la sección «Build / test commands» documenta `npm start` y por qué no hay `build`.
 
+- **Revisión de Cursor (2026-11-05), dos hallazgos bajos corregidos:**
+  - Los tests de `createOrchestrator` dejaban la base abierta (el Orquestador no tenía `close()`); en Windows un archivo abierto no se puede borrar y el `rmSync` del directorio temporal fallaría. Se añadió `TicketOrchestrator.close()` (idempotente: `node:sqlite` lanza al cerrar dos veces), los tests de composición cierran lo que abren y `main` lo cierra en un `finally`. 2 tests nuevos.
+  - Faltaba una coma en el párrafo de estado de `docs/009` («plantillas), TK-02g»); corregido.
+  - Verificación: `typecheck` y `lint` limpios; 431 tests en verde (84 de este ticket).
+
 Decisiones aprobadas con el contrato:
 
 1. *(ambiguo, DoD-b)* **Comandos concretos.** Se propone: `devflow config` interactivo (URL de Jira, email, token, carpeta de tickets y sufijo) y `devflow config proyectos` con un menú interactivo (listar, agregar clave, agregar/editar/quitar repositorio, quitar clave, salir). **Sin flags** de configuración no interactiva (YAGNI para el MVP), solo `--help` y `--version` de Commander.

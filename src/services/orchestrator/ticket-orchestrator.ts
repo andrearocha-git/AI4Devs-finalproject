@@ -18,7 +18,7 @@ const SUFFIX_FORMAT = /^[A-Z0-9]+$/;
 /** `CLAVE-123`: la clave de proyecto es lo que precede al guion; no admite guiones propios. */
 const TICKET_ID_FORMAT = /^([A-Za-z][A-Za-z0-9_]*)-\d+$/;
 
-/** Datos de un repositorio local al darlo de alta o editarlo. */
+/** Datos de un repositorio local al darlo de alta o editarlo. Los textos se guardan sin espacios sobrantes. */
 export interface RepositoryInput {
   /** Clave de un proyecto ya dado de alta (sin distinguir mayúsculas). */
   jiraProjectKey: string;
@@ -26,7 +26,7 @@ export interface RepositoryInput {
   name: string;
   /** Ruta local del repositorio Git. */
   repoLocalPath: string;
-  /** Rama base; `main` al dar de alta, y la ya guardada al actualizar, si se omite. */
+  /** Rama base; en blanco o ausente cuenta como omitida: se conserva la del repositorio existente o, si es nuevo, `main`. */
   defaultBaseBranch?: string;
 }
 
@@ -97,11 +97,13 @@ export class TicketOrchestrator {
    * Solo persiste si la validación devuelve `Ok`. Si ya existe un repositorio con ese nombre en el proyecto,
    * se actualiza su ruta conservando el `id` y, si se omite `defaultBaseBranch`, también su rama base.
    *
-   * @param input Proyecto, nombre, ruta y rama base (`main` si se omite); ver {@link RepositoryInput}.
-   * @returns `Ok` con el repositorio guardado; el `ErrorBloqueante` de Git tal cual; o `ErrorBloqueante('ErrorInesperado')`
-   * con las claves disponibles si el proyecto no está configurado (sin llamar a Git).
+   * @param input Proyecto, nombre, ruta y rama base; ver {@link RepositoryInput}. Los textos se recortan, así que `"api "` y `"api"`
+   * son el mismo repositorio. Sin rama base se conserva la del repositorio existente con ese nombre y, solo si es nuevo, se usa `main`.
+   * @returns `Ok` con el repositorio guardado; el `ErrorBloqueante` o el `FallbackManual` de Git tal cual (sin escribir nada);
+   * o `ErrorBloqueante('ErrorInesperado')` con las claves disponibles si el proyecto no está configurado (sin llamar a Git).
    */
-  async addRepository(input: RepositoryInput): Promise<StepResult<Repository>> {
+  async addRepository(rawInput: RepositoryInput): Promise<StepResult<Repository>> {
+    const input = normalizeRepositoryInput(rawInput);
     const project = this.findProject(input.jiraProjectKey);
     if (project.kind !== "Ok") return project;
     const existing = this.storage.listRepositories(project.value.id).find((r) => r.name === input.name);
@@ -112,12 +114,13 @@ export class TicketOrchestrator {
    * Actualiza la ruta o la rama base de un repositorio ya dado de alta, volviendo a validarlo con Git.
    * No permite renombrarlo: se identifica por `(proyecto, nombre)`.
    *
-   * @param input Los mismos campos que {@link addRepository}. Sin `defaultBaseBranch` se conserva (y valida) la ya guardada.
+   * @param input Los mismos campos que {@link addRepository}, recortados igual. Sin `defaultBaseBranch` se conserva (y valida) la ya guardada.
    * @returns `Ok` con el repositorio actualizado (mismo `id`); el `ErrorBloqueante` de Git tal cual, sin cambiar lo guardado;
    * `ErrorBloqueante('RepositorioNoEncontrado')` si el repositorio no existe en ese proyecto; o `ErrorBloqueante('ErrorInesperado')`
    * si el proyecto no está configurado.
    */
-  async updateRepository(input: RepositoryInput): Promise<StepResult<Repository>> {
+  async updateRepository(rawInput: RepositoryInput): Promise<StepResult<Repository>> {
+    const input = normalizeRepositoryInput(rawInput);
     const project = this.findProject(input.jiraProjectKey);
     if (project.kind !== "Ok") return project;
     const existing = this.storage.listRepositories(project.value.id).find((r) => r.name === input.name);
@@ -298,6 +301,17 @@ function removeKeepingHistory(what: string, remove: () => void): void {
     }
     throw error;
   }
+}
+
+/** Recorta los textos del repositorio; una rama base en blanco pasa a ausente. */
+function normalizeRepositoryInput(input: RepositoryInput): RepositoryInput {
+  const defaultBaseBranch = input.defaultBaseBranch?.trim();
+  return {
+    jiraProjectKey: input.jiraProjectKey,
+    name: input.name.trim(),
+    repoLocalPath: input.repoLocalPath.trim(),
+    ...(defaultBaseBranch ? { defaultBaseBranch } : {}),
+  };
 }
 
 /** Inicial del nombre + último apellido, en `[A-Z0-9]`; `null` si el nombre no deja ningún carácter válido. */

@@ -196,6 +196,38 @@ describe("E2 — repositorios", () => {
     expect(fixture.storage.listRepositories(projectId)).toHaveLength(1);
   });
 
+  it("addRepository recorta nombre, ruta y rama: «api » y «api» son el mismo repositorio", async () => {
+    await fixture.orchestrator.addRepository({ ...REPO, defaultBaseBranch: "develop" });
+
+    const result = await fixture.orchestrator.addRepository({ ...REPO, name: " api ", repoLocalPath: " /work/api2 " });
+
+    expect(fixture.git.validateRepository).toHaveBeenLastCalledWith({ repoLocalPath: "/work/api2", baseBranch: "develop" });
+    expect(result.kind === "Ok" && result.value).toMatchObject({ name: "api", repoLocalPath: "/work/api2", defaultBaseBranch: "develop" });
+    expect(fixture.storage.listRepositories(projectId)).toHaveLength(1);
+  });
+
+  it("addRepository recorta la rama base antes de validarla con Git", async () => {
+    await fixture.orchestrator.addRepository({ ...REPO, defaultBaseBranch: " develop " });
+
+    expect(fixture.git.validateRepository).toHaveBeenCalledWith({ repoLocalPath: "/work/api", baseBranch: "develop" });
+  });
+
+  it("addRepository trata una rama base en blanco como omitida", async () => {
+    const result = await fixture.orchestrator.addRepository({ ...REPO, defaultBaseBranch: "   " });
+
+    expect(fixture.git.validateRepository).toHaveBeenCalledWith({ repoLocalPath: "/work/api", baseBranch: "main" });
+    expect(result.kind === "Ok" && result.value.defaultBaseBranch).toBe("main");
+  });
+
+  it("updateRepository recorta el nombre y la rama base", async () => {
+    await fixture.orchestrator.addRepository(REPO);
+
+    const result = await fixture.orchestrator.updateRepository({ ...REPO, name: "api ", defaultBaseBranch: " release " });
+
+    expect(fixture.git.validateRepository).toHaveBeenLastCalledWith({ repoLocalPath: "/work/api", baseBranch: "release" });
+    expect(result.kind === "Ok" && result.value).toMatchObject({ name: "api", defaultBaseBranch: "release" });
+  });
+
   it("addRepository acepta la clave de proyecto en minúsculas", async () => {
     const result = await fixture.orchestrator.addRepository({ ...REPO, jiraProjectKey: "scrum" });
 

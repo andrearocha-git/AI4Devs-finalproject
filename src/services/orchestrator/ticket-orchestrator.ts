@@ -321,12 +321,12 @@ function normalizeRepositoryInput(input: RepositoryInput): RepositoryInput {
 
 /** `ErrorBloqueante` si el nombre o la ruta quedaron vacíos tras recortarlos; `null` si están completos. */
 function blankRepositoryField(input: RepositoryInput): StepResult<never> | null {
-  const missing = input.name === "" ? "nombre" : input.repoLocalPath === "" ? "ruta" : null;
+  const missing = input.name === "" ? "El nombre" : input.repoLocalPath === "" ? "La ruta" : null;
   if (missing === null) return null;
   return {
     kind: "ErrorBloqueante",
     subtype: "ErrorInesperado",
-    message: `El ${missing} del repositorio no puede estar en blanco.`,
+    message: `${missing} del repositorio no puede estar en blanco.`,
   };
 }
 

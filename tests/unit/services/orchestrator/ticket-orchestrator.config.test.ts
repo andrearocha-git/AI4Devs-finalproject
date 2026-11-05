@@ -239,6 +239,15 @@ describe("E2 — repositorios", () => {
     expect(fixture.storage.listRepositories(projectId)).toEqual([]);
   });
 
+  it.each([
+    ["nombre", { name: "  " }, "El nombre del repositorio no puede estar en blanco."],
+    ["ruta", { repoLocalPath: "  " }, "La ruta del repositorio no puede estar en blanco."],
+  ])("addRepository con %s en blanco explica cuál falta con el género correcto", async (_campo, blank, message) => {
+    const result = await fixture.orchestrator.addRepository({ ...REPO, ...blank });
+
+    expect(result).toEqual({ kind: "ErrorBloqueante", subtype: "ErrorInesperado", message });
+  });
+
   it("updateRepository con nombre en blanco devuelve ErrorBloqueante sin llamar a Git", async () => {
     await fixture.orchestrator.addRepository(REPO);
     fixture.git.validateRepository.mockClear();

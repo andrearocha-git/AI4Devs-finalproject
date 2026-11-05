@@ -44,7 +44,7 @@ Los métodos sin criterio numerado (`listAssignedTickets`, `suggestBranchSuffix`
 | Escenario | Criterios cubiertos | Test | Estado |
 |---|---|---|---|
 | E1 | CA1, CA3, DoD-a | `tests/unit/services/orchestrator/ticket-orchestrator.config.test.ts` › «E1 — proyectos» (14 casos: alta con `Ok`, 4 fallos de Jira sin escribir, sin configuración, listado, baja sin y con historial, clave normalizada en la baja, error ajeno relanzado) | Hecho |
-| E2 | CA1, CA2, CA3, DoD-a | `tests/unit/services/orchestrator/ticket-orchestrator.config.test.ts` › «E2 — repositorios» (23 casos: alta con y sin rama base, re-alta que conserva la rama, Git en `FallbackManual`, clave en minúsculas, validación de Git rechazada, clave no configurada, 4 de `updateRepository`, baja sin y con historial, error ajeno relanzado, 4 de `listRepositoriesForTicket`) | Hecho |
+| E2 | CA1, CA2, CA3, DoD-a | `tests/unit/services/orchestrator/ticket-orchestrator.config.test.ts` › «E2 — repositorios» (27 casos: alta con y sin rama base, re-alta que conserva la rama, recorte de nombre, ruta y rama, rama en blanco, Git en `FallbackManual`, clave en minúsculas, validación de Git rechazada, clave no configurada, 4 de `updateRepository`, baja sin y con historial, error ajeno relanzado, 4 de `listRepositoriesForTicket`) | Hecho |
 | E3 | US-01 CA4 (servicio), DoD-a | `tests/unit/services/orchestrator/ticket-orchestrator.config.test.ts` › «E3 — configuración, sufijo sugerido y tickets asignados» (19 casos: `getConfig`/`saveConfig` con recorte de espacios, texto en blanco ignorado y 4 sufijos inválidos, 5 nombres → sufijo, fallo de Jira, nombre sin A-Z0-9, sin configuración, `listAssignedTickets` con claves, sin proyectos y sin configuración) | Hecho |
 
 DoD-b (revisión mergeada) no es un escenario: se tilda tras la merge.
@@ -108,3 +108,10 @@ Resto de la revisión (severidad baja y tests que faltaban):
 - **Sin cambio, pendiente de decisión:** `updateRepository` sobre un repositorio inexistente y `validateRepository` de Git comparten el subtipo `RepositorioNoEncontrado` (se distinguen solo por el `message`). Separarlos exige un subtipo nuevo en `result.types.ts` (TK-02a) y que la TUI los trate distinto; se decide al refinar TK-03a.
 - Tests añadidos: Git en `FallbackManual`, ID en minúsculas, ID mal formado sin llamar a Jira, los dos mensajes distintos y los dos casos de recorte.
 - Verificación: `typecheck` y `lint` limpios; 338 tests en verde (56 de este ticket).
+
+Segunda pasada de Cursor (4 commits; los dos medios anteriores quedaron cerrados):
+
+- **Baja, corregida:** `addRepository` y `updateRepository` no recortaban `name`, `repoLocalPath` ni `defaultBaseBranch`: `"api"` y `"api "` quedaban como dos repositorios, la re-alta de `"api "` no reutilizaba la rama de `"api"` y una rama `" develop"` llegaba a Git con el espacio. Ahora se recortan los tres, y una rama en blanco cuenta como omitida.
+- **Baja, corregida:** el TSDoc de `addRepository` decía que `main` se usa siempre que se omite la rama (solo cuando el repositorio es nuevo) y su `@returns` no nombraba el `FallbackManual` de Git.
+- **Sin cambio:** el subtipo compartido `RepositorioNoEncontrado` (decisión en TK-03a) y la validación de `jiraBaseUrl` (decisión 5), como ya estaban registrados.
+- Verificación: `typecheck` y `lint` limpios; 342 tests en verde (60 de este ticket).

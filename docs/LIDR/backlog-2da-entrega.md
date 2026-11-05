@@ -11,7 +11,7 @@
 | `docs/005-historias-de-usuario.md` | 3 historias: **US-01** (configurar, 6 CA), **US-02** (elegir y consultar el ticket en Jira, 6 CA), **US-03** (preparar rama, carpeta y documento con Ollama, 10 CA). |
 | `docs/006-tickets-de-trabajo.md` | **TK-00** y **TK-01** (hechos), **TK-02** (paraguas dividido en **TK-02a … TK-02g**), **TK-03** (paraguas dividido en **TK-03a** y **TK-03b**). |
 
-Estado: TK-00, TK-01, TK-02a, TK-02b, TK-02c, TK-02d y TK-02g implementados (338 tests, typecheck y lint en verde; TK-02a, TK-02b, TK-02c y TK-02d revisados y fusionados en `feature/TK-02`; TK-02g verificado con `/05` y pendiente de la revisión de Cursor). Todo lo demás está especificado y sin código.
+Estado: TK-00, TK-01, TK-02a, TK-02b, TK-02c, TK-02d y TK-02g implementados (342 tests, typecheck y lint en verde; TK-02a, TK-02b, TK-02c y TK-02d revisados y fusionados en `feature/TK-02`; TK-02g verificado con `/05` y pendiente de la revisión de Cursor). Todo lo demás está especificado y sin código.
 
 **Observación INVEST (sin modificar nada).** US-03 falla S (Small): 10 CA y esfuerzo Alto. TK-03 también es grande (dos comandos, cuatro prompts y todas las pantallas de resultado). Por eso el orden de abajo entrega las historias **por criterios de aceptación**, no de una vez, y TK-03 ya se dividió en TK-03a y TK-03b (§4).
 

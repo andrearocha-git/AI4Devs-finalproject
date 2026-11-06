@@ -3,7 +3,7 @@ import type { SQLiteStorageManager } from "../../database/sqlite-storage-manager
 import type { StepResult } from "../../shared/errors/result.types.js";
 import type { AppConfig, JiraProject, Repository, TicketLogEntry } from "../../shared/types/config.types.js";
 import type { DocumentoFase1 } from "../../shared/types/documento-fase1.types.js";
-import type { ContextoTicket } from "../../shared/types/ticket-context.types.js";
+import type { ContextoTicket, TipoTicket } from "../../shared/types/ticket-context.types.js";
 import type { StartTicketHooks, StartTicketInput, TicketRunSummary } from "../../shared/types/ticket-run.types.js";
 import type { FileSystemManager } from "../filesystem/filesystem-manager.js";
 import type { GitManager } from "../git/git-manager.js";
@@ -19,8 +19,8 @@ export interface StartTicketContext {
   git: Pick<GitManager, "inspectRepository" | "createBranch">;
   /** Jira: el ticket y, si respondió, el nombre de la desarrolladora para el encabezado del documento. */
   jira: Pick<JiraRestClient, "fetchTicket" | "getMyDisplayName">;
-  /** Carpetas del ticket, `fase1.json` y el documento. */
-  fileSystem: Pick<FileSystemManager, "createTicketWorkspace" | "saveFase1" | "writeDocument">;
+  /** Carpetas del ticket, `fase1.json` (leerlo para reutilizarlo y guardarlo) y el documento. */
+  fileSystem: Pick<FileSystemManager, "createTicketWorkspace" | "readFase1" | "saveFase1" | "writeDocument">;
   /** Ollama: redacta la Fase 1; su fallo nunca bloquea el flujo. */
   transformer: Pick<OllamaAITransformer, "processContext">;
   /** Configuración vigente: prefijos y sufijo de las ramas, carpeta de tickets y URL de Jira. */
@@ -69,6 +69,58 @@ function failureOf(result: StepResult<unknown>, fallbackMessage: string): { subt
 function formatDate(date: Date): string {
   const two = (n: number): string => String(n).padStart(2, "0");
   return `${two(date.getDate())}/${two(date.getMonth() + 1)}/${date.getFullYear()}`;
+}
+
+/** Qué Fase 1 usa el documento y cómo se registra. */
+interface Fase1Outcome {
+  /** La Fase 1 estructurada, o el texto original sin redactar si no hay ninguna. */
+  fase1: DocumentoFase1 | { rawText: string };
+  ollamaStatus: "ok" | "fallback_deterministic" | "reused";
+  promptVersion: string;
+  /** Fase 1 recién generada que hay que guardar en `fase1.json` cuando el documento ya se haya escrito; `null` si no hay que guardar nada. */
+  toSave: DocumentoFase1 | null;
+  /** Una Fase 1 recién generada reemplaza el bloque de Fase 1 del documento si ya existe (y lo crea completo si no). */
+  regenerate: boolean;
+}
+
+/**
+ * Decide la Fase 1 del documento:
+ * - con una Fase 1 válida guardada (`generatedByOllama: true`) y sin `reprocess`, la **reutiliza** sin llamar a Ollama;
+ * - si no hay una válida (no existe, está en fallback o es ilegible) o se pide `reprocess`, la **redacta con Ollama**;
+ * - si el reproceso cae a fallback con una Fase 1 válida previa, **conserva** esa y no cambia nada;
+ * - sin ninguna previa y con Ollama caído, usa el texto original sin redactar.
+ * Emite el paso `ollama`. Nunca lanza ni bloquea.
+ */
+async function resolveFase1(args: {
+  fileSystem: StartTicketContext["fileSystem"];
+  transformer: StartTicketContext["transformer"];
+  ticket: ContextoTicket;
+  ticketId: string;
+  tipo: TipoTicket;
+  reprocess: boolean;
+  hooks: StartTicketHooks;
+}): Promise<Fase1Outcome> {
+  const { fileSystem, transformer, ticket, ticketId, tipo, reprocess, hooks } = args;
+  const stored = await fileSystem.readFase1(ticketId);
+  const previous = stored.kind === "Ok" && stored.value !== null && stored.value.generatedByOllama ? stored.value : null;
+  hooks.onStep("ollama", "started");
+
+  if (previous && !reprocess) {
+    hooks.onStep("ollama", "ok", "Fase 1 reutilizada");
+    return { fase1: previous, ollamaStatus: "reused", promptVersion: previous.promptVersion, toSave: null, regenerate: false };
+  }
+  const generated: StepResult<DocumentoFase1> = await transformer.processContext(ticket, tipo);
+  if (generated.kind === "Ok") {
+    hooks.onStep("ollama", "ok");
+    return { fase1: generated.value, ollamaStatus: "ok", promptVersion: generated.value.promptVersion, toSave: generated.value, regenerate: true };
+  }
+  if (previous) {
+    hooks.onStep("ollama", "fallback", "se conserva la Fase 1 anterior");
+    return { fase1: previous, ollamaStatus: "fallback_deterministic", promptVersion: previous.promptVersion, toSave: null, regenerate: false };
+  }
+  hooks.onStep("ollama", "fallback");
+  const rawText = generated.kind === "FallbackDeterminista" ? generated.rawText : `${ticket.title}\n\n${ticket.description}`.trim();
+  return { fase1: { rawText }, ollamaStatus: "fallback_deterministic", promptVersion: promptVersionFor(tipo), toSave: null, regenerate: false };
 }
 
 /**
@@ -129,7 +181,7 @@ export async function runStartTicket(
   let folderPath: string | null = null;
   let documentPath: string | null = null;
   let ollamaStatus: TicketRunSummary["ollamaStatus"] = null;
-  let promptVersion: string | undefined;
+  let promptVersion: string | undefined = undefined;
 
   const summary = (extra: Partial<TicketRunSummary> = {}): TicketRunSummary => ({
     ticketId,
@@ -227,22 +279,11 @@ export async function runStartTicket(
   }
   hooks.onStep("filesystem", "ok");
 
-  // 7. Fase 1 con Ollama; su fallo nunca bloquea.
-  hooks.onStep("ollama", "started");
-  const generated: StepResult<DocumentoFase1> = await transformer.processContext(ticket, tipo);
-  let fase1: DocumentoFase1 | { rawText: string };
-  if (generated.kind === "Ok") {
-    fase1 = generated.value;
-    ollamaStatus = "ok";
-    promptVersion = generated.value.promptVersion;
-    await fileSystem.saveFase1(ticketId, generated.value);
-    hooks.onStep("ollama", "ok");
-  } else {
-    fase1 = { rawText: generated.kind === "FallbackDeterminista" ? generated.rawText : `${ticket.title}\n\n${ticket.description}`.trim() };
-    ollamaStatus = "fallback_deterministic";
-    promptVersion = promptVersionFor(tipo);
-    hooks.onStep("ollama", "fallback");
-  }
+  // 7. Fase 1: se reutiliza la ya generada para este ticket o se redacta con Ollama (cuyo fallo nunca bloquea).
+  const phase1 = await resolveFase1({ fileSystem, transformer, ticket, ticketId, tipo, reprocess: input.reprocessFase1 ?? false, hooks });
+  const { fase1, toSave, regenerate } = phase1;
+  ollamaStatus = phase1.ollamaStatus;
+  promptVersion = phase1.promptVersion;
 
   // 8. Documento.
   const written = await fileSystem.writeDocument({
@@ -258,13 +299,15 @@ export async function runStartTicket(
       fecha: formatDate(ctx.now()),
       proyecto: project.jiraProjectKey,
     },
-    regenerateFase1Only: false,
+    regenerateFase1Only: regenerate,
   });
   if (written.kind !== "Ok") {
     const failure = failureOf(written, "No se pudo escribir el documento.");
     hooks.onStep("filesystem", "error", failure.message);
     return stop(failure.subtype, failure.message);
   }
+  // Primero el documento y después `fase1.json`: si el documento no se puede escribir, la Fase 1 anterior queda como estaba.
+  if (toSave) await fileSystem.saveFase1(ticketId, toSave);
 
   folderPath = workspace.value.folderPath;
   documentPath = workspace.value.documentPath;

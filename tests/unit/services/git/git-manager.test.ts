@@ -665,7 +665,9 @@ describe("Revisión de la PR #3 (2.ª pasada): sin tags ni refs completas, opera
     }
   });
 
-  it("PullFallido no repite el token de un origin con credenciales en la URL", async () => {
+  // Timeout propio: en Windows, conectar a un puerto cerrado (127.0.0.1:1) no se rechaza al instante como en Linux, sino que reintenta
+  // varios segundos, y el `git pull` tarda unos 5 s, justo por encima del límite por defecto de Vitest (medido el 2026-11-06).
+  it("PullFallido no repite el token de un origin con credenciales en la URL", { timeout: 30_000 }, async () => {
     const env = createEnv();
     git(env.repo, "remote", "set-url", "origin", `http://usuario:${TOKEN}@127.0.0.1:1/repo.git`);
 

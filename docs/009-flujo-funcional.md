@@ -45,13 +45,13 @@ Ref.: `002` §2.2.1.
 
 > Procedimiento de instalación concreto: ver hueco **H-05**.
 
-### 1.2 Primer arranque en frío — `🚧 En desarrollo` · TK-01, TK-02a (`SQLiteStorageManager` y `AppConfigProvider` implementados; el Orquestador de TK-02g los usa y `cli.ts` lo arma con `createOrchestrator`, TK-03a; falta probarlo en Windows)
+### 1.2 Primer arranque en frío — `✅ Implementado y probado` · TK-01, TK-02a (probado en Windows el 2026-11-05 con Jira y Git reales; el `bin` de `devflow` llega en el Hito 3)
 
 - `getAppConfig()` devuelve `null` sin lanzar excepción (TK-01 CA6).
 - `SQLiteStorageManager` aplica las migraciones de forma idempotente (TK-01 CA7) y crea `devflow.db` en modo **WAL** con las 4 tablas: `app_config`, `jira_projects`, `repositories`, `ticket_logs`.
 - La configuración se resuelve **una sola vez** al arrancar y el Orquestador la inyecta por constructor a Jira, Ollama, Git y FileSystem. Ningún componente de integración lee SQLite.
 
-### 1.3 `devflow config` — sufijo de usuario y credenciales — `🚧 En desarrollo` · US-01 CA4 · TK-02g, TK-03a (implementado y probado con el Jira real desde WSL; falta la prueba interactiva en Windows, Hito 3)
+### 1.3 `devflow config` — sufijo de usuario y credenciales — `✅ Implementado y probado` · US-01 CA4 · TK-02g, TK-03a (probado en Windows el 2026-11-05 con Jira y Git reales; el `bin` de `devflow` llega en el Hito 3)
 
 1. El usuario escribe la URL de Jira, el email, el API Token (enmascarado, nunca se muestra) y la carpeta de tickets (por defecto `%USERPROFILE%\DevFlowCLI\tickets`). La URL se valida (solo `http(s)`, sin usuario, parámetros ni fragmento) y se guarda su `origin`. Con una configuración existente, esos valores son los predeterminados y un token en blanco conserva el guardado.
 2. En el primer arranque, el Orquestador llama a `GET /myself` con esas credenciales **aún sin guardar** (el primer alta exige el sufijo), toma el `displayName` y propone el sufijo: inicial del nombre + último apellido, sin acentos y en mayúsculas (p. ej. `AROCHA`).
@@ -59,7 +59,7 @@ Ref.: `002` §2.2.1.
 
 > Los nombres de los comandos `devflow config` y `devflow config proyectos` están decididos (hueco **H-06**, resuelto). El token se guarda en claro en `app_config` en el MVP (H-05, decidido; ver `002` §2.5).
 
-### 1.4 `devflow config proyectos` — claves y repositorios — `🚧 En desarrollo` · US-01 CA1-3, CA5-6 · TK-02b, TK-02c, TK-02g/TK-03a (implementado y probado con el Jira real y un `origin` real desde WSL; falta la prueba interactiva en Windows, Hito 3)
+### 1.4 `devflow config proyectos` — claves y repositorios — `✅ Implementado y probado` · US-01 CA1-3, CA5-6 · TK-02b, TK-02c, TK-02g/TK-03a (probado en Windows el 2026-11-05 con Jira y Git reales; el `bin` de `devflow` llega en el Hito 3)
 
 - **Alta de clave:** se valida con `GET /rest/api/2/project/{key}` (la JQL ignora sin error las claves inexistentes). Ante un 404 se llama a `/myself`: **401 = token inválido**, **200 = la clave no existe**. Se guarda con el nombre del proyecto.
 - **Alta de repositorio** (0..N por clave): nombre (`backend`), ruta local y rama base (por defecto `main`). `GitManager.validateRepository` comprueba que sea un repo Git con remoto `origin` y que la rama base exista en el remoto.
@@ -275,3 +275,4 @@ Detectados al cruzar las fuentes (análisis pre-código, 2026-11-01). Cada uno i
 | 2026-11-05 | TK-02g implementado: `TicketOrchestrator` con `listProjects`/`addProject`/`removeProject`, `addRepository`/`updateRepository`/`removeRepository`/`listRepositoriesForTicket`, `getConfig`/`saveConfig`, `suggestBranchSuffix` y `listAssignedTickets`. El alta solo persiste si Jira o Git validan; la baja con historial da un mensaje claro. Pasos 1.3 y 1.4 siguen en desarrollo hasta la TUI (TK-03a). 327 tests. Commit `0cf542a`; la revisión de Cursor corrigió la normalización de la clave en `removeProject`, la rama base en la re-alta y el recorte y la validación de los datos del repositorio (347 tests). | 1.3 · 1.4 · TK-02g |
 | 2026-11-05 | TK-03a implementado: `cli.ts` (Commander) con `devflow config` (URL, email, token enmascarado, carpeta de tickets y sufijo sugerido con credenciales aún sin guardar) y `devflow config proyectos` (menú de claves y repositorios), `createOrchestrator`, `listRepositories`, validación de `jiraBaseUrl` y `npm start`. Comprobado contra el Jira real y un `origin` real desde WSL (solo lectura); falta la prueba interactiva en Windows. Pasos 1.2, 1.3 y 1.4 siguen en desarrollo hasta esa prueba. 431 tests. Commits `bc0a5a8`, `58ee60e` y `24d7a98`; la revisión de Cursor añadió `TicketOrchestrator.close()`. | 1.2 · 1.3 · 1.4 · H-06 · TK-03a |
 | 2026-11-05 | TK-02e implementado: `OllamaAITransformer` (streaming, schema en `format`, validación con Ajv, fallback determinista ante cualquier fallo), prompts y schemas en `templates/prompts/`, y posprocesado `siFalta` / `verificarLiterales` con las reglas en `issue-types.json`. Comprobado con `qwen2.5:3b` real; se afinó el prompt de bug. Pasos 4.2 y 4.3 a ✅; 4.4 sigue en desarrollo hasta TK-02f. 505 tests (508 tras la revisión de Cursor, que corrigió la última línea del streaming sin salto de línea). Commit `401f9b6`. | 4.2 · 4.3 · 4.4 · TK-02e |
+| 2026-11-05 | Prueba en Windows (nativo, PowerShell) de TK-03a con el Jira y los repositorios reales de la desarrolladora: `typecheck`, `lint` y 507 de 508 tests (el que falló era un timeout de 5 s en un `git pull` contra un puerto cerrado, más lento en Windows; corregido con un timeout propio), `devflow config` y `devflow config proyectos` completos, base en `%APPDATA%`. Pasos 1.2, 1.3 y 1.4 a ✅. Pendiente para el Hito 3: el `bin` de `devflow` (el mensaje final de `config` nombra un comando que aún no existe). | 1.2 · 1.3 · 1.4 · TK-03a |

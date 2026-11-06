@@ -29,6 +29,7 @@ function setup(config: Partial<AppConfig> | null = JIRA_CONFIG): Fixture {
   storage.migrate();
   if (config) storage.upsertAppConfig(config);
   const jira = {
+    fetchTicket: vi.fn(),
     validateProjectKey: vi.fn(),
     listAssignedTickets: vi.fn(),
     getMyDisplayName: vi.fn(),

@@ -4,7 +4,7 @@
 >
 > Fuentes de verdad: `docs/PRD.md`, `docs/001-descripcion-general-del-producto.md`, `docs/002-arquitectura-del-sistema.md`, `docs/005-historias-de-usuario.md`, `docs/006-tickets-de-trabajo.md`, `docs/ADR-001-arquitectura-inicial.md`. Si este archivo contradice a esas fuentes, gana la fuente; corregir aquí.
 
-**Estado del proyecto:** desarrollo en curso, ticket por ticket. Implementados: TK-00 (scaffold), TK-01 (Storage Layer), TK-02a (base compartida: `StepResult`, configuración, resolutor de tipo de issue, regla de lint), TK-02b (cliente REST de Jira), TK-02c (Git Manager), TK-02d (FileSystem Manager y plantillas), TK-02e (Ollama AI Transformer: prompts, schemas, Ajv y posprocesado), TK-02f (Orquestador: flujo `startTicket` y `ticket_logs`), TK-02g (Orquestador: gestión de configuración, proyectos y repositorios) y TK-03a (CLI base, `devflow config` y `devflow config proyectos`). Todo lo demás es comportamiento *especificado*, aún sin código; los pasos que ya tienen parte implementada llevan la etiqueta `🚧 En desarrollo`.
+**Estado del proyecto:** desarrollo en curso, ticket por ticket. Implementados: TK-00 (scaffold), TK-01 (Storage Layer), TK-02a (base compartida: `StepResult`, configuración, resolutor de tipo de issue, regla de lint), TK-02b (cliente REST de Jira), TK-02c (Git Manager), TK-02d (FileSystem Manager y plantillas), TK-02e (Ollama AI Transformer: prompts, schemas, Ajv y posprocesado), TK-02f (Orquestador: flujo `startTicket` y `ticket_logs`), TK-02h (Fase 1 reutilizable y reprocesable), TK-02g (Orquestador: gestión de configuración, proyectos y repositorios) y TK-03a (CLI base, `devflow config` y `devflow config proyectos`). Todo lo demás es comportamiento *especificado*, aún sin código; los pasos que ya tienen parte implementada llevan la etiqueta `🚧 En desarrollo`.
 
 ## Cómo mantener este documento
 
@@ -154,7 +154,7 @@ Los pasos 1-3 son de **solo lectura** (`GitManager.inspectRepository`) y se ejec
 
 **Historias:** US-03 · **Tickets:** TK-02
 
-### 4.1 Reutilización y reproceso de Fase 1 — `📄 Especificado` · US-03 CA6, CA9 · TK-02h (se separó de TK-02f el 2026-11-06; depende del flujo de TK-02f)
+### 4.1 Reutilización y reproceso de Fase 1 — `✅ Implementado y probado` · US-03 CA6, CA9 · TK-02h (se separó de TK-02f el 2026-11-06; falta la opción `--reprocesar` de la línea de comandos, TK-03b)
 
 - Si existe `ID\.devflow\fase1.json` (el ticket ya se ejecutó con otro repositorio) → se reutiliza, `ollama_status = 'reused'`, **no se invoca a Ollama**.
 - Si es la primera ejecución del ticket → 4.2.
@@ -183,7 +183,7 @@ Los pasos 1-3 son de **solo lectura** (`GitManager.inspectRepository`) y se ejec
 - La rama y las carpetas **ya fueron creadas**: el flujo no se bloquea.
 - `rawText` es el título, una línea en blanco y la descripción. El transformer no informa la causa del fallo: registrarla en `ticket_logs.ollama_error` exigiría ampliar `StepResult` (TK-02a).
 
-### 4.5 Renderizado del documento — `✅ Implementado y probado` · TK-02d, TK-02f (`writeDocument` y `saveFase1`, que `startTicket` invoca; `readFase1` y la regeneración de la Fase 1 los usará TK-02h)
+### 4.5 Renderizado del documento — `✅ Implementado y probado` · TK-02d, TK-02f (`writeDocument`, `saveFase1` y `readFase1`, que `startTicket` invoca; la regeneración de la Fase 1 con `regenerateFase1Only` la usa TK-02h)
 
 - `FileSystemManager.writeDocument` combina el encabezado y la Fase 1 con la Fase 2 de la plantilla del tipo (Handlebars: `bug.md.hbs` / `historia.md.hbs`, basadas en la `plantilla-user-story.md` de la desarrolladora; la Fase 2 va vacía y la IA no la toca). Si el documento ya existe y no se pide regenerar, no lo toca.
 - La Fase 1 queda delimitada por `<!-- DEVFLOW:FASE1:INICIO -->` / `<!-- DEVFLOW:FASE1:FIN -->`. Con `regenerateFase1Only` solo se reemplaza el texto entre los marcadores; el encabezado y la Fase 2 quedan byte a byte iguales.
@@ -278,3 +278,4 @@ Detectados al cruzar las fuentes (análisis pre-código, 2026-11-01). Cada uno i
 | 2026-11-05 | Prueba en Windows (nativo, PowerShell) de TK-03a con el Jira y los repositorios reales de la desarrolladora: `typecheck`, `lint` y 507 de 508 tests (el que falló era un timeout de 5 s en un `git pull` contra un puerto cerrado, más lento en Windows; corregido con un timeout propio), `devflow config` y `devflow config proyectos` completos, base en `%APPDATA%`. Pasos 1.2, 1.3 y 1.4 a ✅. Pendiente para el Hito 3: el `bin` de `devflow` (el mensaje final de `config` nombra un comando que aún no existe). | 1.2 · 1.3 · 1.4 · TK-03a |
 | 2026-11-06 | TK-02f dividido: el flujo `startTicket` (núcleo) queda en TK-02f y la reutilización y el reproceso de la Fase 1 (US-03 CA6 y CA9) pasan a TK-02h, que depende de TK-02f; TK-03b depende de ambos. Actualizados `006`, el backlog, el README y el paso 4.1 de este documento. | 4.1 · TK-02f · TK-02h |
 | 2026-11-06 | TK-02f implementado: `TicketOrchestrator.startTicket` (Jira o carga manual → tipo → inspección de Git → confirmación única → rama → carpeta → Ollama → documento) con registro en `ticket_logs`, todos los cortes y la cancelación; tipos en `src/shared/types/ticket-run.types.ts`. Probado con Git, carpetas y SQLite reales y, a mano, con el Jira y Ollama reales. La reutilización y el reproceso de la Fase 1 siguen para TK-02h. Pasos 2.3, 2.5, 3.2, 4.2, 4.4 y 4.5 actualizados. 551 tests (558 tras la revisión de Cursor). Commit `2a2859a`. | 2.3 · 2.4 · 2.5 · 3.2 · 4.2 · 4.4 · 4.5 · TK-02f |
+| 2026-11-06 | TK-02h implementado: `startTicket` reutiliza la Fase 1 guardada (`fase1.json`) con otro repositorio sin llamar a Ollama (`ollama_status = 'reused'`), la reprocesa con `reprocessFase1` regenerando solo el bloque de Fase 1 y conservando la Fase 2 a mano, conserva la anterior si el reproceso cae a fallback, y reintenta sola si la Fase 1 previa quedó sin redactar, ausente o ilegible. El documento se escribe antes que `fase1.json`. Probado con Git real y, a mano, con Ollama y Jira reales. Paso 4.1 a ✅. 580 tests. | 4.1 · 4.5 · TK-02h |

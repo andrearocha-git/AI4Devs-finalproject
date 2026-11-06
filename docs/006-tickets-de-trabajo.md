@@ -322,7 +322,7 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
 - **Definition of Done (DoD):**
   - [x] Solo el Orquestador escribe `ticket_logs`.
   - [x] Los 4 tipos de `StepResult` tienen al menos un test en el Orquestador que los maneja.
-  - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
+  - [x] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---
 
@@ -347,7 +347,7 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
   1. (CA5 original, parte de la Fase 1; H-02) Test del Orquestador: `reprocessFase1: true` con una Fase 1 válida previa → invoca a Ollama, sobrescribe `fase1.json` y regenera solo el bloque de Fase 1 del documento del repositorio elegido (sin tocar la Fase 2 ni los documentos de otros repositorios); si el reproceso cae en fallback conserva la Fase 1 válida anterior; sin el flag y con una Fase 1 previa en fallback (`generatedByOllama: false`) reintenta con Ollama automáticamente; segunda ejecución con otro repositorio → `ollamaStatus: 'reused'` sin invocar a Ollama, con su carpeta y su documento propios y el documento del primero sin cambios.
 
 - **Definition of Done (DoD):**
-  - [ ] La `prompt_version` registrada es la de la Fase 1 que se usó (la nueva o la reutilizada).
+  - [x] La `prompt_version` registrada es la de la Fase 1 que se usó (la nueva o la reutilizada).
   - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---

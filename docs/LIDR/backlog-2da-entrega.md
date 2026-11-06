@@ -11,7 +11,7 @@
 | `docs/005-historias-de-usuario.md` | 3 historias: **US-01** (configurar, 6 CA), **US-02** (elegir y consultar el ticket en Jira, 6 CA), **US-03** (preparar rama, carpeta y documento con Ollama, 10 CA). |
 | `docs/006-tickets-de-trabajo.md` | **TK-00** y **TK-01** (hechos), **TK-02** (paraguas dividido en **TK-02a … TK-02g**), **TK-03** (paraguas dividido en **TK-03a** y **TK-03b**). |
 
-Estado: TK-00, TK-01, TK-02a, TK-02b, TK-02c, TK-02d, TK-02e, TK-02f, TK-02g y TK-03a implementados (558 tests, typecheck y lint en verde; TK-02a, TK-02b, TK-02c, TK-02d, TK-02g y TK-03a revisados y fusionados en `feature/TK-02`; TK-02e fusionado; TK-02f verificado con `/05`, comprobado con el Jira y Ollama reales y pendiente de la revisión de Cursor). El Hito 1 está cerrado en código y probado en Windows con Jira y Git reales (falta el `bin` de `devflow`, Hito 3); en el Hito 2 quedan TK-02h y TK-03b. Todo lo demás está especificado y sin código.
+Estado: TK-00, TK-01, TK-02a, TK-02b, TK-02c, TK-02d, TK-02e, TK-02f, TK-02g, TK-02h y TK-03a implementados (580 tests, typecheck y lint en verde; TK-02a, TK-02b, TK-02c, TK-02d, TK-02g y TK-03a revisados y fusionados en `feature/TK-02`; TK-02e y TK-02f revisados por Cursor y fusionados; TK-02h verificado y comprobado con Ollama y Jira reales, pendiente de la revisión de Cursor). El Hito 1 está cerrado en código y probado en Windows con Jira y Git reales (falta el `bin` de `devflow`, Hito 3); en el Hito 2 queda TK-03b. Todo lo demás está especificado y sin código.
 
 **Observación INVEST (sin modificar nada).** US-03 falla S (Small): 10 CA y esfuerzo Alto. TK-03 también es grande (dos comandos, cuatro prompts y todas las pantallas de resultado). Por eso el orden de abajo entrega las historias **por criterios de aceptación**, no de una vez, y TK-03 ya se dividió en TK-03a y TK-03b (§4).
 
@@ -62,7 +62,7 @@ Estado: TK-00, TK-01, TK-02a, TK-02b, TK-02c, TK-02d, TK-02e, TK-02f, TK-02g y T
 | 2.1 | **TK-02d** FileSystem Manager + plantillas ✅ | Carpeta y documento fuera del repo, Fase 1 idempotente, `fase1.json` | 1.1 |
 | 2.2 | **TK-02e** Ollama AI Transformer ✅ | Prompts, schemas, Ajv, posprocesado, fallback | 1.1 |
 | 2.3 | **TK-02f** Orquestador: `startTicket` (núcleo) ✅ | Jira → Git → carpetas → Ollama → documento, confirmación única y `ticket_logs` | 1.2, 1.3, 2.1, 2.2 |
-| 2.4 | **TK-02h** Orquestador: Fase 1 reutilizable | Reutilizar la Fase 1 con otro repositorio y reprocesarla (`--reprocesar`) | 2.3 |
+| 2.4 | **TK-02h** Orquestador: Fase 1 reutilizable ✅ | Reutilizar la Fase 1 con otro repositorio y reprocesarla (`--reprocesar`) | 2.3 |
 | 2.5 | **TK-03b** `devflow start` | Selección de ticket y repositorio, carga manual, confirmación, progreso, pantallas de resultado | 2.3, 2.4 |
 
 *Nota de orden:* 2.1 y 2.2 son independientes (se pueden paralelizar). Si Ollama se retrasa, 2.2 puede entrar con solo el camino de fallback determinista y completarse después sin bloquear 2.3, siempre que el contrato del ticket lo apruebe.

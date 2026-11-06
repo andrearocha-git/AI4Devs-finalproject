@@ -1,20 +1,29 @@
 import { readFileSync } from "node:fs";
 import type { StepResult } from "../../shared/errors/result.types.js";
+import type { TipoTicket } from "../../shared/types/ticket-context.types.js";
 
 /** Tratamiento que recibe un tipo de issue que sí tiene plantilla. */
 export interface IssueTypeResolution {
-  tipo: "bug" | "historia";
+  tipo: TipoTicket;
   /** Tipo de rama; el Orquestador lo convierte en prefijo con `app_config`. */
   branchType: "feature" | "bugfix";
   /** Versión del prompt y schema del tipo (se registra en `ticket_logs.prompt_version`). */
   promptVersion: string;
 }
 
+/** Reglas del posprocesado determinista de un tipo (`templates/issue-types.json`); ver `src/services/ollama/postprocess.ts`. */
+export interface PostprocessRules {
+  /** Campo del documento → pregunta abierta que se agrega cuando `presenteEnTicket` lo marca como ausente. */
+  siFalta: Record<string, string>;
+  /** Campos cuyos números y textos entre comillas se verifican contra el ticket (solo bugs). */
+  verificarLiterales?: string[];
+}
+
 interface IssueTypesTemplate {
   blockedTypes: string[];
   types: {
-    bug: { names: string[]; branchType: "bugfix"; promptVersion: string };
-    historia: { branchType: "feature"; promptVersion: string };
+    bug: { names: string[]; branchType: "bugfix"; promptVersion: string } & PostprocessRules;
+    historia: { branchType: "feature"; promptVersion: string } & PostprocessRules;
   };
 }
 
@@ -33,6 +42,27 @@ function normalize(name: string): string {
 
 const blocked = new Set(template.blockedTypes.map(normalize));
 const bugNames = new Set(template.types.bug.names.map(normalize));
+
+/**
+ * Versión del prompt y schema de un tipo de plantilla, tal como figura en `templates/issue-types.json`.
+ *
+ * @param tipo Tipo de plantilla (`bug` o `historia`).
+ * @returns La `promptVersion` (p. ej. `bug-v1`); es la que se registra en `ticket_logs.prompt_version`.
+ */
+export function promptVersionFor(tipo: TipoTicket): string {
+  return template.types[tipo].promptVersion;
+}
+
+/**
+ * Reglas del posprocesado determinista de un tipo de plantilla, tal como figuran en `templates/issue-types.json`.
+ *
+ * @param tipo Tipo de plantilla (`bug` o `historia`).
+ * @returns Las reglas `siFalta` y, solo para `bug`, `verificarLiterales`.
+ */
+export function postprocessRulesFor(tipo: TipoTicket): PostprocessRules {
+  const { siFalta, verificarLiterales } = template.types[tipo];
+  return { siFalta, ...(verificarLiterales ? { verificarLiterales } : {}) };
+}
 
 /**
  * Resuelve el tratamiento de un tipo de issue de Jira según `templates/issue-types.json`.

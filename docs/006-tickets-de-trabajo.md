@@ -278,6 +278,8 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
   - `src/services/ollama/postprocess.ts` *(asumido: nombre del módulo del posprocesado determinista)*
   - `templates/prompts/{comun.system.md, bug.system.md, historia.system.md, ticket.user.md, bug.schema.json, historia.schema.json}`
   - `tests/unit/services/ollama/*.test.ts` (Ollama simulado con msw)
+  - `templates/issue-types.json` *(añadido al implementar: reglas `siFalta` y `verificarLiterales` por tipo)*
+  - `src/services/orchestrator/issue-type-resolver.ts` y `src/shared/types/ticket-context.types.ts` *(añadidos al implementar: `promptVersionFor`, `postprocessRulesFor` y el tipo `TipoTicket`)*
 
 - **Contratos e Interfaces (Input/Output):**
   - `OllamaAITransformer.processContext(ctx: ContextoTicket, tipo: 'bug' | 'historia', onToken?: (chars: number) => void): Promise<StepResult<DocumentoFase1>>` — `DocumentoFase1` es la respuesta del JSON Schema del tipo, ya posprocesada, más `generatedByOllama: boolean` y `promptVersion: string`. Ambos schemas empiezan por `presenteEnTicket` y incluyen `resumen`, `escenarios[] { titulo, given, when, then }` y `preguntasAbiertas[]`; el de **bug** suma `pasosParaReproducir[]`, `comportamientoEsperado`, `comportamientoActual` y `entorno`; el de **historia**, `historiaUsuario { como, quiero, para }` y `casosDeUso[]`. Sin bloques de código.
@@ -286,8 +288,8 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
   1. (CA2 original) `OllamaAITransformer`: JSON válido contra el schema del tipo → `Ok`; JSON con un bloque de código Markdown embebido (fenced code block) → `FallbackDeterminista` (verifica el Non-Goal "cero código generado" del PRD); sin respuesta dentro de `ollama_timeout_seconds` → `FallbackDeterminista`. El posprocesado sobrescribe con "No especificado en el ticket." los campos marcados como ausentes en `presenteEnTicket` y agrega la pregunta abierta; en bugs descarta literales ausentes del ticket (verificable con los fixtures escuetos de TK-02a).
 
 - **Definition of Done (DoD):**
-  - [ ] Al cambiar un prompt o un schema se sube `promptVersion` del tipo en `templates/issue-types.json`.
-  - [ ] Hay al menos un test para `Ok` y para `FallbackDeterminista`.
+  - [x] Al cambiar un prompt o un schema se sube `promptVersion` del tipo en `templates/issue-types.json`. *(Regla escrita en `templates/README.md`; las versiones `v1` son las primeras y aún no se han usado en ejecuciones registradas.)*
+  - [x] Hay al menos un test para `Ok` y para `FallbackDeterminista`.
   - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---
@@ -397,7 +399,7 @@ Orden: TK-03a (Hito 1, ya con TK-02g) → TK-03b (Hito 2, con TK-02f).
 - **Definition of Done (DoD):**
   - [x] La TUI no importa clientes de Jira/Git/Ollama ni el storage manager — solo invoca al Orquestador (verificable por revisión de imports).
   - [x] Los nombres `devflow config` y `devflow config proyectos` están decididos (H-06); los flags y subcomandos concretos se fijan al refinar este ticket y se validan antes de cerrarlo. *(Fijados el 2026-11-05: ambos son interactivos, sin flags de configuración; solo `--help` y `--version`.)*
-  - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
+  - [x] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---
 

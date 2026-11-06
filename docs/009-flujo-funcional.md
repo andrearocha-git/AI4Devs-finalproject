@@ -154,7 +154,7 @@ Los pasos 1-3 son de **solo lectura** (`GitManager.inspectRepository`) y se ejec
 
 **Historias:** US-03 · **Tickets:** TK-02
 
-### 4.1 Reutilización y reproceso de Fase 1 — `📄 Especificado` · US-03 CA6, CA9 · TK-02
+### 4.1 Reutilización y reproceso de Fase 1 — `📄 Especificado` · US-03 CA6, CA9 · TK-02h (se separó de TK-02f el 2026-11-06; depende del flujo de TK-02f)
 
 - Si existe `ID\.devflow\fase1.json` (el ticket ya se ejecutó con otro repositorio) → se reutiliza, `ollama_status = 'reused'`, **no se invoca a Ollama**.
 - Si es la primera ejecución del ticket → 4.2.
@@ -276,3 +276,4 @@ Detectados al cruzar las fuentes (análisis pre-código, 2026-11-01). Cada uno i
 | 2026-11-05 | TK-03a implementado: `cli.ts` (Commander) con `devflow config` (URL, email, token enmascarado, carpeta de tickets y sufijo sugerido con credenciales aún sin guardar) y `devflow config proyectos` (menú de claves y repositorios), `createOrchestrator`, `listRepositories`, validación de `jiraBaseUrl` y `npm start`. Comprobado contra el Jira real y un `origin` real desde WSL (solo lectura); falta la prueba interactiva en Windows. Pasos 1.2, 1.3 y 1.4 siguen en desarrollo hasta esa prueba. 431 tests. Commits `bc0a5a8`, `58ee60e` y `24d7a98`; la revisión de Cursor añadió `TicketOrchestrator.close()`. | 1.2 · 1.3 · 1.4 · H-06 · TK-03a |
 | 2026-11-05 | TK-02e implementado: `OllamaAITransformer` (streaming, schema en `format`, validación con Ajv, fallback determinista ante cualquier fallo), prompts y schemas en `templates/prompts/`, y posprocesado `siFalta` / `verificarLiterales` con las reglas en `issue-types.json`. Comprobado con `qwen2.5:3b` real; se afinó el prompt de bug. Pasos 4.2 y 4.3 a ✅; 4.4 sigue en desarrollo hasta TK-02f. 505 tests (508 tras la revisión de Cursor, que corrigió la última línea del streaming sin salto de línea). Commit `401f9b6`. | 4.2 · 4.3 · 4.4 · TK-02e |
 | 2026-11-05 | Prueba en Windows (nativo, PowerShell) de TK-03a con el Jira y los repositorios reales de la desarrolladora: `typecheck`, `lint` y 507 de 508 tests (el que falló era un timeout de 5 s en un `git pull` contra un puerto cerrado, más lento en Windows; corregido con un timeout propio), `devflow config` y `devflow config proyectos` completos, base en `%APPDATA%`. Pasos 1.2, 1.3 y 1.4 a ✅. Pendiente para el Hito 3: el `bin` de `devflow` (el mensaje final de `config` nombra un comando que aún no existe). | 1.2 · 1.3 · 1.4 · TK-03a |
+| 2026-11-06 | TK-02f dividido: el flujo `startTicket` (núcleo) queda en TK-02f y la reutilización y el reproceso de la Fase 1 (US-03 CA6 y CA9) pasan a TK-02h, que depende de TK-02f; TK-03b depende de ambos. Actualizados `006`, el backlog, el README y el paso 4.1 de este documento. | 4.1 · TK-02f · TK-02h |

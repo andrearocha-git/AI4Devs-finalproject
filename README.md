@@ -163,7 +163,7 @@ Crea las tablas `app_config`, `jira_projects`, `repositories` y `ticket_logs` (c
 Implementa la consulta directa a Jira (con reintento, clasificación de fallos y la regla del 404 con `/myself`), el procesamiento con Ollama (salida estructurada validada con Ajv, posprocesado determinista y fallback sin código generado), la creación de la rama Git desde la base actualizada (con `git status` previo y sin commit, add ni push) y la generación de la carpeta de evidencias y el documento Markdown en dos fases, todo coordinado por un orquestador que emite eventos de progreso. Vinculado a US-02 y US-03. Por su tamaño se dividió en siete sub-tickets (TK-02a a TK-02g: base compartida, Jira, Git, FileSystem, Ollama, flujo del Orquestador y gestión de configuración), cada uno con su contrato en `docs/changes/`.
 
 **Ticket 3 (Frontend / TUI) — TK-03: Controlador CLI e Interfaz Interactiva de Terminal (Windows)**
-*Prioridad: Must Have · Secuencia: 3 · Esfuerzo: Medio · Dependencias: TK-01, TK-02f, TK-02g*
+*Prioridad: Must Have · Secuencia: 3 · Esfuerzo: Medio · Dependencias: TK-01, TK-02f, TK-02g, TK-02h*
 
 Implementa los comandos `devflow start [ID]` y `devflow config`, la validación del ID, los prompts de selección de ticket y repositorio, carga manual y confirmación, y las vistas de progreso (spinner simple, sin Ink), resumen y fallback en la terminal — la TUI nunca accede a Jira, Git, Ollama o SQLite directamente, solo al orquestador. Vinculado a US-01, US-02 y US-03. Por su tamaño se dividió en dos sub-tickets (TK-03a: CLI base y `devflow config`; TK-03b: `devflow start` con sus prompts y vistas), cada uno con su contrato en `docs/changes/`.
 

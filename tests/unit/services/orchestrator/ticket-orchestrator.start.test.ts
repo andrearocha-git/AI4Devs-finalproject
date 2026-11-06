@@ -570,6 +570,7 @@ describe("E2 — cortes en Git y confirmación única", () => {
       const failing = setup({
         fileSystem: {
           createTicketWorkspace: async () => ({ kind: "ErrorBloqueante", subtype: "PermisosInsuficientes", message: "No hay permisos para crear D:\\JIRAS" }),
+          readFase1: async () => ok(null),
           saveFase1: async () => ok(undefined),
           writeDocument: async () => ok({ documentPath: "x" }),
         },
@@ -596,6 +597,7 @@ describe("E2 — cortes en Git y confirmación única", () => {
       const failing = setup({
         fileSystem: {
           createTicketWorkspace: async () => ok({ folderPath: "carpeta", documentPath: "carpeta/doc.md" }),
+          readFase1: async () => ok(null),
           saveFase1: async () => ok(undefined),
           writeDocument: async () => ({ kind: "ErrorBloqueante", subtype: "PermisosInsuficientes", message: "No hay permisos para escribir el documento" }),
         },
@@ -653,6 +655,7 @@ describe("Revisión de Cursor sobre TK-02f", () => {
       const failing = setup({
         fileSystem: {
           createTicketWorkspace: async () => ok({ folderPath: "carpeta", documentPath: "carpeta/doc.md" }),
+          readFase1: async () => ok(null),
           saveFase1: async () => ok(undefined),
           writeDocument: async () => ({ kind: "ErrorBloqueante", subtype: "PermisosInsuficientes", message: "No hay permisos para escribir el documento" }),
         },

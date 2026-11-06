@@ -18,6 +18,8 @@ const OLLAMA = "http://localhost:11434";
 const BRANCH = "bugs/SCRUM-2-AROCHA";
 
 const server = setupServer();
+/** Cuántas veces se llamó a Ollama en el test en curso. */
+let ollamaCalls = 0;
 
 /** Aísla a Git de la configuración de quien corre los tests (igual que los tests de `GitManager`). */
 const savedEnv = { ...process.env };
@@ -94,7 +96,7 @@ function ndjson(text: string): ReadableStream<Uint8Array> {
 }
 
 /** Simula Jira (proyectos, ticket y `/myself`) y Ollama (la Fase 1 de un bug, o un error HTTP). */
-function simulate(options: { ollama: "ok" | "caido" } = { ollama: "ok" }): void {
+function simulate(options: { ollama: "ok" | "caido"; resumen?: string } = { ollama: "ok" }): void {
   server.use(
     http.get(`${JIRA}/rest/api/2/project/:key`, ({ params }) => HttpResponse.json({ key: params.key, name: `Proyecto ${String(params.key)}` })),
     http.get(`${JIRA}/rest/api/2/myself`, () => HttpResponse.json({ displayName: "Andrea Rocha" })),
@@ -105,11 +107,14 @@ function simulate(options: { ollama: "ok" | "caido" } = { ollama: "ok" }): void 
         fields: { summary: "El botón Aceptar desaparece", description: "Al borrar el importe desaparece el botón Aceptar", issuetype: { name: "Error" } },
       }),
     ),
-    http.post(`${OLLAMA}/api/generate`, () =>
-      options.ollama === "ok"
-        ? new HttpResponse(ndjson(JSON.stringify(BUG_FASE1)), { headers: { "Content-Type": "application/x-ndjson" } })
-        : HttpResponse.json({ error: "model not found" }, { status: 404 }),
-    ),
+    http.post(`${OLLAMA}/api/generate`, () => {
+      ollamaCalls += 1;
+      return options.ollama === "ok"
+        ? new HttpResponse(ndjson(JSON.stringify({ ...BUG_FASE1, ...(options.resumen ? { resumen: options.resumen } : {}) })), {
+            headers: { "Content-Type": "application/x-ndjson" },
+          })
+        : HttpResponse.json({ error: "model not found" }, { status: 404 });
+    }),
   );
 }
 
@@ -122,7 +127,7 @@ interface World {
   repositoryId: number;
   /** Respuestas dadas a `ask` y confirmaciones recibidas. */
   confirmations: Array<{ branchAlreadyExists: boolean }>;
-  start: (ticketId: string, extra?: { repositoryId?: number }) => Promise<TicketRunSummary>;
+  start: (ticketId: string, extra?: { repositoryId?: number; reprocessFase1?: boolean }) => Promise<TicketRunSummary>;
   rows: () => Array<Record<string, unknown>>;
 }
 
@@ -169,7 +174,10 @@ async function setup(): Promise<World> {
     repositoryId: added.value.id,
     confirmations,
     start: (ticketId, extra = {}) =>
-      orchestrator.startTicket({ ticketId, repositoryId: extra.repositoryId ?? added.value.id }, { onStep: () => {}, ask }),
+      orchestrator.startTicket(
+        { ticketId, repositoryId: extra.repositoryId ?? added.value.id, ...(extra.reprocessFase1 ? { reprocessFase1: true } : {}) },
+        { onStep: () => {}, ask },
+      ),
     rows: () => {
       const reader = new SQLiteStorageManager(dbPath);
       try {
@@ -182,6 +190,7 @@ async function setup(): Promise<World> {
 }
 
 afterEach(() => {
+  ollamaCalls = 0;
   server.resetHandlers();
   for (const orchestrator of orchestrators.splice(0)) orchestrator.close();
   for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
@@ -310,5 +319,94 @@ describe("startTicket de punta a punta (Git, carpetas y SQLite reales; Jira y Ol
 
     expect(w.rows()).toHaveLength(1);
     expect(w.rows()[0]).toMatchObject({ branch_status: "already_existed" });
+  });
+});
+
+/** Quita el bloque de Fase 1 de un documento: lo que queda es lo que ni el reproceso ni el reintento deben tocar. */
+const outsideFase1 = (document: string): string =>
+  document.replace(/<!-- DEVFLOW:FASE1:INICIO -->[\s\S]*<!-- DEVFLOW:FASE1:FIN -->/, "<!-- FASE1 -->");
+
+describe("Fase 1 reutilizable, reprocesada y reintentada (TK-02h) con Git real", { timeout: 30_000 }, () => {
+  let w: World;
+  beforeEach(async () => {
+    w = await setup();
+  });
+
+  /** Da de alta un segundo repositorio real de la misma clave y devuelve su ruta e id. */
+  async function secondRepo(): Promise<{ path: string; id: number }> {
+    const path = createRepo(w.dir, "web");
+    const added = await w.orchestrator.addRepository({ jiraProjectKey: "SCRUM", name: "web", repoLocalPath: path });
+    if (added.kind !== "Ok") throw new Error(`alta del segundo repositorio fallida: ${JSON.stringify(added)}`);
+    return { path, id: added.value.id };
+  }
+  const docOf = (name: string): string => join(w.tickets, "SCRUM-2", name, "SCRUM-2.md");
+
+  it("con otro repositorio reutiliza la Fase 1 sin llamar a Ollama: rama real en el segundo y documento del primero intacto", async () => {
+    const web = await secondRepo();
+    await w.start("SCRUM-2");
+    expect(ollamaCalls).toBe(1);
+    const docABefore = readFileSync(docOf("repo"), "utf8");
+
+    const summary = await w.start("SCRUM-2", { repositoryId: web.id });
+
+    expect(ollamaCalls).toBe(1);
+    expect(summary).toMatchObject({ ollamaStatus: "reused", branchStatus: "created", branchName: BRANCH, repositoryId: web.id });
+    expect(git(web.path, "branch", "--show-current").trim()).toBe(BRANCH);
+    expect(git(web.path, "status", "--porcelain").trim()).toBe("");
+    expect(readFileSync(docOf("web"), "utf8")).toContain("El botón Aceptar desaparece al borrar el importe.");
+    expect(readFileSync(docOf("repo"), "utf8")).toBe(docABefore);
+    expect(w.rows().find((row) => row.repository_id === web.id)).toMatchObject({ ollama_status: "reused", prompt_version: "bug-v1" });
+    expect(w.rows()).toHaveLength(2);
+  });
+
+  it("reprocesar regenera solo el bloque de Fase 1 y conserva lo completado a mano en la Fase 2", async () => {
+    await w.start("SCRUM-2");
+    const docPath = docOf("repo");
+    writeFileSync(docPath, `${readFileSync(docPath, "utf8")}\nFASE 2 ESCRITA A MANO\n`);
+    const docBefore = readFileSync(docPath, "utf8");
+    simulate({ ollama: "ok", resumen: "Análisis reprocesado" });
+
+    const summary = await w.start("SCRUM-2", { reprocessFase1: true });
+
+    expect(ollamaCalls).toBe(2);
+    expect(summary).toMatchObject({ ollamaStatus: "ok", branchStatus: "already_existed" });
+    const doc = readFileSync(docPath, "utf8");
+    expect(doc).toContain("Análisis reprocesado");
+    expect(doc).toContain("FASE 2 ESCRITA A MANO");
+    expect(outsideFase1(doc)).toBe(outsideFase1(docBefore));
+    expect(JSON.parse(readFileSync(join(w.tickets, "SCRUM-2", ".devflow", "fase1.json"), "utf8"))).toMatchObject({ resumen: "Análisis reprocesado" });
+    expect(git(w.repo, "branch", "--show-current").trim()).toBe(BRANCH);
+  });
+
+  it("reprocesar con Ollama caído conserva la Fase 1 anterior: documento y fase1.json intactos", async () => {
+    await w.start("SCRUM-2");
+    const docBefore = readFileSync(docOf("repo"), "utf8");
+    const fase1Path = join(w.tickets, "SCRUM-2", ".devflow", "fase1.json");
+    const fase1Before = readFileSync(fase1Path, "utf8");
+    simulate({ ollama: "caido" });
+
+    const summary = await w.start("SCRUM-2", { reprocessFase1: true });
+
+    expect(summary.ollamaStatus).toBe("fallback_deterministic");
+    expect(readFileSync(docOf("repo"), "utf8")).toBe(docBefore);
+    expect(readFileSync(fase1Path, "utf8")).toBe(fase1Before);
+  });
+
+  it("tras una ejecución con Ollama caído, la siguiente reintenta sola y reemplaza el aviso por la Fase 1", async () => {
+    simulate({ ollama: "caido" });
+    await w.start("SCRUM-2");
+    const docPath = docOf("repo");
+    expect(readFileSync(docPath, "utf8")).toContain("⚠️ Generado sin Ollama");
+    writeFileSync(docPath, `${readFileSync(docPath, "utf8")}\nFASE 2 ESCRITA A MANO\n`);
+    simulate({ ollama: "ok", resumen: "Análisis logrado al reintentar" });
+
+    const summary = await w.start("SCRUM-2");
+
+    expect(summary.ollamaStatus).toBe("ok");
+    const doc = readFileSync(docPath, "utf8");
+    expect(doc).toContain("Análisis logrado al reintentar");
+    expect(doc).not.toContain("⚠️ Generado sin Ollama");
+    expect(doc).toContain("FASE 2 ESCRITA A MANO");
+    expect(existsSync(join(w.tickets, "SCRUM-2", ".devflow", "fase1.json"))).toBe(true);
   });
 });

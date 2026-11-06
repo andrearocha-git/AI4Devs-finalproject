@@ -14,7 +14,11 @@ export interface StartTicketInput {
   repositoryId?: number;
   /** Rama base solo para esta ejecución (`--base`); no cambia la del repositorio. */
   baseBranchOverride?: string;
-  /** Reprocesar la Fase 1 (`--reprocesar`). Se acepta y viaja en la confirmación; su efecto llega con TK-02h. */
+  /**
+   * Reprocesar la Fase 1 (`--reprocesar`): vuelve a llamar a Ollama aunque ya haya una Fase 1 válida, sobrescribe `fase1.json` y
+   * reemplaza solo el bloque de Fase 1 del documento (el encabezado y la Fase 2 no se tocan). Si el nuevo intento cae a fallback,
+   * se conserva la Fase 1 anterior. También viaja en el resumen de la confirmación.
+   */
   reprocessFase1?: boolean;
 }
 

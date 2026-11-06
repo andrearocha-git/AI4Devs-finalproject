@@ -97,6 +97,7 @@ export async function runStartTicket(
   const fetched = await jira.fetchTicket(ticketId);
   if (fetched.kind === "Ok") {
     ticket = fetched.value;
+    hooks.onStep("jira", "ok");
   } else if (fetched.kind === "FallbackManual") {
     hooks.onStep("jira", "fallback", fetched.reason);
     const answer = await hooks.ask({ kind: "manualTicket", ticketId, reason: fetched.reason });
@@ -116,12 +117,12 @@ export async function runStartTicket(
     return { ...blockedRun(ticketId, failure.subtype, failure.message), issueType: ticket.issueType, jiraFetchStatus };
   }
   const { tipo, branchType } = resolved.value;
-  if (jiraFetchStatus === "ok") hooks.onStep("jira", "ok");
   const displayName = ticket.source === "jira" ? await jira.getMyDisplayName() : null;
 
   const prefix = branchType === "bugfix" ? config.branchPrefixBugfix : config.branchPrefixFeature;
   const branchName = repo ? `${prefix}/${ticketId}-${config.branchUserSuffix}` : null;
-  const baseBranch = repo ? (input.baseBranchOverride ?? repo.defaultBaseBranch) : null;
+  const baseOverride = input.baseBranchOverride?.trim();
+  const baseBranch = repo ? (baseOverride ? baseOverride : repo.defaultBaseBranch) : null;
   const plannedFolder = repo ? join(config.ticketsRootPath, ticketId, repo.name) : join(config.ticketsRootPath, ticketId);
 
   let branchStatus: TicketRunSummary["branchStatus"] = null;
@@ -198,6 +199,7 @@ export async function runStartTicket(
     },
   });
   if (!confirmed) {
+    if (repo) hooks.onStep("git", "ok", "inspección completada; ejecución cancelada");
     return { ...summary({ cancelled: true }), branchName: null };
   }
 
@@ -206,7 +208,8 @@ export async function runStartTicket(
     const created = await git.createBranch({ repoLocalPath: repo.repoLocalPath, branchName, baseBranch });
     if (created.kind !== "Ok") {
       const failure = failureOf(created, "No se pudo crear la rama.");
-      branchStatus = "error";
+      // `createBranch` repite el `git status`: si el árbol se ensució tras la confirmación, es el mismo corte que en la inspección.
+      branchStatus = failure.subtype === "CambiosPendientes" ? "pending_changes" : "error";
       hooks.onStep("git", "error", failure.message);
       return stop(failure.subtype, failure.message);
     }
@@ -259,6 +262,7 @@ export async function runStartTicket(
   });
   if (written.kind !== "Ok") {
     const failure = failureOf(written, "No se pudo escribir el documento.");
+    hooks.onStep("filesystem", "error", failure.message);
     return stop(failure.subtype, failure.message);
   }
 

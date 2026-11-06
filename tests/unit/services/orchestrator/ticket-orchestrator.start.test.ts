@@ -610,3 +610,71 @@ describe("E2 — cortes en Git y confirmación única", () => {
     });
   });
 });
+
+describe("Revisión de Cursor sobre TK-02f", () => {
+  describe("baseBranchOverride en blanco", () => {
+    it.each(["", "   "])("«%s» cuenta como ausente: se usa la base guardada del repositorio y Git se ejecuta", async (override) => {
+      const summary = await f.start({ ticketId: "SCRUM-2", repositoryId: f.repo.id, baseBranchOverride: override });
+
+      expect(f.git.inspectRepository).toHaveBeenCalledTimes(1);
+      expect(f.git.createBranch).toHaveBeenCalledWith({ repoLocalPath: "/work/api", branchName: "bugs/SCRUM-2-AROCHA", baseBranch: "main" });
+      expect(f.ask).toHaveBeenCalledWith({ kind: "confirmActions", summary: expect.objectContaining({ baseBranch: "main" }) });
+      expect(summary).toMatchObject({ branchStatus: "created", branchName: "bugs/SCRUM-2-AROCHA" });
+      expect(f.rows()[0]).toMatchObject({ base_branch: "main", branch_status: "created" });
+    });
+
+    it("se recortan los espacios de un override con valor", async () => {
+      await f.start({ ticketId: "SCRUM-2", repositoryId: f.repo.id, baseBranchOverride: " develop " });
+
+      expect(f.git.createBranch).toHaveBeenCalledWith(expect.objectContaining({ baseBranch: "develop" }));
+    });
+  });
+
+  describe("onStep cierra siempre el paso que abrió", () => {
+    it("una épica emite jira:started y jira:ok antes de cortar", async () => {
+      f.jira.fetchTicket.mockResolvedValue(ok({ ...BUG, ticketId: "SCRUM-9", issueType: "Epic" }));
+
+      await f.start({ ticketId: "SCRUM-9", repositoryId: f.repo.id });
+
+      expect(f.steps.map(([step, status]) => `${step}:${status}`)).toEqual(["jira:started", "jira:ok"]);
+    });
+
+    it("al cancelar con repositorio el paso git no queda en started", async () => {
+      f.ask.mockResolvedValue(false);
+
+      await f.start({ ticketId: "SCRUM-2", repositoryId: f.repo.id });
+
+      const git = f.steps.filter(([step]) => step === "git").map(([, status]) => status);
+      expect(git[0]).toBe("started");
+      expect(git.at(-1)).not.toBe("started");
+    });
+
+    it("si falla el documento se emite filesystem:error con el motivo", async () => {
+      const failing = setup({
+        fileSystem: {
+          createTicketWorkspace: async () => ok({ folderPath: "carpeta", documentPath: "carpeta/doc.md" }),
+          saveFase1: async () => ok(undefined),
+          writeDocument: async () => ({ kind: "ErrorBloqueante", subtype: "PermisosInsuficientes", message: "No hay permisos para escribir el documento" }),
+        },
+      });
+
+      await failing.start({ ticketId: "SCRUM-2", repositoryId: failing.repo.id });
+
+      expect(failing.steps.at(-1)).toEqual(["filesystem", "error", "No hay permisos para escribir el documento"]);
+      failing.storage.close();
+      rmSync(failing.root, { recursive: true, force: true });
+    });
+  });
+
+  it("si el árbol se ensucia entre la confirmación y createBranch, la fila queda pending_changes (no error)", async () => {
+    f.git.createBranch.mockResolvedValue({ kind: "ErrorBloqueante", subtype: "CambiosPendientes", message: "Hay cambios sin commitear:\n?? nuevo.txt" });
+
+    const summary = await f.start({ ticketId: "SCRUM-2", repositoryId: f.repo.id });
+
+    expect(summary.blocked).toMatchObject({ subtype: "CambiosPendientes" });
+    expect(summary.branchStatus).toBe("pending_changes");
+    expect(f.rows()[0]).toMatchObject({ branch_status: "pending_changes", folder_path: null, document_path: null, ollama_status: null });
+    expect(f.ask).toHaveBeenCalledTimes(1);
+    expect(existsSync(join(f.root, "SCRUM-2"))).toBe(false);
+  });
+});

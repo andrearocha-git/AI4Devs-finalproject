@@ -320,8 +320,8 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
   - `reprocessFase1` se acepta en la entrada y viaja en el resumen de la confirmación, pero **no tiene efecto** hasta TK-02h.
 
 - **Definition of Done (DoD):**
-  - [ ] Solo el Orquestador escribe `ticket_logs`.
-  - [ ] Los 4 tipos de `StepResult` tienen al menos un test en el Orquestador que los maneja.
+  - [x] Solo el Orquestador escribe `ticket_logs`.
+  - [x] Los 4 tipos de `StepResult` tienen al menos un test en el Orquestador que los maneja.
   - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---

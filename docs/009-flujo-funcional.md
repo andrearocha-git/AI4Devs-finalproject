@@ -4,7 +4,7 @@
 >
 > Fuentes de verdad: `docs/PRD.md`, `docs/001-descripcion-general-del-producto.md`, `docs/002-arquitectura-del-sistema.md`, `docs/005-historias-de-usuario.md`, `docs/006-tickets-de-trabajo.md`, `docs/ADR-001-arquitectura-inicial.md`. Si este archivo contradice a esas fuentes, gana la fuente; corregir aquí.
 
-**Estado del proyecto:** desarrollo en curso, ticket por ticket. Implementados: TK-00 (scaffold), TK-01 (Storage Layer), TK-02a (base compartida: `StepResult`, configuración, resolutor de tipo de issue, regla de lint), TK-02b (cliente REST de Jira), TK-02c (Git Manager), TK-02d (FileSystem Manager y plantillas), TK-02e (Ollama AI Transformer: prompts, schemas, Ajv y posprocesado), TK-02g (Orquestador: gestión de configuración, proyectos y repositorios) y TK-03a (CLI base, `devflow config` y `devflow config proyectos`). Todo lo demás es comportamiento *especificado*, aún sin código; los pasos que ya tienen parte implementada llevan la etiqueta `🚧 En desarrollo`.
+**Estado del proyecto:** desarrollo en curso, ticket por ticket. Implementados: TK-00 (scaffold), TK-01 (Storage Layer), TK-02a (base compartida: `StepResult`, configuración, resolutor de tipo de issue, regla de lint), TK-02b (cliente REST de Jira), TK-02c (Git Manager), TK-02d (FileSystem Manager y plantillas), TK-02e (Ollama AI Transformer: prompts, schemas, Ajv y posprocesado), TK-02f (Orquestador: flujo `startTicket` y `ticket_logs`), TK-02g (Orquestador: gestión de configuración, proyectos y repositorios) y TK-03a (CLI base, `devflow config` y `devflow config proyectos`). Todo lo demás es comportamiento *especificado*, aún sin código; los pasos que ya tienen parte implementada llevan la etiqueta `🚧 En desarrollo`.
 
 ## Cómo mantener este documento
 
@@ -89,13 +89,13 @@ Ref.: `002` §2.2.1.
 - Si la clave tiene varios repositorios, el usuario elige uno; con uno solo se preselecciona; sin repositorios no hay selección y no se pasa `repositoryId` (TK-03 CA4).
 - **Un repositorio por ejecución.** Un ticket que toca varios se ejecuta una vez por repositorio, en secuencia.
 
-### 2.3 Consulta a Jira — `✅ Implementado y probado` · US-02 CA2 · TK-02b (cliente; falta integrarlo en el Orquestador, TK-02f)
+### 2.3 Consulta a Jira — `✅ Implementado y probado` · US-02 CA2 · TK-02b, TK-02f (cliente integrado en `startTicket`; el nombre de la cuenta se pide además para el encabezado del documento)
 
 - `GET /rest/api/2/issue/{id}?fields=summary,description,issuetype`, con Basic email + token.
 - La `description` llega en texto plano y se mapea de forma determinista a `ContextoTicket` (sin LLM).
 - Un reintento con backoff corto (~2 s) ante timeout. Un cuerpo 2xx con campos de tipo incorrecto, una URL base inválida o una clave de proyecto con formato inválido (en `listAssignedTickets`) dan `ErrorBloqueante('ErrorInesperado')`, nunca una excepción.
 
-### 2.4 Fallback manual — `🚧 En desarrollo` · US-02 CA4-5 · TK-02b, TK-02f/TK-03b (la clasificación de fallos del cliente Jira está implementada; faltan `ask()` y el prompt de la TUI)
+### 2.4 Fallback manual — `🚧 En desarrollo` · US-02 CA4-5 · TK-02b, TK-02f/TK-03b (la clasificación de fallos del cliente Jira y la llamada a `ask({ kind: 'manualTicket' })` del Orquestador están implementadas; falta el prompt de la TUI, TK-03b. Un ticket cargado a mano no trae tipo de issue y cae en la plantilla `historia`)
 
 | Causa | Detección | Resultado |
 |---|---|---|
@@ -106,7 +106,7 @@ Ref.: `002` §2.2.1.
 
 El Orquestador invoca `ask({ kind: 'manualTicket', reason })`; la TUI abre `ManualTicketEntryPrompt` con el motivo, el usuario ingresa título y descripción y el flujo continúa con `source: 'manual'` y `jira_fetch_status = 'fallback_manual'`.
 
-### 2.5 Resolución del tipo de issue — `✅ Implementado y probado` · US-02 CA6 · TK-02a (`resolveIssueType`; el Orquestador aún no lo invoca)
+### 2.5 Resolución del tipo de issue — `✅ Implementado y probado` · US-02 CA6 · TK-02a, TK-02f (`resolveIssueType`; `startTicket` lo invoca tras obtener el ticket y antes de la confirmación)
 
 Según `templates/issue-types.json`:
 
@@ -143,7 +143,7 @@ Los pasos 1-3 son de **solo lectura** (`GitManager.inspectRepository`) y se ejec
 
 **Garantía:** nunca `commit`, `add` ni `push`; ningún archivo versionado se modifica.
 
-### 3.2 FileSystem Manager — carpetas — `✅ Implementado y probado` · ADR-004.1 · TK-02d (`createTicketWorkspace`; el Orquestador aún no lo invoca, TK-02f)
+### 3.2 FileSystem Manager — carpetas — `✅ Implementado y probado` · ADR-004.1 · TK-02d, TK-02f (`createTicketWorkspace`; `startTicket` lo invoca tras crear la rama)
 
 - Crea `<raíz de tickets>\ID\<repositorio>\adjuntos\` **fuera del repositorio Git** (clave sin repos: solo el documento, sin subcarpeta de repositorio).
 - Falta de permisos (antivirus, OneDrive, ruta bloqueada) → `ErrorBloqueante('PermisosInsuficientes')`: se detiene ese paso y se reporta qué se alcanzó a completar.
@@ -161,7 +161,7 @@ Los pasos 1-3 son de **solo lectura** (`GitManager.inspectRepository`) y se ejec
 - Si el `fase1.json` existente fue generado en **fallback** (`generatedByOllama: false`), no se reutiliza: se reintenta con Ollama (4.2) automáticamente.
 - Con **`--reprocesar`** (H-02) se ignora el `fase1.json` y se vuelve a invocar a Ollama (4.2). Si el nuevo intento es válido, sobrescribe `fase1.json` y reemplaza solo el bloque de Fase 1 del documento del repositorio elegido; si cae en fallback, **se conserva la Fase 1 válida anterior**. Los documentos de otros repositorios del ticket no se tocan.
 
-### 4.2 Ollama AI Transformer — `✅ Implementado y probado` · ADR-003.1 · TK-02e (`OllamaAITransformer.processContext`; el Orquestador aún no lo invoca, TK-02f)
+### 4.2 Ollama AI Transformer — `✅ Implementado y probado` · ADR-003.1 · TK-02e, TK-02f (`OllamaAITransformer.processContext`; `startTicket` lo invoca y guarda `fase1.json` si responde bien)
 
 - Prompt armado con archivos versionados de `templates/prompts/` (`comun.system.md`, `<tipo>.system.md`, `ticket.user.md`).
 - `POST /api/generate` con *streaming* y el JSON Schema del tipo en `format`; la TUI muestra el progreso. Modelo `qwen2.5:3b`, `ollama_timeout_seconds` = 120, `keep_alive` corto.
@@ -176,14 +176,14 @@ Los pasos 1-3 son de **solo lectura** (`GitManager.inspectRepository`) y se ejec
 - Contenido por tipo — **historia:** `historiaUsuario{como,quiero,para}`, `casosDeUso[]`, `escenarios[]` Gherkin, `preguntasAbiertas[]`. **Bug:** `pasosParaReproducir[]`, `comportamientoEsperado`, `comportamientoActual`, `entorno`, escenarios y preguntas.
 - Cualquier bloque de código embebido invalida la respuesta (Non-Goal "cero código generado").
 
-### 4.4 Fallback determinista — `🚧 En desarrollo` · US-03 CA4 · TK-02e, TK-02f (el transformer devuelve `FallbackDeterminista(rawText)` ante cualquier fallo y nunca lanza; falta que el Orquestador lo escriba en el documento y registre `ollama_status`, TK-02f)
+### 4.4 Fallback determinista — `✅ Implementado y probado` · US-03 CA4 · TK-02e, TK-02f (el transformer devuelve `FallbackDeterminista(rawText)` ante cualquier fallo y nunca lanza; `startTicket` escribe el documento marcado `⚠️ Generado sin Ollama`, no guarda `fase1.json` y registra `ollama_status = 'fallback_deterministic'`)
 
 - Se activa ante: Ollama caído, modelo no instalado, timeout de 120 s, JSON mal formado o con campos faltantes, o código embebido.
 - Resultado: `FallbackDeterminista(rawText)` → el texto crudo de Jira va en las secciones de Fase 1, marcado `⚠️ Generado sin Ollama — completar manualmente`.
 - La rama y las carpetas **ya fueron creadas**: el flujo no se bloquea.
 - `rawText` es el título, una línea en blanco y la descripción. El transformer no informa la causa del fallo: registrarla en `ticket_logs.ollama_error` exigiría ampliar `StepResult` (TK-02a).
 
-### 4.5 Renderizado del documento — `✅ Implementado y probado` · TK-02d (`writeDocument`, `saveFase1`, `readFase1`; el Orquestador aún no los invoca, TK-02f)
+### 4.5 Renderizado del documento — `✅ Implementado y probado` · TK-02d, TK-02f (`writeDocument` y `saveFase1`, que `startTicket` invoca; `readFase1` y la regeneración de la Fase 1 los usará TK-02h)
 
 - `FileSystemManager.writeDocument` combina el encabezado y la Fase 1 con la Fase 2 de la plantilla del tipo (Handlebars: `bug.md.hbs` / `historia.md.hbs`, basadas en la `plantilla-user-story.md` de la desarrolladora; la Fase 2 va vacía y la IA no la toca). Si el documento ya existe y no se pide regenerar, no lo toca.
 - La Fase 1 queda delimitada por `<!-- DEVFLOW:FASE1:INICIO -->` / `<!-- DEVFLOW:FASE1:FIN -->`. Con `regenerateFase1Only` solo se reemplaza el texto entre los marcadores; el encabezado y la Fase 2 quedan byte a byte iguales.
@@ -277,3 +277,4 @@ Detectados al cruzar las fuentes (análisis pre-código, 2026-11-01). Cada uno i
 | 2026-11-05 | TK-02e implementado: `OllamaAITransformer` (streaming, schema en `format`, validación con Ajv, fallback determinista ante cualquier fallo), prompts y schemas en `templates/prompts/`, y posprocesado `siFalta` / `verificarLiterales` con las reglas en `issue-types.json`. Comprobado con `qwen2.5:3b` real; se afinó el prompt de bug. Pasos 4.2 y 4.3 a ✅; 4.4 sigue en desarrollo hasta TK-02f. 505 tests (508 tras la revisión de Cursor, que corrigió la última línea del streaming sin salto de línea). Commit `401f9b6`. | 4.2 · 4.3 · 4.4 · TK-02e |
 | 2026-11-05 | Prueba en Windows (nativo, PowerShell) de TK-03a con el Jira y los repositorios reales de la desarrolladora: `typecheck`, `lint` y 507 de 508 tests (el que falló era un timeout de 5 s en un `git pull` contra un puerto cerrado, más lento en Windows; corregido con un timeout propio), `devflow config` y `devflow config proyectos` completos, base en `%APPDATA%`. Pasos 1.2, 1.3 y 1.4 a ✅. Pendiente para el Hito 3: el `bin` de `devflow` (el mensaje final de `config` nombra un comando que aún no existe). | 1.2 · 1.3 · 1.4 · TK-03a |
 | 2026-11-06 | TK-02f dividido: el flujo `startTicket` (núcleo) queda en TK-02f y la reutilización y el reproceso de la Fase 1 (US-03 CA6 y CA9) pasan a TK-02h, que depende de TK-02f; TK-03b depende de ambos. Actualizados `006`, el backlog, el README y el paso 4.1 de este documento. | 4.1 · TK-02f · TK-02h |
+| 2026-11-06 | TK-02f implementado: `TicketOrchestrator.startTicket` (Jira o carga manual → tipo → inspección de Git → confirmación única → rama → carpeta → Ollama → documento) con registro en `ticket_logs`, todos los cortes y la cancelación; tipos en `src/shared/types/ticket-run.types.ts`. Probado con Git, carpetas y SQLite reales y, a mano, con el Jira y Ollama reales. La reutilización y el reproceso de la Fase 1 siguen para TK-02h. Pasos 2.3, 2.5, 3.2, 4.2, 4.4 y 4.5 actualizados. 551 tests. Commit `2a2859a`. | 2.3 · 2.4 · 2.5 · 3.2 · 4.2 · 4.4 · 4.5 · TK-02f |

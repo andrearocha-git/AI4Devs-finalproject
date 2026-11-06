@@ -32,7 +32,7 @@ The tool follows a **3-layer pattern**: TUI Layer → Service Layer (an *orchest
 - **Ollama local LLM with deterministic fallback** — never OpenAI/Anthropic cloud APIs, for privacy and cost reasons. Ollama must return structured JSON (the type's JSON Schema passed in `format`, validated with Ajv) before rendering to Markdown; anything that fails validation (including any code snippet) falls back to raw unstructured text, never blocking the flow. (ADR-003.1)
 - **Evidence folders stay local, outside the project's Git repo entirely** — `<tickets_root>/ID/<repo>/adjuntos/` and the generated Markdown doc live under the developer's Windows user profile, never inside the tracked repository. (ADR-004.1)
 - **Jira REST API is called directly** (Jira Cloud API v2, Basic email + API Token) — no MCP Server (e.g. Atlassian Rovo MCP) intermediary, to avoid OAuth/browser flows and keep token/latency budget under the tool's own control. (ADR-005.1)
-- **Git Manager's scope (changed decision — see ADR-007.1):** it verifies the repo exists, runs `git status --porcelain` and stops listing the files if there are pending changes, informs and continues if the branch already exists, updates the base branch (`git pull --ff-only origin <base>` if on it, otherwise `git fetch origin <base>:<base>`), then creates the branch with `git switch -c <branch> <base>`. A failed pull is a blocking error (never branch from a stale base). It **never commits, adds or pushes**. Base branch is per repository (default `main`), with a one-off `--base` override. (The original minimal scope — only repo/branch existence checks, no status, no pull — is superseded.)
+- **Git Manager's scope (changed decision — see ADR-007.1):** it verifies the repo exists, runs `git status --porcelain` and stops listing the files if there are pending changes, if the branch already exists locally informs, the Orchestrator asks to confirm using it and it continues (if it exists only on `origin` it stops with `RamaExistenteEnRemoto`; it never creates or publishes remote branches), updates the base branch (`git switch <base>` if not on it, then `git pull --no-rebase --ff-only origin <base>`; names starting with `refs/` are rejected and an in-progress merge/rebase/cherry-pick/revert counts as pending changes), then creates the branch with `git switch -c <branch> <base>`. A failed pull is a blocking error (never branch from a stale base). It **never commits, adds or pushes**. Base branch is per repository (default `main`), with a one-off `--base` override. (The original minimal scope — only repo/branch existence checks, no status, no pull — is superseded.)
 - **Result contract** used by every orchestrated step: `Ok | FallbackManual | FallbackDeterminista | ErrorBloqueante`.
 
 ## Reglas de implementación
@@ -43,7 +43,7 @@ Restricciones técnicas ya decididas (ADR-006.1 aceptado, ADR-003.1, ADR-007.1) 
 - Jira Cloud API **v2** (descripción en texto plano), auth Basic email + token. Ante un 404 en `/issue` o `/project`, llamar a `/myself`: 401 = token inválido, 200 = no existe. Validar las claves de proyecto con `GET /rest/api/2/project/{key}` al darlas de alta (la JQL ignora claves inexistentes sin error).
 - **Un repositorio por ejecución**; un documento (y su `adjuntos/`) por ticket y repositorio; la Fase 1 de Ollama se genera una vez por ticket y se reutiliza (`ollama_status = 'reused'`). Clave sin repositorios: solo documento, sin rama.
 - Ramas: `<prefijo>/<ID>-<SUFIJO>` (`features/` o `bugs/` según el tipo de issue). Épica/Epic: bloqueada con aviso (sin rama ni documento). Bug/Error/Defecto → plantilla `bug`; el resto → plantilla `historia`.
-- Git Manager: la secuencia de ADR-007.1; nunca commit, add ni push.
+- Git Manager: la secuencia de ADR-007.1; nunca commit, add ni push. **El flujo es el manual de la desarrolladora y está congelado:** `git status`, ir a la base (`git switch <base>` si no está en ella), `git pull --no-rebase --ff-only origin <base>` y `git switch -c <rama> <base>`. No se añaden ni reordenan comandos, no se reintroduce `fetch` ni se usan refspecs, tags o refs completas. Un test de `tests/unit/services/git/git-manager.test.ts` («Contrato del flujo») fija la secuencia exacta; si falla, no se «arregla» el test: cualquier cambio de flujo requiere autorización expresa de la desarrolladora y se anota en «Decisiones y desvíos» de `docs/changes/TK-02c.md`.
 - Ollama: modelo mínimo `qwen2.5:3b` (el 1.5b está descartado), `ollama_timeout_seconds` = 120, streaming y `keep_alive` corto. El primer campo del schema es `presenteEnTicket`, seguido del posprocesado determinista (`siFalta`, `verificarLiterales`).
 - Prompts, schemas y plantillas son archivos versionados en `./templates/` (no configuración del usuario); registrar `prompt_version` en `ticket_logs`.
 - `ticket_logs`: una fila por `(ticket_id, repository_id)` con *upsert*; `UNIQUE` no deduplica `repository_id = NULL`, ese caso se trata aparte.
@@ -59,7 +59,7 @@ Restricciones técnicas ya decididas (ADR-006.1 aceptado, ADR-003.1, ADR-007.1) 
 
 ## Build / test commands
 
-The scaffold exists (TK-00: `package.json`, `tsconfig.json`, `vitest.config.ts`, `eslint.config.js`) and the first module is implemented (TK-01, `src/database/`). Run everything from the repo root, with Node ≥ 22.13:
+The scaffold exists (TK-00: `package.json`, `tsconfig.json`, `vitest.config.ts`, `eslint.config.js`) and the Storage Layer (TK-01), the Service Layer pieces up to TK-02g and the CLI entry point for `devflow config` (TK-03a, `src/tui/`) are implemented. Run everything from the repo root, with Node ≥ 22.13:
 
 - Install: `npm install`
 - Typecheck: `npm run typecheck` (`tsc --noEmit`, covers `src/`, `tests/` and `vitest.config.ts`)
@@ -67,5 +67,6 @@ The scaffold exists (TK-00: `package.json`, `tsconfig.json`, `vitest.config.ts`,
 - Test (whole suite): `npm test` (`vitest run`)
 - Single test file: `npm test -- tests/unit/smoke.test.ts`
 - Single test by name: `npm test -- -t "<name pattern>"`
+- Run the CLI: `npm start -- <args>` (`tsx src/tui/cli.ts`; e.g. `npm start -- --help`, `npm start -- config`, `npm start -- config proyectos`). It needs the Windows environment variables `APPDATA` and `USERPROFILE`; on Linux/WSL `resolveDatabasePath` (`win32.join`) creates a stray file named with backslashes in the current directory, so the interactive run is tested on Windows.
 
-There is no `dev`, `build` or `start` script yet — add them when an entry point (`src/tui/cli.ts`) exists, and update this section.
+There is no `dev` or `build` script: `tsc` runs with `noEmit` and does not copy `schema.sql`, the migrations or `templates/`, so packaging (and the `bin` entry) is left for the Windows test milestone.

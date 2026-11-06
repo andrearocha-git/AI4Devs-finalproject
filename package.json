@@ -10,14 +10,24 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "start": "tsx src/tui/cli.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
+    "@vitest/coverage-v8": "^5.1.0",
     "eslint": "^10.14.0",
     "msw": "^3.0.3",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.72.1",
     "vitest": "^5.0.5"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^8.7.5",
+    "ajv": "^8.20.0",
+    "commander": "^15.0.0",
+    "handlebars": "^4.7.10"
   }
 }

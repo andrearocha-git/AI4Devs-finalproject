@@ -1,0 +1,13 @@
+/** Datos mínimos de un ticket, vengan de Jira o cargados a mano tras un `FallbackManual`. */
+export interface ContextoTicket {
+  ticketId: string;
+  title: string;
+  /** Descripción en texto plano (API v2 de Jira); puede ser cadena vacía. */
+  description: string;
+  /** Tipo de issue de Jira tal cual (`Bug`, `Historia`…). */
+  issueType: string;
+  source: "jira" | "manual";
+}
+
+/** Tipo de plantilla de un ticket: decide el prompt y el schema de Ollama, el documento y el tipo de rama. */
+export type TipoTicket = "bug" | "historia";

@@ -101,7 +101,7 @@
   - [x] `SQLiteStorageManager` es el único módulo que importa `node:sqlite` (verificable por regla de lint/búsqueda estática).
   - [ ] Modo WAL habilitado; ruta del archivo configurable, con default `%APPDATA%\DevFlowCLI\devflow.db`. *(WAL y ruta configurable están hechos; el valor por defecto lo calcula quien instancia el manager y se resuelve en TK-02a, por eso sigue abierta)*
   - [x] Migraciones versionadas y documentadas en `src/database/migrations/`.
-  - [ ] Umbral de cobertura de tests en la Service Layer: **decidido (2026-11-02): 80 %**; se configura y verifica en TK-02a, cuando exista la Service Layer. Esta casilla se cierra con ese ticket.
+  - [x] Umbral de cobertura de tests en la Service Layer: **decidido (2026-11-02): 80 %**; configurado y verificado en TK-02a (`npm run test:coverage`).
   - [x] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---
@@ -138,7 +138,7 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
 - **Historias de Usuario Relacionadas:** US-02, US-03
 
 - **Descripción y Alcance:**
-  Define lo que comparten los demás sub-tickets para que puedan avanzar en paralelo: el contrato `StepResult`, el proveedor de configuración inyectable, la resolución del tipo de issue con `templates/issue-types.json` (épica → bloqueada; Bug/Error/Defecto → `bug`; el resto → `historia`; prefijo de rama `features/` o `bugs/`; `promptVersion` por tipo), los fixtures de tickets en formato Jira v2 y la regla de lint que restringe quién importa `sqlite-storage-manager.ts`. Toma además las decisiones que TK-01 dejó abiertas (ver "Decisiones a cerrar").
+  Define lo que comparten los demás sub-tickets para que puedan avanzar en paralelo: el contrato `StepResult`, el proveedor de configuración inyectable, la resolución del tipo de issue con `templates/issue-types.json` (épica → bloqueada; Bug/Error/Defecto → `bug`; el resto → `historia`; tipo de rama `feature` o `bugfix`; `promptVersion` por tipo), los fixtures de tickets en formato Jira v2 y la regla de lint que restringe quién importa `sqlite-storage-manager.ts`. Toma además las decisiones que TK-01 dejó abiertas (ver "Decisiones a cerrar").
 
 - **Archivos a Crear / Modificar:**
   - `src/shared/errors/result.types.ts`
@@ -150,9 +150,9 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
   - `eslint.config.js` (modificar)
 
 - **Contratos e Interfaces (Input/Output):**
-  - `type StepResult<T> = { kind: 'Ok'; value: T } | { kind: 'FallbackManual'; reason: 'network_timeout' | 'invalid_token' | 'not_found' } | { kind: 'FallbackDeterminista'; rawText: string } | { kind: 'ErrorBloqueante'; subtype: 'RepositorioNoEncontrado' | 'CambiosPendientes' | 'PullFallido' | 'TipoIssueBloqueado' | 'PermisosInsuficientes' | 'ErrorInesperado'; message: string }`
+  - `type StepResult<T> = { kind: 'Ok'; value: T } | { kind: 'FallbackManual'; reason: 'network_timeout' | 'invalid_token' | 'not_found' } | { kind: 'FallbackDeterminista'; rawText: string } | { kind: 'ErrorBloqueante'; subtype: 'RepositorioNoEncontrado' | 'CambiosPendientes' | 'RamaExistenteEnRemoto' | 'PullFallido' | 'TipoIssueBloqueado' | 'PermisosInsuficientes' | 'ErrorInesperado'; message: string }`
   - `ContextoTicket { ticketId: string; title: string; description: string; issueType: string; source: 'jira' | 'manual' }`
-  - Resolutor de tipo: dado el `issueType` de Jira devuelve `{ tipo: 'bug' | 'historia'; prefijoRama: 'features' | 'bugs'; promptVersion: string }` o `ErrorBloqueante('TipoIssueBloqueado')` para épicas *(asumido: forma exacta del retorno)*.
+  - Resolutor de tipo: dado el `issueType` de Jira devuelve `StepResult<{ tipo: 'bug' | 'historia'; branchType: 'feature' | 'bugfix'; promptVersion: string }>`, con `ErrorBloqueante('TipoIssueBloqueado')` para épicas. El texto del prefijo (`features/`, `bugs/`) no lo devuelve el resolutor: lo arma el Orquestador con `AppConfig.branchPrefixFeature` / `branchPrefixBugfix` (decidido el 2026-11-02, una sola fuente de verdad).
 
 - **Decisiones a cerrar en este ticket** (heredadas de TK-01):
   - Umbral de cobertura de la Service Layer: **80 %** (decidido 2026-11-02); aquí solo se configura y se hace cumplir.
@@ -161,15 +161,15 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
 
 - **Criterios de Aceptación Técnicos** *(derivados del DoD y de las decisiones del ticket original; no tienen CA numerado en la versión previa)*:
   1. Los 4 tipos de `StepResult` están definidos y son discriminables por `kind` (verificado por el compilador y por un test de tipos o de estrechamiento).
-  2. El resolutor clasifica Epic/Épica como bloqueada, Bug/Error/Defecto como `bug` y cualquier otro tipo como `historia`, con el prefijo de rama y la `promptVersion` del tipo leídos de `templates/issue-types.json`.
+  2. El resolutor clasifica Epic/Épica como bloqueada, Bug/Error/Defecto como `bug` y cualquier otro tipo como `historia`, con el `branchType` y la `promptVersion` del tipo leídos de `templates/issue-types.json`.
   3. El proveedor de configuración rechaza una configuración con campos obligatorios ausentes y completa los valores por defecto; es inmutable y se inyecta por constructor.
   4. `npm run lint` falla si un archivo distinto del Orquestador (o de los tests) importa `src/database/sqlite-storage-manager.ts`.
 
 - **Definition of Done (DoD):**
-  - [ ] Los fixtures cubren bug y historia (completos y escuetos) y una épica.
-  - [ ] Umbral de cobertura del 80 % configurado en `vitest.config.ts` para la Service Layer y registrado en `docs/changes/TK-02a.md`.
-  - [ ] Regla de lint verificada con un caso que la viola.
-  - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
+  - [x] Los fixtures cubren bug y historia (completos y escuetos) y una épica.
+  - [x] Umbral de cobertura del 80 % configurado en `vitest.config.ts` para la Service Layer y registrado en `docs/changes/TK-02a.md`.
+  - [x] Regla de lint verificada con un caso que la viola.
+  - [x] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---
 
@@ -196,9 +196,9 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
   1. (CA1 original) `JiraRestClient`: mock HTTP 200 → `Ok(ContextoTicket)` con mapeo correcto (`description` en texto plano); timeout persistente (tras 1 reintento) → `FallbackManual('network_timeout')`; 401/403 → `FallbackManual('invalid_token')`; 404 en `/issue` seguido de `/myself` 401 → `FallbackManual('invalid_token')`, y seguido de `/myself` 200 → `FallbackManual('not_found')`; 429 con `Retry-After` → respetado antes de fallar. `validateProjectKey` aplica la misma regla del 404.
 
 - **Definition of Done (DoD):**
-  - [ ] Todas las credenciales, el host y los timeouts llegan por constructor.
-  - [ ] Hay al menos un test para `Ok` y para cada motivo de `FallbackManual`.
-  - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
+  - [x] Todas las credenciales, el host y los timeouts llegan por constructor.
+  - [x] Hay al menos un test para `Ok` y para cada motivo de `FallbackManual`.
+  - [x] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---
 
@@ -209,7 +209,7 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
 - **Historias de Usuario Relacionadas:** US-03
 
 - **Descripción y Alcance:**
-  Secuencia de [ADR-007.1](ADR-001-arquitectura-inicial.md#adr-0071-ampliación-del-alcance-del-git-manager--verificación-del-working-directory-y-rama-creada-desde-la-base-actualizada): verifica el repo; `git status --porcelain` y se detiene listando los cambios pendientes; si la rama ya existe informa y continúa; actualiza la rama base con `git pull --ff-only origin <base>` o `git fetch origin <base>:<base>` según la rama actual; crea la rama con `git switch -c <rama> <base>`; si el pull falla es error bloqueante; override puntual con `--base`; **nunca** `commit`, `add` ni `push`. Se expone en dos métodos: `inspectRepository` (pasos de solo lectura: verificar repo, `git status`, ¿existe la rama?; se ejecuta antes de la confirmación del Orquestador) y `createBranch` (actualizar la base y crear la rama; después de la confirmación). Toda ejecución pasa por un runner de comandos Git inyectable (permite el spy y los tests sin red).
+  Secuencia de [ADR-007.1](ADR-001-arquitectura-inicial.md#adr-0071-ampliación-del-alcance-del-git-manager--verificación-del-working-directory-y-rama-creada-desde-la-base-actualizada): verifica el repo; `git status --porcelain` y se detiene listando los cambios pendientes; si la rama ya existe **en local** informa (el Orquestador consulta si se usa la misma) y continúa; si no está en local pero ya existe en `origin` (`git ls-remote --heads`, solo lectura) se detiene con `ErrorBloqueante('RamaExistenteEnRemoto')` y un aviso para que el usuario la verifique y la configure a mano; actualiza la rama base (`git switch <base>` si no está parado en ella y luego `git pull --no-rebase --ff-only origin <base>`); crea la rama con `git switch -c <rama> <base>`; si el pull falla es error bloqueante; override puntual con `--base`; **nunca** `commit`, `add` ni `push`. Se expone en dos métodos: `inspectRepository` (pasos de solo lectura: verificar repo, `git status`, ¿existe la rama en local o en remoto?; se ejecuta antes de la confirmación del Orquestador) y `createBranch` (actualizar la base y crear la rama; después de la confirmación). Toda ejecución pasa por un runner de comandos Git inyectable (permite el spy y los tests sin red).
 
 - **Archivos a Crear / Modificar:**
   - `src/services/git/git-manager.ts`
@@ -217,16 +217,16 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
 
 - **Contratos e Interfaces (Input/Output):**
   - `GitManager.validateRepository(input: { repoLocalPath: string; baseBranch: string }): Promise<StepResult<void>>` — usado al dar de alta un repositorio: verifica que sea un repositorio Git con remoto `origin` y que la rama base exista en el remoto.
-  - `GitManager.inspectRepository(input: { repoLocalPath: string; branchName: string }): Promise<StepResult<{ branchAlreadyExists: boolean }>>` — comprobación **solo de lectura** que el Orquestador ejecuta **antes** de pedir la confirmación (decidido el 2026-11-02, cierre de la observación de H-03): verifica el repositorio (`RepositorioNoEncontrado`), ejecuta `git status --porcelain` (`ErrorBloqueante('CambiosPendientes')` con la lista de archivos en `message`) e informa si la rama ya existe. No hace `fetch`, `pull`, `switch` ni escribe nada.
-  - `GitManager.createBranch(input: { repoLocalPath: string; branchName: string; baseBranch: string }): Promise<StepResult<{ branchName: string; baseBranch: string; alreadyExisted: boolean }>>` — se ejecuta **después** de la confirmación; repite la verificación y el `git status` por seguridad (el árbol pudo cambiar mientras el usuario confirmaba) y reporta los cambios pendientes como `ErrorBloqueante('CambiosPendientes')` con la lista de archivos en `message`.
+  - `GitManager.inspectRepository(input: { repoLocalPath: string; branchName: string }): Promise<StepResult<{ branchAlreadyExists: boolean }>>` — comprobación **solo de lectura** que el Orquestador ejecuta **antes** de pedir la confirmación (decidido el 2026-11-02, cierre de la observación de H-03): verifica el repositorio (`RepositorioNoEncontrado`), ejecuta `git status --porcelain` (`ErrorBloqueante('CambiosPendientes')` con la lista de archivos en `message`) e informa si la rama ya existe **en local** (`branchAlreadyExists`); si no está en local y existe en `origin`, devuelve `ErrorBloqueante('RamaExistenteEnRemoto')` (decidido el 2026-11-03; si `ls-remote` no responde, decide solo con la rama local). No hace `fetch`, `pull`, `switch` ni escribe nada.
+  - `GitManager.createBranch(input: { repoLocalPath: string; branchName: string; baseBranch: string }): Promise<StepResult<{ branchName: string; baseBranch: string; alreadyExisted: boolean }>>` — se ejecuta **después** de la confirmación; repite la verificación y el `git status` por seguridad (el árbol pudo cambiar mientras el usuario confirmaba) y reporta los cambios pendientes como `ErrorBloqueante('CambiosPendientes')` con la lista de archivos en `message`. Repite también la comprobación de la rama remota. **Nunca crea ni publica ramas en el remoto:** el `push` queda del lado del usuario.
 
 - **Criterios de Aceptación Técnicos:**
-  1. (CA3 original) `GitManager` (sobre repositorios Git temporales): `inspectRepository` no ejecuta `fetch`, `pull`, `switch` ni escribe nada (verificable con spy sobre el runner) y devuelve `branchAlreadyExists`; repo inexistente → `ErrorBloqueante('RepositorioNoEncontrado')`; cambios pendientes → `ErrorBloqueante('CambiosPendientes')` sin ejecutar pull ni creación; rama ya existente → `Ok({ alreadyExisted: true })` sin pull, creación ni cambio de rama (H-04); parado en la rama base → `git pull --ff-only origin <base>`; parado en otra rama → `git fetch origin <base>:<base>`; pull fallido → `ErrorBloqueante('PullFallido')` sin crear la rama; caso feliz → crea la rama exactamente una vez con `git switch -c <rama> <base>`; en ningún path se ejecuta `commit`, `add` ni `push` (verificable con spy sobre el runner de comandos Git).
+  1. (CA3 original) `GitManager` (sobre repositorios Git temporales): `inspectRepository` no ejecuta `fetch`, `pull`, `switch` ni escribe nada (verificable con spy sobre el runner) y devuelve `branchAlreadyExists`; repo inexistente → `ErrorBloqueante('RepositorioNoEncontrado')`; cambios pendientes → `ErrorBloqueante('CambiosPendientes')` sin ejecutar pull ni creación; rama ya existente en local → `Ok({ alreadyExisted: true })` sin pull, creación ni cambio de rama (H-04); rama que solo existe en `origin` → `ErrorBloqueante('RamaExistenteEnRemoto')` sin pull, `fetch`, `switch` ni creación; parado en la rama base → `git pull --no-rebase --ff-only origin <base>`; parado en otra rama → primero `git switch <base>` y luego el mismo pull, sin `fetch` (si la base solo existe en el remoto y nunca se trajo, `ErrorBloqueante('ErrorInesperado')` que pide `git fetch origin`); nombres que empiezan por `refs/` rechazados; merge, rebase, cherry-pick o revert en curso → `ErrorBloqueante('CambiosPendientes')`; mensajes sin usuario ni token de las URLs; pull fallido → `ErrorBloqueante('PullFallido')` sin crear la rama; caso feliz → crea la rama exactamente una vez con `git switch -c <rama> <base>`; en ningún path se ejecuta `commit`, `add` ni `push` (verificable con spy sobre el runner de comandos Git).
 
 - **Definition of Done (DoD):**
-  - [ ] `GitManager` no ejecuta `commit`, `add` ni `push` en ningún path de código.
-  - [ ] Hay al menos un test para `Ok` y para cada subtipo de `ErrorBloqueante` que produce.
-  - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
+  - [x] `GitManager` no ejecuta `commit`, `add` ni `push` en ningún path de código.
+  - [x] Hay al menos un test para `Ok` y para cada subtipo de `ErrorBloqueante` que produce.
+  - [x] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---
 
@@ -242,23 +242,25 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
 - **Archivos a Crear / Modificar:**
   - `src/services/filesystem/filesystem-manager.ts`
   - `src/database/local-file-storage.ts` *(ambiguo: `002-arquitectura-del-sistema.md` §2.2 describe el "Local File Storage" como parte de la Storage Layer; se ubica junto a `sqlite-storage-manager.ts` por pertenecer ambos a la Storage Layer)*
-  - `templates/documents/{bug.md.hbs, historia.md.hbs}`
+  - `src/shared/types/documento-fase1.types.ts`
+  - `templates/documents/{bug.md.hbs, historia.md.hbs}` *(basadas en la `plantilla-user-story.md` de la desarrolladora: encabezado, Fase 1 generada y Fase 2 «Datos del desarrollo / Evidencias / Observaciones», que la IA no toca)*
   - `tests/unit/services/filesystem/*.test.ts` (directorios temporales)
 
 - **Contratos e Interfaces (Input/Output):**
-  - `FileSystemManager.createTicketWorkspace(input: { ticketId: string; repositoryName?: string; ticketsRootPath: string; adjuntosDirName: string }): Promise<StepResult<{ folderPath: string }>>`
+  - `new FileSystemManager({ ticketsRootPath, adjuntosDirName }, storage?)` — la raíz y el nombre de la subcarpeta de evidencias llegan por constructor *(decidido el 2026-11-05: `readFase1`/`saveFase1` no pueden localizar `fase1.json` sin la raíz)*.
+  - `FileSystemManager.createTicketWorkspace(input: { ticketId: string; repositoryName?: string }): Promise<StepResult<{ folderPath: string; documentPath: string }>>` — con repositorio crea `<raíz>/<ID>/<repo>/<adjuntos>`; sin repositorio, solo `<raíz>/<ID>`. `documentPath` = `<folderPath>/<ID>.md` (el archivo no se crea aquí). Los nombres de carpeta no pueden contener separadores ni ser `.` o `..`.
   - `FileSystemManager.readFase1(ticketId: string): Promise<StepResult<DocumentoFase1 | null>>` / `saveFase1(ticketId: string, fase1: DocumentoFase1): Promise<StepResult<void>>`
-  - `FileSystemManager.writeDocument(input: { documentPath: string; tipo: 'bug' | 'historia'; fase1: DocumentoFase1 | { rawText: string }; repo?: string; rama?: string; regenerateFase1Only: boolean }): Promise<StepResult<{ documentPath: string }>>`
+  - `FileSystemManager.writeDocument(input: { documentPath: string; tipo: 'bug' | 'historia'; fase1: DocumentoFase1 | { rawText: string }; repo?: string; rama?: string; encabezado?: { ticketId?, titulo?, jiraUrl?, desarrollador?, fecha?, proyecto? }; regenerateFase1Only: boolean }): Promise<StepResult<{ documentPath: string }>>`
   - `DocumentoFase1` es el tipo que produce TK-02e; en este ticket se define su interfaz mínima (ver TK-02e) para no bloquear el desarrollo en paralelo *(asumido: el tipo vive en `src/shared/types/`)*.
 
 - **Criterios de Aceptación Técnicos:**
   1. (CA4 original) `FileSystemManager`: re-ejecutar sobre un ticket ya iniciado regenera solo el bloque de Fase 1 (delimitado por los marcadores `<!-- DEVFLOW:FASE1:INICIO -->` / `<!-- DEVFLOW:FASE1:FIN -->`), preservando intacto el contenido de Fase 2 ya escrito por el desarrollador; ejecutar el mismo ticket con un segundo repositorio crea una carpeta y un documento propios y copia la Fase 1 guardada en `fase1.json`.
 
 - **Definition of Done (DoD):**
-  - [ ] Ningún archivo se crea dentro del repositorio Git del desarrollador.
-  - [ ] Un documento renderizado con `{ rawText }` lleva el aviso `⚠️ Generado sin Ollama`.
-  - [ ] Hay al menos un test para `Ok` y para `ErrorBloqueante('PermisosInsuficientes')`.
-  - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
+  - [x] Ningún archivo se crea dentro del repositorio Git del desarrollador.
+  - [x] Un documento renderizado con `{ rawText }` lleva el aviso `⚠️ Generado sin Ollama`.
+  - [x] Hay al menos un test para `Ok` y para `ErrorBloqueante('PermisosInsuficientes')`.
+  - [x] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---
 
@@ -276,6 +278,8 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
   - `src/services/ollama/postprocess.ts` *(asumido: nombre del módulo del posprocesado determinista)*
   - `templates/prompts/{comun.system.md, bug.system.md, historia.system.md, ticket.user.md, bug.schema.json, historia.schema.json}`
   - `tests/unit/services/ollama/*.test.ts` (Ollama simulado con msw)
+  - `templates/issue-types.json` *(añadido al implementar: reglas `siFalta` y `verificarLiterales` por tipo)*
+  - `src/services/orchestrator/issue-type-resolver.ts` y `src/shared/types/ticket-context.types.ts` *(añadidos al implementar: `promptVersionFor`, `postprocessRulesFor` y el tipo `TipoTicket`)*
 
 - **Contratos e Interfaces (Input/Output):**
   - `OllamaAITransformer.processContext(ctx: ContextoTicket, tipo: 'bug' | 'historia', onToken?: (chars: number) => void): Promise<StepResult<DocumentoFase1>>` — `DocumentoFase1` es la respuesta del JSON Schema del tipo, ya posprocesada, más `generatedByOllama: boolean` y `promptVersion: string`. Ambos schemas empiezan por `presenteEnTicket` y incluyen `resumen`, `escenarios[] { titulo, given, when, then }` y `preguntasAbiertas[]`; el de **bug** suma `pasosParaReproducir[]`, `comportamientoEsperado`, `comportamientoActual` y `entorno`; el de **historia**, `historiaUsuario { como, quiero, para }` y `casosDeUso[]`. Sin bloques de código.
@@ -284,8 +288,8 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
   1. (CA2 original) `OllamaAITransformer`: JSON válido contra el schema del tipo → `Ok`; JSON con un bloque de código Markdown embebido (fenced code block) → `FallbackDeterminista` (verifica el Non-Goal "cero código generado" del PRD); sin respuesta dentro de `ollama_timeout_seconds` → `FallbackDeterminista`. El posprocesado sobrescribe con "No especificado en el ticket." los campos marcados como ausentes en `presenteEnTicket` y agrega la pregunta abierta; en bugs descarta literales ausentes del ticket (verificable con los fixtures escuetos de TK-02a).
 
 - **Definition of Done (DoD):**
-  - [ ] Al cambiar un prompt o un schema se sube `promptVersion` del tipo en `templates/issue-types.json`.
-  - [ ] Hay al menos un test para `Ok` y para `FallbackDeterminista`.
+  - [x] Al cambiar un prompt o un schema se sube `promptVersion` del tipo en `templates/issue-types.json`. *(Regla escrita en `templates/README.md`; las versiones `v1` son las primeras y aún no se han usado en ejecuciones registradas.)*
+  - [x] Hay al menos un test para `Ok` y para `FallbackDeterminista`.
   - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---
@@ -305,11 +309,11 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
   - `tests/integration/ticket-flow.e2e.test.ts`
 
 - **Contratos e Interfaces (Input/Output):**
-  - `type AskRequest = { kind: 'manualTicket'; ticketId: string; reason: 'network_timeout' | 'invalid_token' | 'not_found' } | { kind: 'confirmActions'; summary: { ticketId: string; issueType: string; repositoryName: string | null; branchName: string | null; baseBranch: string | null; folderPath: string; branchAlreadyExists: boolean; reprocessFase1: boolean } }` y `type AskCallback` con dos formas: `manualTicket` → `Promise<{ title: string; description: string }>` y `confirmActions` → `Promise<boolean>` — único punto en el que el Orquestador pide datos o una decisión al usuario durante un flujo (carga manual ante `FallbackManual` de Jira, y confirmación de acciones, H-03). **La confirmación se pide una sola vez, después de obtener el ticket, resolver su tipo (ya se conoce el prefijo de la rama) y ejecutar `GitManager.inspectRepository` (solo lectura: un repositorio inexistente o con cambios pendientes corta el flujo sin pedir confirmar), y antes de cualquier escritura en Git, disco u Ollama.** Si el desarrollador cancela, no se crea nada ni se escribe en `ticket_logs`. La elección del repositorio **no** se pide a mitad del flujo: la TUI la resuelve antes con `listRepositoriesForTicket` (TK-02g) y pasa `repositoryId`.
+  - `type AskRequest = { kind: 'manualTicket'; ticketId: string; reason: 'network_timeout' | 'invalid_token' | 'not_found' } | { kind: 'confirmActions'; summary: { ticketId: string; issueType: string; repositoryName: string | null; branchName: string | null; baseBranch: string | null; folderPath: string; branchAlreadyExists: boolean; reprocessFase1: boolean } }` y `type AskCallback` con dos formas: `manualTicket` → `Promise<{ title: string; description: string }>` y `confirmActions` → `Promise<boolean>` — único punto en el que el Orquestador pide datos o una decisión al usuario durante un flujo (carga manual ante `FallbackManual` de Jira, y confirmación de acciones, H-03). **La confirmación se pide una sola vez, después de obtener el ticket, resolver su tipo (ya se conoce el prefijo de la rama) y ejecutar `GitManager.inspectRepository` (solo lectura: un repositorio inexistente, con cambios pendientes o con la rama solo en el remoto corta el flujo sin pedir confirmar; si la rama ya existe en local, la confirmación consulta si se usa la misma y rechazarla cancela la ejecución), y antes de cualquier escritura en Git, disco u Ollama.** Si el desarrollador cancela, no se crea nada ni se escribe en `ticket_logs`. La elección del repositorio **no** se pide a mitad del flujo: la TUI la resuelve antes con `listRepositoriesForTicket` (TK-02g) y pasa `repositoryId`.
   - `TicketOrchestrator.startTicket(input: { ticketId: string; repositoryId?: number; baseBranchOverride?: string; reprocessFase1?: boolean }, hooks: { onStep: (step: 'jira' | 'git' | 'filesystem' | 'ollama', status: 'started' | 'ok' | 'fallback' | 'error', detail?: string) => void; ask: AskCallback }): Promise<TicketRunSummary>` — `TicketRunSummary { ticketId: string; repositoryId: number | null; issueType: string; branchName: string | null; branchStatus: 'created' | 'already_existed' | 'pending_changes' | 'error' | null; folderPath: string | null; documentPath: string | null; jiraFetchStatus: 'ok' | 'fallback_manual'; ollamaStatus: 'ok' | 'fallback_deterministic' | 'reused' | null; promptVersion?: string; blocked?: { subtype: string; message: string }; cancelled?: true }` — `cancelled` es `true` solo si el desarrollador no confirmó (en ese caso `branchName`, `folderPath`, `documentPath` y `ollamaStatus` son `null`); `folderPath`, `documentPath` y `ollamaStatus` son `null` cuando el flujo se cortó en Git; el Orquestador igualmente registra la ejecución en `ticket_logs`.
 
 - **Criterios de Aceptación Técnicos:**
-  1. (CA5 original, más H-03 y H-02) Test de integración del Orquestador: `reprocessFase1: true` con una Fase 1 válida previa → invoca a Ollama, sobrescribe `fase1.json` y regenera solo el bloque de Fase 1 del documento del repositorio elegido (sin tocar la Fase 2 ni los documentos de otros repositorios); si el reproceso cae en fallback conserva la Fase 1 válida anterior; sin el flag y con una Fase 1 previa en fallback (`generatedByOllama: false`) reintenta con Ollama automáticamente; repositorio con cambios pendientes → `blocked` **sin invocar `ask({ kind: 'confirmActions' })`** y con fila en `ticket_logs` (`pending_changes`); confirmación rechazada (`ask` devuelve `false`) → resumen con `cancelled: true`, sin llamadas a Git, FileSystem ni Ollama y sin fila en `ticket_logs`; ejecución cortada por cambios pendientes → resumen con `blocked`, `folderPath`/`documentPath`/`ollamaStatus` en `null` y una fila en `ticket_logs` con `branch_status = 'pending_changes'`; Jira fallback → se invoca `ask({ kind: 'manualTicket' })` y el flujo continúa con los datos devueltos; Jira OK + Ollama OK → rama + carpeta + documento + un único registro en `ticket_logs` (SQLite mockeada) con `prompt_version`; Jira fallback + Ollama fallback → el flujo completa igual sin detenerse, documento marcado `⚠️ Generado sin Ollama`; épica → aviso sin rama, carpeta, documento ni registro; segunda ejecución con otro repositorio → `ollamaStatus: 'reused'` sin invocar a Ollama; clave sin repositorios → solo documento, `repositoryId: null` y sin pasos de Git.
+  1. (CA5 original, más H-03 y H-02) Test de integración del Orquestador: `reprocessFase1: true` con una Fase 1 válida previa → invoca a Ollama, sobrescribe `fase1.json` y regenera solo el bloque de Fase 1 del documento del repositorio elegido (sin tocar la Fase 2 ni los documentos de otros repositorios); si el reproceso cae en fallback conserva la Fase 1 válida anterior; sin el flag y con una Fase 1 previa en fallback (`generatedByOllama: false`) reintenta con Ollama automáticamente; repositorio con cambios pendientes → `blocked` **sin invocar `ask({ kind: 'confirmActions' })`** y con fila en `ticket_logs` (`pending_changes`); confirmación rechazada (`ask` devuelve `false`) → resumen con `cancelled: true`, sin llamadas a Git, FileSystem ni Ollama y sin fila en `ticket_logs`; ejecución cortada por cambios pendientes → resumen con `blocked`, `folderPath`/`documentPath`/`ollamaStatus` en `null` y una fila en `ticket_logs` con `branch_status = 'pending_changes'`; Jira fallback → se invoca `ask({ kind: 'manualTicket' })` y el flujo continúa con los datos devueltos; Jira OK + Ollama OK → rama + carpeta + documento + un único registro en `ticket_logs` (SQLite mockeada) con `prompt_version`; Jira fallback + Ollama fallback → el flujo completa igual sin detenerse, documento marcado `⚠️ Generado sin Ollama`; épica → aviso sin rama, carpeta, documento ni registro; segunda ejecución con otro repositorio → `ollamaStatus: 'reused'` sin invocar a Ollama; clave sin repositorios → solo documento, `repositoryId: null` y sin pasos de Git; rama solo en `origin` (`ErrorBloqueante('RamaExistenteEnRemoto')`) → `blocked` **sin invocar `ask({ kind: 'confirmActions' })`** y con fila en `ticket_logs` (`branch_status = 'error'`).
 
 - **Definition of Done (DoD):**
   - [ ] Solo el Orquestador escribe `ticket_logs`.
@@ -381,7 +385,9 @@ Orden: TK-03a (Hito 1, ya con TK-02g) → TK-03b (Hito 2, con TK-02f).
 - **Archivos a Crear / Modificar:**
   - `src/tui/cli.ts`
   - `src/tui/commands/config.command.ts` *(nombres decididos el 2026-11-02, H-06: `devflow config` y `devflow config proyectos`; ningún documento base los definía, y sin ellos las tablas de configuración no podrían poblarse nunca)*
+  - `src/tui/commands/config-proyectos.command.ts` *(añadido al implementar: `devflow config proyectos` en su propio archivo)*
   - `src/tui/prompts/project-config.prompt.ts`
+  - `src/services/orchestrator/create-orchestrator.ts` *(añadido al implementar: raíz de composición que arma el Orquestador; `cli.ts` no puede importar la base, Jira ni Git por la regla de lint de capas)*
   - `tests/unit/tui/*.test.ts`
 
 - **Contratos e Interfaces (Input/Output):**
@@ -391,9 +397,9 @@ Orden: TK-03a (Hito 1, ya con TK-02g) → TK-03b (Hito 2, con TK-02f).
   1. `devflow config proyectos` permite agregar una clave (validada por el Orquestador), asociarle repositorios con su rama base y quitar claves o repositorios; y `devflow config` propone el sufijo de usuario sugerido desde Jira, que el usuario confirma o edita. *(CA9 del TK-03 original)*
 
 - **Definition of Done (DoD):**
-  - [ ] La TUI no importa clientes de Jira/Git/Ollama ni el storage manager — solo invoca al Orquestador (verificable por revisión de imports).
-  - [ ] Los nombres `devflow config` y `devflow config proyectos` están decididos (H-06); los flags y subcomandos concretos se fijan al refinar este ticket y se validan antes de cerrarlo.
-  - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
+  - [x] La TUI no importa clientes de Jira/Git/Ollama ni el storage manager — solo invoca al Orquestador (verificable por revisión de imports).
+  - [x] Los nombres `devflow config` y `devflow config proyectos` están decididos (H-06); los flags y subcomandos concretos se fijan al refinar este ticket y se validan antes de cerrarlo. *(Fijados el 2026-11-05: ambos son interactivos, sin flags de configuración; solo `--help` y `--version`.)*
+  - [x] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---
 
@@ -424,7 +430,7 @@ Orden: TK-03a (Hito 1, ya con TK-02g) → TK-03b (Hito 2, con TK-02f).
   - `TicketSelectionPrompt.ask(tickets: Array<{ ticketId: string; title: string; issueType: string }>): Promise<string>`
   - `RepositorySelectionPrompt.ask(repositories: Array<{ id: number; name: string; repoLocalPath: string }>): Promise<number>`
   - `ManualTicketEntryPrompt.ask(): Promise<{ ticketId: string; title: string; description: string }>`
-  - `ConfirmActionsPrompt.ask(summary: { ticketId: string; issueType: string; repositoryName: string | null; branchName: string | null; baseBranch: string | null; folderPath: string; branchAlreadyExists: boolean; reprocessFase1: boolean }): Promise<boolean>` — una única confirmación consolidada (decidido en H-03, 2026-11-02): la TUI la muestra cuando el Orquestador invoca `ask({ kind: 'confirmActions' })` y devuelve `false` si el desarrollador cancela
+  - `ConfirmActionsPrompt.ask(summary: { ticketId: string; issueType: string; repositoryName: string | null; branchName: string | null; baseBranch: string | null; folderPath: string; branchAlreadyExists: boolean; reprocessFase1: boolean }): Promise<boolean>` — una única confirmación consolidada (decidido en H-03, 2026-11-02): la TUI la muestra cuando el Orquestador invoca `ask({ kind: 'confirmActions' })` (si `branchAlreadyExists` es `true`, avisa que la rama ya existe y pregunta si se usa la misma) y devuelve `false` si el desarrollador cancela
   - `SummaryView.render(result: TicketRunSummary): void`
   - `isValidTicketId(input: string): boolean` — formato `<CLAVE>-<número>` (`^[A-Z][A-Z0-9_]+-\d+$`).
 
@@ -436,7 +442,7 @@ Orden: TK-03a (Hito 1, ya con TK-02g) → TK-03b (Hito 2, con TK-02f).
   5. Al invocar el Orquestador `ask({ kind: 'confirmActions' })`, la TUI muestra el resumen (rama, base, carpeta) en una sola pantalla y devuelve `true` o `false`; con `false` no se muestra progreso de pasos y se informa que la ejecución fue cancelada sin cambios (mock del Orquestador). *(H-03)*
   6. Al recibir eventos de progreso sucesivos (`started` → `ok` por paso), la vista de progreso actualiza el estado de cada paso sin bloquear el hilo principal.
   7. Al finalizar con `ollamaStatus: 'fallback_deterministic'`, `SummaryView` muestra explícitamente el aviso `⚠️ Generado sin Ollama`; con `'reused'`, indica que se reutilizó el análisis del ticket.
-  8. Al recibir un resumen con `blocked` (`RepositorioNoEncontrado`, `CambiosPendientes` con la lista de archivos, `PullFallido`, `TipoIssueBloqueado`), la TUI muestra el mensaje correspondiente y no renderiza una pantalla de éxito.
+  8. Al recibir un resumen con `blocked` (`RepositorioNoEncontrado`, `CambiosPendientes` con la lista de archivos, `RamaExistenteEnRemoto`, `PullFallido`, `TipoIssueBloqueado`), la TUI muestra el mensaje correspondiente y no renderiza una pantalla de éxito.
 
 - **Definition of Done (DoD):**
   - [ ] La TUI no importa clientes de Jira/Git/Ollama ni el storage manager — solo invoca al Orquestador (verificable por revisión de imports).

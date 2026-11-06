@@ -45,6 +45,37 @@ describe("reglas de lint: acoplamiento de capas", () => {
   });
 });
 
+describe("E3 — solo el Orquestador importa sqlite-storage-manager (TK-02a CA4)", () => {
+  const managerImport = (specifier: string) =>
+    `import { SQLiteStorageManager } from "${specifier}";\nexport const m = SQLiteStorageManager;\n`;
+
+  it.each([
+    ["src/services/jira/jira-rest-client.ts", "../../database/sqlite-storage-manager.js"],
+    ["src/services/git/git-manager.ts", "../../database/sqlite-storage-manager"],
+    ["src/shared/config/app-config.provider.ts", "../../database/sqlite-storage-manager.js"],
+    ["src/tui/commands/start.command.ts", "../../database/sqlite-storage-manager.js"],
+  ])("rechaza que %s importe el storage manager", async (file, specifier) => {
+    const errors = await restrictedImportErrors(managerImport(specifier), file);
+    expect(errors).not.toHaveLength(0);
+  });
+
+  it.each(["./sqlite-storage-manager.js", "../sqlite-storage-manager", "sqlite-storage-manager"])(
+    "rechaza que src/tui/ importe %s aunque la ruta no pase por database/",
+    async (specifier) => {
+      const errors = await restrictedImportErrors(managerImport(specifier), "src/tui/commands/start.command.ts");
+      expect(errors).not.toHaveLength(0);
+    },
+  );
+
+  it.each([
+    ["src/services/orchestrator/ticket-orchestrator.ts", "../../database/sqlite-storage-manager.js"],
+    ["tests/unit/database/otro.test.ts", "../../../src/database/sqlite-storage-manager.js"],
+  ])("permite que %s importe el storage manager", async (file, specifier) => {
+    const errors = await restrictedImportErrors(managerImport(specifier), file);
+    expect(errors).toHaveLength(0);
+  });
+});
+
 describe("reglas de lint: exclusiones", () => {
   it.each(["docs/ejemplo.ts", ".claude/ejemplo.ts", "node_modules/pkg/index.ts"])(
     "ignora %s",

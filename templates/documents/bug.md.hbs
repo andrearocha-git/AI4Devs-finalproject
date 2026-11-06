@@ -1,0 +1,96 @@
+# [{{ticketId}}] {{titulo}}
+
+| Campo | Valor |
+|---|---|
+| **Desarrollador/a** | {{desarrollador}} |
+| **Jira** | {{#if jiraUrl}}[{{ticketId}}]({{jiraUrl}}){{else}}{{ticketId}}{{/if}} |
+| **Tipo** | ☑ Bug  ☐ Feature |
+| **Fecha** | {{fecha}} |
+| **Proyecto** | {{proyecto}} |
+| **Repositorio** | {{repo}} |
+| **Rama Git** | {{#if rama}}`{{rama}}`{{/if}} |
+| **PR #** | |
+
+---
+
+## FASE 1 — Análisis (completa la IA)
+
+<!-- DEVFLOW:FASE1:INICIO -->
+{{#if rawText}}
+> ⚠️ Generado sin Ollama — completar manualmente
+
+{{rawText}}
+{{else}}
+### Descripción
+
+{{resumen}}
+
+### Qué falla
+
+**Comportamiento actual:** {{comportamientoActual}}
+**Comportamiento esperado:** {{comportamientoEsperado}}
+**Entorno:** {{entorno}}
+
+### Cómo reproducir
+
+{{#each pasosParaReproducir}}
+{{inc @index}}. {{this}}
+{{/each}}
+
+### Criterios de aceptación
+
+{{#each escenarios}}
+- [ ] CA{{inc @index}}: {{titulo}}
+  - **Given** {{given}}
+  - **When** {{when}}
+  - **Then** {{then}}
+{{/each}}
+
+{{#if casosDeUso}}
+### Casos de uso
+
+{{#each casosDeUso}}
+- {{this}}
+{{/each}}
+
+{{/if}}
+### Preguntas abiertas
+
+{{#each preguntasAbiertas}}
+- {{this}}
+{{/each}}
+{{/if}}
+<!-- DEVFLOW:FASE1:FIN -->
+
+---
+
+## FASE 2 — Desarrollo (completa el/la desarrollador/a)
+
+### Datos del desarrollo
+
+| Componente | Detalle |
+|---|---|
+| **Tablas (creadas/modificadas)** | |
+| **Stored Procedures / Scripts SQL** | |
+| **Backend (Java/Spring Boot)** | Clases, endpoints, servicios |
+| **Frontend (Angular)** | Pantallas, componentes, servicios |
+| **Otros** | Config, dependencias, etc. |
+
+### Evidencias
+
+**Pruebas unitarias**
+
+| Clase / Método testeado | Resultado | Cobertura |
+|---|---|---|
+| | ☐ OK ☐ Falla | |
+
+**Evidencias de funcionamiento**
+<!-- Capturas, logs, responses de Postman, resultado de consultas -->
+
+| Criterio | Evidencia |
+|---|---|
+| CA1 | ![captura](ruta/imagen.png) |
+| CA2 | |
+
+### Observaciones
+<!-- Opcional: deuda técnica, riesgos, pendientes -->

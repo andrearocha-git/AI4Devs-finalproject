@@ -1,0 +1,34 @@
+{
+  "blockedTypes": ["Epic", "Épica"],
+  "types": {
+    "bug": {
+      "names": ["Bug", "Error", "Defecto"],
+      "branchType": "bugfix",
+      "promptVersion": "bug-v1",
+      "siFalta": {
+        "pasosParaReproducir": "¿Cuáles son los pasos para reproducirlo?",
+        "comportamientoEsperado": "¿Cuál es el comportamiento esperado?",
+        "comportamientoActual": "¿Qué ocurre exactamente hoy?",
+        "entorno": "¿En qué entorno ocurre (sistema, versión, navegador)?",
+        "escenarios": "¿Cuáles son los criterios de aceptación?"
+      },
+      "verificarLiterales": [
+        "pasosParaReproducir",
+        "comportamientoEsperado",
+        "comportamientoActual",
+        "entorno",
+        "escenarios"
+      ]
+    },
+    "historia": {
+      "default": true,
+      "branchType": "feature",
+      "promptVersion": "historia-v1",
+      "siFalta": {
+        "historiaUsuario": "¿Quién necesita esto, qué quiere y para qué?",
+        "casosDeUso": "¿Cuáles son los casos de uso?",
+        "escenarios": "¿Cuáles son los criterios de aceptación?"
+      }
+    }
+  }
+}

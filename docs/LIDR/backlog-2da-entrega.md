@@ -8,12 +8,12 @@
 
 | Archivo | Contenido |
 |---|---|
-| `docs/005-historias-de-usuario.md` | 3 historias: **US-01** (configurar, 6 CA), **US-02** (elegir y consultar el ticket en Jira, 6 CA), **US-03** (preparar rama, carpeta y documento con Ollama, 9 CA). |
+| `docs/005-historias-de-usuario.md` | 3 historias: **US-01** (configurar, 6 CA), **US-02** (elegir y consultar el ticket en Jira, 6 CA), **US-03** (preparar rama, carpeta y documento con Ollama, 10 CA). |
 | `docs/006-tickets-de-trabajo.md` | **TK-00** y **TK-01** (hechos), **TK-02** (paraguas dividido en **TK-02a … TK-02g**), **TK-03** (paraguas dividido en **TK-03a** y **TK-03b**). |
 
-Estado: TK-00 y TK-01 implementados y verificados (43 tests, typecheck y lint en verde). Todo lo demás está especificado y sin código.
+Estado: TK-00, TK-01, TK-02a, TK-02b, TK-02c, TK-02d, TK-02e, TK-02g y TK-03a implementados (508 tests, typecheck y lint en verde; TK-02a, TK-02b, TK-02c, TK-02d, TK-02g y TK-03a revisados y fusionados en `feature/TK-02`; TK-02e verificado con `/05`, comprobado con `qwen2.5:3b` real y pendiente de la revisión de Cursor). El Hito 1 está cerrado en código (falta la prueba en Windows); en el Hito 2 quedan TK-02f y TK-03b. Todo lo demás está especificado y sin código.
 
-**Observación INVEST (sin modificar nada).** US-03 falla S (Small): 9 CA y esfuerzo Alto. TK-03 también es grande (dos comandos, cuatro prompts y todas las pantallas de resultado). Por eso el orden de abajo entrega las historias **por criterios de aceptación**, no de una vez, y TK-03 ya se dividió en TK-03a y TK-03b (§4).
+**Observación INVEST (sin modificar nada).** US-03 falla S (Small): 10 CA y esfuerzo Alto. TK-03 también es grande (dos comandos, cuatro prompts y todas las pantallas de resultado). Por eso el orden de abajo entrega las historias **por criterios de aceptación**, no de una vez, y TK-03 ya se dividió en TK-03a y TK-03b (§4).
 
 ## 2. Principio de orden
 
@@ -29,7 +29,7 @@ Estado: TK-00 y TK-01 implementados y verificados (43 tests, typecheck y lint en
 | # | Ticket | Estado |
 |---|---|---|
 | 0.1 | TK-00 Scaffold | ✅ Implementado |
-| 0.2 | TK-01 SQLite Storage Manager | ✅ Implementado (pendiente: tildar el DoD en `006`) |
+| 0.2 | TK-01 SQLite Storage Manager | ✅ Implementado |
 
 ### Hito 1 — «Configuro la herramienta contra mi Jira y mis repositorios» (US-01 completa)
 
@@ -37,11 +37,11 @@ Estado: TK-00 y TK-01 implementados y verificados (43 tests, typecheck y lint en
 
 | # | Ticket | Qué aporta | Depende de |
 |---|---|---|---|
-| 1.1 | **TK-02a** Base compartida | `StepResult`, configuración inyectable, resolutor de tipo, fixtures, regla de lint, umbral de cobertura | TK-01 |
-| 1.2 | **TK-02b** Jira REST Client | Validar claves, `displayName`, clasificación de fallos | 1.1 |
-| 1.3 | **TK-02c** Git Manager | `validateRepository` y `createBranch` completos | 1.1 |
-| 1.4 | **TK-02g** Orquestador: gestión | Alta, edición y baja de proyectos y repositorios; sufijo; errores claros | 1.2, 1.3 |
-| 1.5 | **TK-03a** CLI base + `devflow config` | `cli.ts`, `config.command.ts`, prompts de alta | 1.4 |
+| 1.1 | **TK-02a** Base compartida ✅ | `StepResult`, configuración inyectable, resolutor de tipo, fixtures, regla de lint, umbral de cobertura | TK-01 |
+| 1.2 | **TK-02b** Jira REST Client ✅ | Validar claves, `displayName`, clasificación de fallos | 1.1 |
+| 1.3 | **TK-02c** Git Manager ✅ | `validateRepository` y `createBranch` completos | 1.1 |
+| 1.4 | **TK-02g** Orquestador: gestión ✅ | Alta, edición y baja de proyectos y repositorios; sufijo; errores claros | 1.2, 1.3 |
+| 1.5 | **TK-03a** CLI base + `devflow config` ✅ | `cli.ts`, `config.command.ts`, prompts de alta | 1.4 |
 
 *Nota de orden:* 1.2 y 1.3 son independientes y pueden ir en paralelo. `createBranch` ya queda implementado aquí aunque aún nadie lo use; se verifica con repositorios temporales.
 
@@ -59,14 +59,14 @@ Estado: TK-00 y TK-01 implementados y verificados (43 tests, typecheck y lint en
 
 | # | Ticket | Qué aporta | Depende de |
 |---|---|---|---|
-| 2.1 | **TK-02d** FileSystem Manager + plantillas | Carpeta y documento fuera del repo, Fase 1 idempotente, `fase1.json` | 1.1 |
-| 2.2 | **TK-02e** Ollama AI Transformer | Prompts, schemas, Ajv, posprocesado, fallback | 1.1 |
+| 2.1 | **TK-02d** FileSystem Manager + plantillas ✅ | Carpeta y documento fuera del repo, Fase 1 idempotente, `fase1.json` | 1.1 |
+| 2.2 | **TK-02e** Ollama AI Transformer ✅ | Prompts, schemas, Ajv, posprocesado, fallback | 1.1 |
 | 2.3 | **TK-02f** Orquestador: `startTicket` | Flujo completo, `ticket_logs`, reutilización de Fase 1 | 1.2, 1.3, 2.1, 2.2 |
 | 2.4 | **TK-03b** `devflow start` | Selección de ticket y repositorio, carga manual, confirmación, progreso, pantallas de resultado | 2.3 |
 
 *Nota de orden:* 2.1 y 2.2 son independientes (se pueden paralelizar). Si Ollama se retrasa, 2.2 puede entrar con solo el camino de fallback determinista y completarse después sin bloquear 2.3, siempre que el contrato del ticket lo apruebe.
 
-**Historias cubiertas:** US-02 CA1-CA6 y US-03 CA1-CA9.
+**Historias cubiertas:** US-02 CA1-CA6 y US-03 CA1-CA10.
 
 **Verificación del hito**
 
@@ -113,11 +113,12 @@ Estado: TK-00 y TK-01 implementados y verificados (43 tests, typecheck y lint en
 | US-03 CA1 | Rama, carpeta y documento | 02c · 02d · 02e · 02f | 2 |
 | US-03 CA2-3 | Cambios pendientes / pull fallido | 02c · 02f · 03b | 2 |
 | US-03 CA4 | Ollama caído → documento sin redactar | 02e · 02d · 02f | 2 |
-| US-03 CA5 | Rama ya existente | 02c · 02f (**H-04** abierto) | 2 |
+| US-03 CA5 | Rama ya existente | 02c · 02f (**H-04** resuelto) | 2 |
 | US-03 CA6 | Segundo repositorio y Fase 1 reutilizada | 02d · 02f | 2 |
 | US-03 CA7 | Clave sin repositorios: solo documento | 02f | 2 |
 | US-03 CA8 | `--base` de una sola vez | 02c · 02f · 03b | 2 |
 | US-03 CA9 | Reprocesar la Fase 1 (`--reprocesar`) | 02d · 02e · 02f · 03b | 2 |
+| US-03 CA10 | Rama solo en el remoto: se detiene con aviso | 02c · 02f · 03b | 2 |
 
 ## 6. Dependencias entre tickets
 

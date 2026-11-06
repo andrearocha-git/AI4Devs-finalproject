@@ -138,6 +138,15 @@ export class OllamaAITransformer {
     const decoder = new TextDecoder();
     let buffer = "";
     let output = "";
+    const handleLine = (raw: string): void => {
+      const line = raw.trim();
+      if (line === "") return;
+      const parsed = JSON.parse(line) as { response?: string; error?: string };
+      if (parsed.error !== undefined) throw new Error(parsed.error);
+      const piece = parsed.response ?? "";
+      output += piece;
+      if (piece !== "") onToken?.(output.length);
+    };
     try {
       for (;;) {
         const { done, value } = await reader.read();
@@ -145,18 +154,13 @@ export class OllamaAITransformer {
         buffer += decoder.decode(value, { stream: true });
         let newline = buffer.indexOf("\n");
         while (newline !== -1) {
-          const line = buffer.slice(0, newline).trim();
+          handleLine(buffer.slice(0, newline));
           buffer = buffer.slice(newline + 1);
-          if (line !== "") {
-            const parsed = JSON.parse(line) as { response?: string; error?: string };
-            if (parsed.error !== undefined) throw new Error(parsed.error);
-            const piece = parsed.response ?? "";
-            output += piece;
-            if (piece !== "") onToken?.(output.length);
-          }
           newline = buffer.indexOf("\n");
         }
       }
+      // Al cerrarse el stream puede quedar la última línea sin salto de línea y bytes pendientes en el decodificador.
+      handleLine(buffer + decoder.decode());
     } finally {
       // Libera la conexión si salimos antes de tiempo (error de streaming o timeout); si ya terminó, no hace nada.
       await reader.cancel().catch(() => {});

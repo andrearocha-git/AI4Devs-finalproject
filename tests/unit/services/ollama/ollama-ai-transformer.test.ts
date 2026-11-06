@@ -441,3 +441,48 @@ describe("E3 — el posprocesado se aplica al resultado de processContext", () =
     expect(result.kind).toBe("FallbackDeterminista");
   });
 });
+
+describe("streaming: bordes del NDJSON", () => {
+  /** Sirve los trozos de bytes tal cual, sin añadir saltos de línea ni líneas `done`. */
+  function serveBytes(chunks: Uint8Array[]): void {
+    server.use(
+      http.post(`${HOST}/api/generate`, () =>
+        new HttpResponse(new ReadableStream({ start: (c) => { for (const chunk of chunks) c.enqueue(chunk); c.close(); } })),
+      ),
+    );
+  }
+  const encode = (text: string): Uint8Array => new TextEncoder().encode(text);
+
+  it("procesa la última línea aunque no termine en salto de línea", async () => {
+    const output = JSON.stringify(validBug());
+    const half = Math.floor(output.length / 2);
+    const lines = [JSON.stringify({ response: output.slice(0, half), done: false }), JSON.stringify({ response: output.slice(half), done: true })];
+    serveBytes([encode(lines.join("\n"))]);
+    const onToken = vi.fn();
+
+    const result = await newTransformer().processContext(ticket(), "bug", onToken);
+
+    expect(result.kind).toBe("Ok");
+    expect(onToken.mock.calls.at(-1)?.[0]).toBe(output.length);
+  });
+
+  it("procesa una única línea sin salto de línea", async () => {
+    serveBytes([encode(JSON.stringify({ response: JSON.stringify(validHistoria()), done: true }))]);
+
+    const result = await newTransformer().processContext(ticket({ issueType: "Historia" }), "historia");
+
+    expect(result.kind).toBe("Ok");
+  });
+
+  it("une un carácter multibyte (ñ) partido entre dos trozos de red", async () => {
+    const bytes = encode(JSON.stringify({ response: JSON.stringify(validBug()), done: true }) + "\n");
+    // La «ñ» de «Peña» son dos bytes (0xC3 0xB1): se corta justo entre ellos.
+    const at = bytes.findIndex((b, i) => b === 0xc3 && bytes[i + 1] === 0xb1);
+    expect(at).toBeGreaterThan(0);
+    serveBytes([bytes.slice(0, at + 1), bytes.slice(at + 1)]);
+
+    const result = await newTransformer().processContext(ticket(), "bug");
+
+    expect(result.kind === "Ok" && result.value.pasosParaReproducir?.[1]).toBe("Ingresar el usuario 'Peña'.");
+  });
+});

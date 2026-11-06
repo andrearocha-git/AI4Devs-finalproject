@@ -4,6 +4,7 @@ import Handlebars from "handlebars";
 import { errorCode, LocalFileStorage } from "../../database/local-file-storage.js";
 import type { StepResult } from "../../shared/errors/result.types.js";
 import type { DocumentoFase1, DocumentoFase1Fallback } from "../../shared/types/documento-fase1.types.js";
+import type { TipoTicket } from "../../shared/types/ticket-context.types.js";
 
 /** Configuración del {@link FileSystemManager}: de dónde cuelgan los tickets y cómo se llama la subcarpeta de evidencias. */
 export interface FileSystemManagerConfig {
@@ -27,8 +28,8 @@ export interface EncabezadoDocumento {
   proyecto?: string;
 }
 
-/** Tipo de plantilla del documento. */
-export type TipoDocumento = "bug" | "historia";
+/** Tipo de plantilla del documento; es el mismo `TipoTicket` que usan el resolvedor y Ollama. */
+export type TipoDocumento = TipoTicket;
 
 /** Motor de plantillas propio (no el global) con el helper `inc` para numerar desde 1. */
 const handlebars = Handlebars.create();

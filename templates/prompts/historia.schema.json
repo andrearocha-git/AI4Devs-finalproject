@@ -1,0 +1,96 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "presenteEnTicket",
+    "resumen",
+    "historiaUsuario",
+    "casosDeUso",
+    "escenarios",
+    "preguntasAbiertas"
+  ],
+  "properties": {
+    "presenteEnTicket": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "historiaUsuario",
+        "casosDeUso",
+        "escenarios"
+      ],
+      "properties": {
+        "historiaUsuario": {
+          "type": "boolean"
+        },
+        "casosDeUso": {
+          "type": "boolean"
+        },
+        "escenarios": {
+          "type": "boolean"
+        }
+      }
+    },
+    "resumen": {
+      "type": "string"
+    },
+    "historiaUsuario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "como",
+        "quiero",
+        "para"
+      ],
+      "properties": {
+        "como": {
+          "type": "string"
+        },
+        "quiero": {
+          "type": "string"
+        },
+        "para": {
+          "type": "string"
+        }
+      }
+    },
+    "casosDeUso": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "escenarios": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "titulo",
+          "given",
+          "when",
+          "then"
+        ],
+        "properties": {
+          "titulo": {
+            "type": "string"
+          },
+          "given": {
+            "type": "string"
+          },
+          "when": {
+            "type": "string"
+          },
+          "then": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "preguntasAbiertas": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

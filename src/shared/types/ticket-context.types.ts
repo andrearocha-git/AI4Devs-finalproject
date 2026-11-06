@@ -8,3 +8,6 @@ export interface ContextoTicket {
   issueType: string;
   source: "jira" | "manual";
 }
+
+/** Tipo de plantilla de un ticket: decide el prompt y el schema de Ollama, el documento y el tipo de rama. */
+export type TipoTicket = "bug" | "historia";

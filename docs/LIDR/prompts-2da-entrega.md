@@ -404,3 +404,79 @@ TK-02d se implementó con TDD y se revisó en la PR #4 (`feature/TK-02d` → `fe
 - `typecheck` y `lint` limpios.
 - Lo que no se pudo comprobar: el comportamiento en Windows, que es mi máquina de destino. Queda para el Hito 3.
 
+
+#### **Orquestador de configuración: del contrato a cuatro pasadas de revisión de Cursor**
+
+TK-02g reúne los métodos del Orquestador que la TUI usa para configurar la herramienta (claves de proyecto, repositorios, sufijo y tickets asignados). Se refinó con `/03-refinar-historia`, se implementó con TDD y se revisó en la PR #5 (`feature/TK-02g` → `feature/TK-02`). Es el primer ticket que cierra del lado del servicio la historia US-01.
+
+##### **Gobierno del Agente y del flujo de entrega (TK-02g)**
+
+- Aprobé el contrato en `Borrador` antes de que se escribiera código, tras pedir que me recordaran para qué sirve el sufijo de usuario de las ramas. El sufijo es la parte final de `<prefijo>/<ID>-<SUFIJO>`.
+- Regla de commits respetada: el agente propuso cada grupo de cambios y esperó mi visto bueno; pedí que el código y la documentación fueran siempre commits separados, y el `push` lo hice yo.
+- Cuando la PR #5 estuvo fusionada, el agente actualizó `feature/TK-02` y creó la rama siguiente desde ahí, para que el diff de cada PR fuera solo el del ticket.
+
+##### **Decisiones de Arquitectura e Intervenciones (TK-02g)**
+
+- **Mi intervención principal fue el sufijo.** Pregunté si podía ser parametrizable por el usuario o si, según el costo de retrabajo, convenía dejar `AR` fijo en primera instancia. El agente respondió que parametrizarlo no costaba más (la columna de `app_config` ya existía) y que dejarlo fijo obligaba a quitarlo después, y confirmé: parametrizable, que yo pueda poner `AROCHA` y otra persona `PGOMEZ`. Pasó a ser la inicial del nombre más el último apellido, editable, validado con `^[A-Z0-9]+$`.
+- El cliente de Jira se crea en cada operación con la configuración guardada, para que un cambio con `saveConfig` surta efecto sin reinstanciar el Orquestador. Un borrado con historial lanza un `Error` con mensaje claro en lugar del texto crudo de SQLite.
+- La validación de `jiraBaseUrl` (hallazgo diferido de Cursor desde la PR #2) quedó fuera de este ticket, como proponía el contrato que aprobé, y se resolvió en TK-03a.
+- **Revisión de Cursor, cuatro pasadas.** Primera: dos hallazgos medios reales: `removeProject` no normalizaba la clave (borraba nada y no avisaba) y una re-alta de un repositorio pisaba la rama base guardada con `main`. Segunda: el nombre, la ruta y la rama no se recortaban, y un TSDoc incompleto. Tercera: un nombre en blanco se guardaba vacío. Cuarta: un artículo mal puesto en un mensaje («El ruta»). Todos se corrigieron con test en rojo primero.
+- Quedó anotado, sin cambiar, que `updateRepository` sobre un repositorio inexistente y la validación de Git comparten el subtipo `RepositorioNoEncontrado`; separarlos exige un subtipo nuevo en TK-02a.
+
+##### **Resultados de Calidad Obtenidos (TK-02g)**
+
+- Suite de pruebas: de 282 a 347 tests en verde (45 al implementar, 56 tras la primera pasada y 65 al cierre).
+- `typecheck` y `lint` limpios; las reglas de capas siguen pasando.
+- Lo que no se hizo en este ticket y quedó anotado: el subtipo de error separado y el endurecimiento del cliente de Jira.
+
+#### **CLI base y `devflow config`: el primer punto de entrada ejecutable**
+
+TK-03a cierra el Hito 1: `cli.ts` con Commander y los comandos `devflow config` y `devflow config proyectos`, que usan solo al Orquestador. Se revisó en la PR #6 (`feature/TK-03a` → `feature/TK-02`).
+
+##### **Gobierno del Agente y del flujo de entrega (TK-03a)**
+
+- Aprobé el contrato con cuatro decisiones que el agente me pidió confirmar: los comandos serán interactivos y sin flags, se ejecutan con `tsx` (sin `build`), `suggestBranchSuffix` acepta credenciales aún sin guardar, y la validación de `jiraBaseUrl` se hace en el Orquestador.
+- Autoricé de forma expresa lo que el contrato no permitía hacer solo: instalar `commander`, `@inquirer/prompts` y `tsx` (`package.json`) y, más tarde, tocar `CLAUDE.md` para documentar `npm start`.
+- Cuando el agente detectó que el Orquestador no podía listar los repositorios de una clave (el menú los necesita), se detuvo, lo explicó y esperó mi autorización antes de añadir `listRepositories`.
+- **Decidí que la prueba completa se haga directamente en Windows, no por WSL**, junto con el resto del Hito 3. Antes autoricé una prueba de solo lectura desde WSL contra mi Jira de pruebas.
+
+##### **Decisiones de Arquitectura e Intervenciones (TK-03a)**
+
+- `cli.ts` no puede importar la base, Jira ni Git por la regla de capas, así que el arranque llama a `createOrchestrator`, una raíz de composición nueva en `src/services/orchestrator/`.
+- El primer arranque tenía un círculo: guardar la configuración exige el sufijo y sugerirlo exige las credenciales guardadas. Se resolvió dejando que `suggestBranchSuffix` use credenciales sin guardar.
+- El token se pide enmascarado y nunca aparece en la salida; un token inválido nunca se presenta como «la clave no existe».
+- La prueba de solo lectura contra mi Jira real validó el alta de `SCRUM`, `MPDD`, `SUP` y `TC`, los 3 tickets asignados, el token inválido, una URL `ftp://` y un sitio inexistente, y un `origin` real para el alta de un repositorio.
+- Esa prueba destapó que `resolveDatabasePath` (de TK-02a) usa `win32.join`: en Linux/WSL crea un archivo con barras invertidas en el directorio actual. En Windows es correcto; queda anotado.
+- **Revisión de Cursor:** sin hallazgos medios ni altos. Dos bajos: los tests de composición dejaban la base abierta (en Windows no se puede borrar un archivo abierto), que se resolvió con un `close()` idempotente en el Orquestador, y una coma que faltaba en `docs/009`.
+
+##### **Resultados de Calidad Obtenidos (TK-03a)**
+
+- Suite de pruebas: de 347 a 431 tests en verde (82 al cerrar el ticket, 84 tras la revisión de Cursor).
+- `typecheck` y `lint` limpios; la TUI solo importa del Orquestador.
+- Lo que no se pudo comprobar: la prueba interactiva con teclado real, la ruta real de la base y Git con rutas `C:\...`. Queda para Windows.
+
+#### **Ollama AI Transformer: prompts, schemas y la prueba con el modelo real**
+
+TK-02e convierte el texto de un ticket en la Fase 1 del documento llamando a Ollama local (`qwen2.5:3b`), con validación y corrección en código. Es el ticket con más riesgo técnico de la segunda entrega. Está en revisión en la PR de `feature/TK-02e`.
+
+##### **Gobierno del Agente y del flujo de entrega (TK-02e)**
+
+- Pregunté qué era Ajv antes de aprobar su instalación; el agente lo explicó (valida un JSON contra un JSON Schema, la misma fuente que se manda a Ollama) y con eso autoricé la dependencia y la escritura en `templates/`.
+- Aprobé el contrato con tres decisiones de fondo: las reglas del posprocesado viven en `issue-types.json` (como dice `docs/002`), «descartar» un literal inventado significa descartar el elemento que lo contiene, y `presenteEnTicket` es opcional en `DocumentoFase1` para no romper los tests ya aprobados de TK-02d.
+- Pedí dos commits separados (código y documentación) y esperé a que Cursor revisara antes de seguir.
+
+##### **Decisiones de Arquitectura e Intervenciones (TK-02e)**
+
+- Los prompts del spike de octubre no estaban en el repositorio; se redactaron de nuevo y se afinaron con el modelo real.
+- **La prueba con Ollama real cambió un prompt.** Con la primera versión, en un bug cuyo ticket sí describía el recorrido y el síntoma, el modelo marcó todo como ausente: el documento quedaba sin valor. Tras dos iteraciones del prompt (qué cuenta como presente en cada campo), `pasosParaReproducir` y `comportamientoActual` salieron bien con las palabras del ticket. Un modelo de 3B es conservador: prefiere marcar «ausente» a arriesgar, que es el sesgo correcto para no inventar.
+- Una limitación aceptada y declarada: la historia de usuario (`como/quiero/para`) solo se rellena si el ticket la trae completa; si no, se marca entera como ausente.
+- Un problema de infraestructura de las pruebas: un test del timeout a mitad de streaming hacía fallar el proceso de Vitest (código 1) aunque todos los tests pasaran, por una aserción interna de `undici` al combinarse con msw. Se comprobó que no era del código del transformer y ese único caso usa el `fetch` inyectable.
+- **Revisión de Cursor:** un hallazgo bajo, real: la última línea del streaming se descartaba si no terminaba en salto de línea (mis tests siempre lo incluían y no lo veían), con lo que una respuesta correcta caía a fallback. Se corrigió con test en rojo primero.
+- `FallbackDeterminista` no informa la causa del fallo; registrarla en `ticket_logs.ollama_error` exigiría ampliar el contrato de TK-02a, y quedó fuera.
+
+##### **Resultados de Calidad Obtenidos (TK-02e)**
+
+- Suite de pruebas: de 431 a 508 tests en verde (77 de este ticket, 74 al implementar y 3 tras la revisión de Cursor).
+- Cobertura de `src/services/ollama/`: 98 % de sentencias y 92,5 % de ramas (umbral 80 %).
+- Con `qwen2.5:3b` real en WSL (solo CPU): 14 a 56 s por ticket, contra los 30 a 105 s del spike. Un timeout corto corta la generación a mitad, y un puerto sin Ollama o un modelo no instalado caen a fallback al instante.
+- Lo que no se hizo: medir en un PC real del equipo (8 GB con IDEs abiertos), que sigue siendo el riesgo principal del producto.

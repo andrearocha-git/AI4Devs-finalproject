@@ -106,14 +106,14 @@
 
 ---
 
-### TK-02: Service Layer — Jira, Ollama, Git, FileSystem y Orquestador (ticket paraguas dividido en TK-02a … TK-02g)
+### TK-02: Service Layer — Jira, Ollama, Git, FileSystem y Orquestador (ticket paraguas dividido en TK-02a … TK-02h)
 
 - **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 2 | **Esfuerzo total:** Alto
 - **Dependencias Previas:** TK-01
 - **Capa / Módulo:** Backend / Servicios (Service Layer)
 - **Historias de Usuario Relacionadas:** US-02, US-03
 
-> **División (2026-11-02).** El TK-02 original (Jira REST Client, Ollama AI Transformer, Git Manager, FileSystem Manager y Orquestador en un solo ticket) tenía 5 componentes, 5 criterios técnicos y unos 17 archivos: no cabía en un contrato de 2-3 escenarios y 5 tareas (`/03-refinar-historia`, chequeo INVEST: fallaban S y T). Se divide en siete sub-tickets, cada uno con su propio contrato en `docs/changes/TK-02x.md`. **TK-02 deja de implementarse como unidad**: es solo el paraguas; se considera cerrado cuando TK-02a … TK-02g lo están. Los criterios técnicos originales CA1-CA5 se conservan dentro del sub-ticket que los cubre.
+> **División (2026-11-02).** El TK-02 original (Jira REST Client, Ollama AI Transformer, Git Manager, FileSystem Manager y Orquestador en un solo ticket) tenía 5 componentes, 5 criterios técnicos y unos 17 archivos: no cabía en un contrato de 2-3 escenarios y 5 tareas (`/03-refinar-historia`, chequeo INVEST: fallaban S y T). Se divide en ocho sub-tickets (siete el 2026-11-02 y TK-02h el 2026-11-06), cada uno con su propio contrato en `docs/changes/TK-02x.md`. **TK-02 deja de implementarse como unidad**: es solo el paraguas; se considera cerrado cuando TK-02a … TK-02h lo están. Los criterios técnicos originales CA1-CA5 se conservan dentro del sub-ticket que los cubre.
 
 | Sub-ticket | Alcance | CA originales | Esfuerzo | Depende de |
 |---|---|---|---|---|
@@ -122,10 +122,13 @@
 | **TK-02c** | Git Manager | CA3 | Medio | TK-02a |
 | **TK-02d** | FileSystem Manager y plantillas de documento | CA4 | Medio | TK-02a |
 | **TK-02e** | Ollama AI Transformer, prompts, schemas y posprocesado | CA2 | Medio-Alto | TK-02a |
-| **TK-02f** | Orquestador: flujo `startTicket` y `ticket_logs` | CA5 | Alto | TK-02b, c, d, e |
+| **TK-02f** | Orquestador: flujo `startTicket` (núcleo) y `ticket_logs` | CA5 (parte) | Alto | TK-02b, c, d, e |
 | **TK-02g** | Orquestador: gestión de configuración, proyectos y repositorios para la TUI | Contrato TUI | Medio | TK-02b, TK-02c |
+| **TK-02h** | Orquestador: reutilizar y reprocesar la Fase 1 (`reprocessFase1`, segundo repositorio) | CA5 (parte) | Medio | TK-02f |
 
-Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02f → TK-02g. TK-03a depende de TK-02g y TK-03b de TK-02f (y de TK-03a).
+> **Segunda división (2026-11-06).** Al refinar TK-02f (`/03-refinar-historia`, chequeo INVEST: falla S) se vio que su criterio único reunía unos 14 comportamientos y 5 pasos orquestados (unos 45 tests). Se separó la **Fase 1 reutilizable** (US-03 CA6 y CA9) en TK-02h, que se apoya en el flujo de TK-02f. El nombre `TK-02h` evita renombrar las referencias a TK-02f que ya hay en los demás documentos. TK-02f conserva el flujo principal y TK-02h añade la reutilización y el reproceso encima.
+
+Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02f → TK-02h; TK-02g depende solo de TK-02b y TK-02c. TK-03a depende de TK-02g y TK-03b de TK-02f, TK-02h y TK-03a.
 
 **Reglas comunes a todos los sub-tickets** (Decisiones 1, 3 y 4 de la auditoría): toda configuración (credenciales, host, timeouts, sufijo de rama, raíz de tickets) se resuelve una única vez y se inyecta por constructor; ningún componente de la Service Layer accede a SQLite directamente (solo el Orquestador, vía `SQLiteStorageManager` de TK-01); todo paso devuelve `StepResult` y ninguna falla de una integración llega a la TUI como excepción cruda.
 
@@ -296,12 +299,12 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
 
 #### TK-02f: Orquestador — flujo `startTicket` y registro en `ticket_logs`
 
-- **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 2 (6.º) | **Esfuerzo:** Alto
+- **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 2 (6.º) | **Esfuerzo:** Alto *(dividido el 2026-11-06: la reutilización y el reproceso de la Fase 1 pasaron a TK-02h)*
 - **Dependencias Previas:** TK-02b, TK-02c, TK-02d, TK-02e
 - **Historias de Usuario Relacionadas:** US-02, US-03
 
 - **Descripción y Alcance:**
-  **Orquestador de Ticket**: coordina Jira → Git → FileSystem → Ollama → FileSystem para **un repositorio por ejecución**, emitiendo un evento de progreso por paso (Decisión 1 de la auditoría); resuelve el tipo de issue con `templates/issue-types.json` y corta el flujo en las épicas; reutiliza la Fase 1 entre repositorios del mismo ticket; es el **único escritor de `ticket_logs`** (Decisión 4), con *upsert* por `(ticket_id, repository_id)` y tratamiento aparte de `repository_id = NULL`; registra `prompt_version`. Recibe los cuatro pasos y el `SQLiteStorageManager` por constructor.
+  **Orquestador de Ticket**: coordina Jira → Git → FileSystem → Ollama → FileSystem para **un repositorio por ejecución**, emitiendo un evento de progreso por paso (Decisión 1 de la auditoría); resuelve el tipo de issue con `templates/issue-types.json` y corta el flujo en las épicas; genera la Fase 1 con Ollama y la guarda en `fase1.json` (la **reutilización** entre repositorios y el **reproceso** son de TK-02h); es el **único escritor de `ticket_logs`** (Decisión 4), con *upsert* por `(ticket_id, repository_id)` y tratamiento aparte de `repository_id = NULL`; registra `prompt_version`. Recibe por constructor el `SQLiteStorageManager`, el `GitManager` y la fábrica del cliente de Jira; el `FileSystemManager` y el `OllamaAITransformer` se arman dentro de `startTicket` con la configuración guardada (un cuarto parámetro opcional permite sustituirlos y el reloj en los tests). `jiraFetchStatus` es `null` cuando el flujo se corta antes de llegar a consultar a Jira.
 
 - **Archivos a Crear / Modificar:**
   - `src/services/orchestrator/ticket-orchestrator.ts`
@@ -310,14 +313,41 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
 
 - **Contratos e Interfaces (Input/Output):**
   - `type AskRequest = { kind: 'manualTicket'; ticketId: string; reason: 'network_timeout' | 'invalid_token' | 'not_found' } | { kind: 'confirmActions'; summary: { ticketId: string; issueType: string; repositoryName: string | null; branchName: string | null; baseBranch: string | null; folderPath: string; branchAlreadyExists: boolean; reprocessFase1: boolean } }` y `type AskCallback` con dos formas: `manualTicket` → `Promise<{ title: string; description: string }>` y `confirmActions` → `Promise<boolean>` — único punto en el que el Orquestador pide datos o una decisión al usuario durante un flujo (carga manual ante `FallbackManual` de Jira, y confirmación de acciones, H-03). **La confirmación se pide una sola vez, después de obtener el ticket, resolver su tipo (ya se conoce el prefijo de la rama) y ejecutar `GitManager.inspectRepository` (solo lectura: un repositorio inexistente, con cambios pendientes o con la rama solo en el remoto corta el flujo sin pedir confirmar; si la rama ya existe en local, la confirmación consulta si se usa la misma y rechazarla cancela la ejecución), y antes de cualquier escritura en Git, disco u Ollama.** Si el desarrollador cancela, no se crea nada ni se escribe en `ticket_logs`. La elección del repositorio **no** se pide a mitad del flujo: la TUI la resuelve antes con `listRepositoriesForTicket` (TK-02g) y pasa `repositoryId`.
-  - `TicketOrchestrator.startTicket(input: { ticketId: string; repositoryId?: number; baseBranchOverride?: string; reprocessFase1?: boolean }, hooks: { onStep: (step: 'jira' | 'git' | 'filesystem' | 'ollama', status: 'started' | 'ok' | 'fallback' | 'error', detail?: string) => void; ask: AskCallback }): Promise<TicketRunSummary>` — `TicketRunSummary { ticketId: string; repositoryId: number | null; issueType: string; branchName: string | null; branchStatus: 'created' | 'already_existed' | 'pending_changes' | 'error' | null; folderPath: string | null; documentPath: string | null; jiraFetchStatus: 'ok' | 'fallback_manual'; ollamaStatus: 'ok' | 'fallback_deterministic' | 'reused' | null; promptVersion?: string; blocked?: { subtype: string; message: string }; cancelled?: true }` — `cancelled` es `true` solo si el desarrollador no confirmó (en ese caso `branchName`, `folderPath`, `documentPath` y `ollamaStatus` son `null`); `folderPath`, `documentPath` y `ollamaStatus` son `null` cuando el flujo se cortó en Git; el Orquestador igualmente registra la ejecución en `ticket_logs`.
+  - `TicketOrchestrator.startTicket(input: { ticketId: string; repositoryId?: number; baseBranchOverride?: string; reprocessFase1?: boolean }, hooks: { onStep: (step: 'jira' | 'git' | 'filesystem' | 'ollama', status: 'started' | 'ok' | 'fallback' | 'error', detail?: string) => void; ask: AskCallback }): Promise<TicketRunSummary>` — `TicketRunSummary { ticketId: string; repositoryId: number | null; issueType: string; branchName: string | null; branchStatus: 'created' | 'already_existed' | 'pending_changes' | 'error' | null; folderPath: string | null; documentPath: string | null; jiraFetchStatus: 'ok' | 'fallback_manual' | null; ollamaStatus: 'ok' | 'fallback_deterministic' | 'reused' | null; promptVersion?: string; blocked?: { subtype: string; message: string }; cancelled?: true }` — `cancelled` es `true` solo si el desarrollador no confirmó (en ese caso `branchName`, `folderPath`, `documentPath` y `ollamaStatus` son `null`); `folderPath`, `documentPath` y `ollamaStatus` son `null` cuando el flujo se cortó en Git; el Orquestador igualmente registra la ejecución en `ticket_logs`.
 
 - **Criterios de Aceptación Técnicos:**
-  1. (CA5 original, más H-03 y H-02) Test de integración del Orquestador: `reprocessFase1: true` con una Fase 1 válida previa → invoca a Ollama, sobrescribe `fase1.json` y regenera solo el bloque de Fase 1 del documento del repositorio elegido (sin tocar la Fase 2 ni los documentos de otros repositorios); si el reproceso cae en fallback conserva la Fase 1 válida anterior; sin el flag y con una Fase 1 previa en fallback (`generatedByOllama: false`) reintenta con Ollama automáticamente; repositorio con cambios pendientes → `blocked` **sin invocar `ask({ kind: 'confirmActions' })`** y con fila en `ticket_logs` (`pending_changes`); confirmación rechazada (`ask` devuelve `false`) → resumen con `cancelled: true`, sin llamadas a Git, FileSystem ni Ollama y sin fila en `ticket_logs`; ejecución cortada por cambios pendientes → resumen con `blocked`, `folderPath`/`documentPath`/`ollamaStatus` en `null` y una fila en `ticket_logs` con `branch_status = 'pending_changes'`; Jira fallback → se invoca `ask({ kind: 'manualTicket' })` y el flujo continúa con los datos devueltos; Jira OK + Ollama OK → rama + carpeta + documento + un único registro en `ticket_logs` (SQLite mockeada) con `prompt_version`; Jira fallback + Ollama fallback → el flujo completa igual sin detenerse, documento marcado `⚠️ Generado sin Ollama`; épica → aviso sin rama, carpeta, documento ni registro; segunda ejecución con otro repositorio → `ollamaStatus: 'reused'` sin invocar a Ollama; clave sin repositorios → solo documento, `repositoryId: null` y sin pasos de Git; rama solo en `origin` (`ErrorBloqueante('RamaExistenteEnRemoto')`) → `blocked` **sin invocar `ask({ kind: 'confirmActions' })`** y con fila en `ticket_logs` (`branch_status = 'error'`).
+  1. (CA5 original, más H-03; la parte de Fase 1 reutilizable y reprocesable pasó a TK-02h) Test de integración del Orquestador: repositorio con cambios pendientes → `blocked` **sin invocar `ask({ kind: 'confirmActions' })`** y con fila en `ticket_logs` (`pending_changes`); confirmación rechazada (`ask` devuelve `false`) → resumen con `cancelled: true`, sin llamadas a Git (de escritura), FileSystem ni Ollama y sin fila en `ticket_logs`; ejecución cortada por cambios pendientes → resumen con `blocked`, `folderPath`/`documentPath`/`ollamaStatus` en `null` y una fila en `ticket_logs` con `branch_status = 'pending_changes'`; Jira fallback → se invoca `ask({ kind: 'manualTicket' })` y el flujo continúa con los datos devueltos; Jira OK + Ollama OK → rama + carpeta + documento + `fase1.json` + un único registro en `ticket_logs` (SQLite mockeada) con `prompt_version`; Jira fallback + Ollama fallback → el flujo completa igual sin detenerse, documento marcado `⚠️ Generado sin Ollama` y sin guardar `fase1.json`; épica → aviso sin rama, carpeta, documento ni registro; clave sin repositorios → solo documento, `repositoryId: null` y sin pasos de Git; rama solo en `origin` (`ErrorBloqueante('RamaExistenteEnRemoto')`) → `blocked` **sin invocar `ask({ kind: 'confirmActions' })`** y con fila en `ticket_logs` (`branch_status = 'error'`).
+  - `reprocessFase1` se acepta en la entrada y viaja en el resumen de la confirmación, pero **no tiene efecto** hasta TK-02h.
 
 - **Definition of Done (DoD):**
-  - [ ] Solo el Orquestador escribe `ticket_logs`.
-  - [ ] Los 4 tipos de `StepResult` tienen al menos un test en el Orquestador que los maneja.
+  - [x] Solo el Orquestador escribe `ticket_logs`.
+  - [x] Los 4 tipos de `StepResult` tienen al menos un test en el Orquestador que los maneja.
+  - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
+
+---
+
+#### TK-02h: Orquestador — reutilizar y reprocesar la Fase 1
+
+- **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 2 (8.º) | **Esfuerzo:** Medio
+- **Dependencias Previas:** TK-02f *(la Fase 1 y `fase1.json` los guarda el flujo de TK-02f)*
+- **Historias de Usuario Relacionadas:** US-03 (CA6 y CA9)
+
+- **Descripción y Alcance:**
+  Sobre el flujo de TK-02f, la Fase 1 de Ollama se genera **una vez por ticket** y se reutiliza (`ollama_status = 'reused'`) cuando el mismo ticket se inicia con otro repositorio (H-02), y se puede **reprocesar** con `reprocessFase1` (el `--reprocesar` de `devflow start`) regenerando solo el bloque de Fase 1 del documento del repositorio elegido, sin tocar lo que la desarrolladora completó a mano. Usa `FileSystemManager.readFase1` y `writeDocument({ regenerateFase1Only: true })` de TK-02d. Se separó de TK-02f el 2026-11-06 por tamaño.
+
+- **Archivos a Crear / Modificar:**
+  - `src/services/orchestrator/start-ticket.ts` *(o `ticket-orchestrator.ts`, según dónde viva el flujo tras TK-02f)*
+  - `tests/unit/services/orchestrator/*.test.ts`
+  - `tests/integration/ticket-flow.e2e.test.ts` (ampliar con el segundo repositorio)
+
+- **Contratos e Interfaces (Input/Output):**
+  - Los de TK-02f (`StartTicketInput.reprocessFase1`, `TicketRunSummary.ollamaStatus: 'reused'`); sin firmas nuevas.
+
+- **Criterios de Aceptación Técnicos:**
+  1. (CA5 original, parte de la Fase 1; H-02) Test del Orquestador: `reprocessFase1: true` con una Fase 1 válida previa → invoca a Ollama, sobrescribe `fase1.json` y regenera solo el bloque de Fase 1 del documento del repositorio elegido (sin tocar la Fase 2 ni los documentos de otros repositorios); si el reproceso cae en fallback conserva la Fase 1 válida anterior; sin el flag y con una Fase 1 previa en fallback (`generatedByOllama: false`) reintenta con Ollama automáticamente; segunda ejecución con otro repositorio → `ollamaStatus: 'reused'` sin invocar a Ollama, con su carpeta y su documento propios y el documento del primero sin cambios.
+
+- **Definition of Done (DoD):**
+  - [ ] La `prompt_version` registrada es la de la Fase 1 que se usó (la nueva o la reutilizada).
   - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---
@@ -356,7 +386,7 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
 ### TK-03: Controlador CLI e Interfaz Interactiva de Terminal (Windows) (ticket paraguas dividido en TK-03a y TK-03b)
 
 - **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 3 | **Esfuerzo total:** Medio-Alto
-- **Dependencias Previas:** TK-01, TK-02f, TK-02g (el TK-02 original se dividió; ver la tabla en TK-02)
+- **Dependencias Previas:** TK-01, TK-02f, TK-02g, TK-02h (el TK-02 original se dividió; ver la tabla en TK-02)
 - **Capa / Módulo:** Frontend / TUI (TUI Layer)
 - **Historias de Usuario Relacionadas:** US-01, US-02, US-03
 
@@ -365,9 +395,9 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
 | Sub-ticket | Alcance | CA originales | Esfuerzo | Depende de |
 |---|---|---|---|---|
 | **TK-03a** | CLI base (`cli.ts`) y `devflow config` / `devflow config proyectos` con sus prompts de alta | CA9 | Medio | TK-02g |
-| **TK-03b** | `devflow start`: selección de ticket y repositorio, carga manual, confirmación, progreso y pantallas de resultado | CA1-CA8 | Medio-Alto | TK-02f, TK-03a |
+| **TK-03b** | `devflow start`: selección de ticket y repositorio, carga manual, confirmación, progreso y pantallas de resultado | CA1-CA8 | Medio-Alto | TK-02f, TK-02h, TK-03a |
 
-Orden: TK-03a (Hito 1, ya con TK-02g) → TK-03b (Hito 2, con TK-02f).
+Orden: TK-03a (Hito 1, ya con TK-02g) → TK-03b (Hito 2, con TK-02f y TK-02h).
 
 **Reglas comunes a ambos sub-tickets:** **sin Ink** (Ink e inquirer compiten por stdin); la TUI nunca accede directamente a Jira, Git, Ollama, SQLite o al sistema de archivos — todo pasa por el Orquestador; la comunicación es asíncrona basada en eventos, no una llamada bloqueante única (Decisión 1 de la auditoría de arquitectura).
 
@@ -406,7 +436,7 @@ Orden: TK-03a (Hito 1, ya con TK-02g) → TK-03b (Hito 2, con TK-02f).
 #### TK-03b: Comando `devflow start` (selección, confirmación, progreso y pantallas de resultado)
 
 - **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 3 (2.º) | **Esfuerzo:** Medio-Alto
-- **Dependencias Previas:** TK-02f, TK-03a
+- **Dependencias Previas:** TK-02f, TK-02h, TK-03a
 - **Historias de Usuario Relacionadas:** US-02, US-03
 
 - **Descripción y Alcance:**

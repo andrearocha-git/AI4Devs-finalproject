@@ -2,11 +2,15 @@ import type { SQLiteStorageManager } from "../../database/sqlite-storage-manager
 import { normalizeJiraBaseUrl } from "../../shared/config/jira-base-url.js";
 import type { StepResult } from "../../shared/errors/result.types.js";
 import type { AppConfig, JiraProject, Repository } from "../../shared/types/config.types.js";
+import type { StartTicketHooks, StartTicketInput, TicketRunSummary } from "../../shared/types/ticket-run.types.js";
+import { FileSystemManager } from "../filesystem/filesystem-manager.js";
 import type { GitManager } from "../git/git-manager.js";
 import type { JiraRestClient } from "../jira/jira-rest-client.js";
+import { OllamaAITransformer } from "../ollama/ollama-ai-transformer.js";
+import { blockedRun, runStartTicket, type StartTicketContext } from "./start-ticket.js";
 
 /** Subconjunto del cliente de Jira que usa el Orquestador; permite inyectar un doble en los tests. */
-export type JiraGateway = Pick<JiraRestClient, "validateProjectKey" | "listAssignedTickets" | "getMyDisplayName">;
+export type JiraGateway = Pick<JiraRestClient, "fetchTicket" | "validateProjectKey" | "listAssignedTickets" | "getMyDisplayName">;
 
 /** Credenciales de Jira que escribe el usuario; la URL se normaliza al `origin` antes de usarse. */
 export interface JiraCredentials {
@@ -35,6 +39,19 @@ const SUFFIX_FORMAT = /^[A-Z0-9]+$/;
 /** `CLAVE-123`: la clave de proyecto es lo que precede al guion; no admite guiones propios. */
 const TICKET_ID_FORMAT = /^([A-Za-z][A-Za-z0-9_]*)-\d+$/;
 
+/**
+ * Dependencias de `startTicket` que los tests sustituyen. Todas son opcionales: por defecto se usan las reales, armadas con la
+ * configuración guardada en el momento de ejecutar.
+ */
+export interface StartTicketDeps {
+  /** Gestor de archivos del ticket; por defecto `FileSystemManager` con la carpeta de tickets y los adjuntos de la configuración. */
+  createFileSystem?: (config: AppConfig) => StartTicketContext["fileSystem"];
+  /** Transformer de Ollama; por defecto `OllamaAITransformer` con el host, modelo y timeout de la configuración. */
+  createTransformer?: (config: AppConfig) => StartTicketContext["transformer"];
+  /** Reloj; por defecto `new Date()`. */
+  now?: () => Date;
+}
+
 /** Datos de un repositorio local al darlo de alta o editarlo. Los textos se guardan sin espacios sobrantes. */
 export interface RepositoryInput {
   /** Clave de un proyecto ya dado de alta (sin distinguir mayúsculas). */
@@ -59,11 +76,13 @@ export class TicketOrchestrator {
    * @param git Gestor de Git (validación de repositorios).
    * @param createJiraClient Fábrica del cliente de Jira; se invoca con la configuración guardada en cada llamada,
    * de modo que un cambio hecho con `saveConfig` surte efecto sin reinstanciar el Orquestador.
+   * @param deps Sustitutos de las dependencias de `startTicket` (archivos, Ollama y reloj); ver {@link StartTicketDeps}.
    */
   constructor(
     private readonly storage: SQLiteStorageManager,
     private readonly git: GitManager,
     private readonly createJiraClient: JiraClientFactory,
+    private readonly deps: StartTicketDeps = {},
   ) {}
 
   private closed = false;
@@ -79,6 +98,67 @@ export class TicketOrchestrator {
     if (this.closed) return;
     this.closed = true;
     this.storage.close();
+  }
+
+  /**
+   * Prepara un ticket para un repositorio: obtiene el ticket de Jira (o lo pide a mano si Jira no responde), resuelve su tipo,
+   * inspecciona el repositorio, pide **una sola** confirmación, crea la rama, la carpeta y el documento con la Fase 1 de Ollama y
+   * registra la ejecución en `ticket_logs`. Nunca hace `commit`, `add` ni `push`.
+   *
+   * No lanza: todo corte se devuelve como `blocked` (con un mensaje apto para el usuario) y la cancelación como `cancelled`.
+   * Ollama nunca bloquea: si falla, el documento queda con el texto original sin redactar. Los cortes por una entrada inválida
+   * (clave o repositorio no configurados, épica, error de Jira) no se registran; los cortes en Git y los fallos de carpeta o
+   * documento tras crear la rama sí.
+   *
+   * @param input Ticket, repositorio elegido (se omite solo si la clave no tiene repositorios), base de esta ejecución y reproceso.
+   * @param hooks `onStep` con el progreso de cada paso y `ask` para la carga manual y la confirmación.
+   * @returns El resumen de la ejecución.
+   */
+  async startTicket(input: StartTicketInput, hooks: StartTicketHooks): Promise<TicketRunSummary> {
+    const ticketId = input.ticketId.trim().toUpperCase();
+    const config = this.storage.getAppConfig();
+    if (!config) return blockedRun(ticketId, "ErrorInesperado", "Falta la configuración de la herramienta. Ejecuta «devflow config» primero.");
+
+    const key = TICKET_ID_FORMAT.exec(ticketId)?.[1];
+    if (key === undefined) {
+      const unknown = this.unknownProject(`«${input.ticketId}» no es un ID de ticket válido (se espera, p. ej., SCRUM-12)`, false);
+      return blockedRun(ticketId, "ErrorInesperado", unknown.kind === "ErrorBloqueante" ? unknown.message : "ID de ticket no válido.");
+    }
+    const project = this.findProject(key);
+    if (project.kind !== "Ok") {
+      return blockedRun(ticketId, "ErrorInesperado", project.kind === "ErrorBloqueante" ? project.message : "Proyecto no configurado.");
+    }
+
+    const repositories = this.storage.listRepositories(project.value.id);
+    let repository: Repository | null = null;
+    if (input.repositoryId !== undefined) {
+      repository = repositories.find((r) => r.id === input.repositoryId) ?? null;
+      if (repository === null) {
+        return blockedRun(ticketId, "RepositorioNoEncontrado", `El repositorio #${input.repositoryId} no pertenece al proyecto ${project.value.jiraProjectKey}.`);
+      }
+    } else if (repositories.length > 0) {
+      const names = repositories.map((r) => r.name).join(", ");
+      return blockedRun(ticketId, "ErrorInesperado", `El proyecto ${project.value.jiraProjectKey} tiene repositorios (${names}): elige un repositorio para continuar.`);
+    }
+
+    const jira = this.jiraClient();
+    if (jira.kind !== "Ok") return blockedRun(ticketId, "ErrorInesperado", jira.kind === "ErrorBloqueante" ? jira.message : "Jira no está configurado.");
+
+    return runStartTicket(
+      {
+        storage: this.storage,
+        git: this.git,
+        jira: jira.value,
+        fileSystem: (this.deps.createFileSystem ?? defaultFileSystem)(config),
+        transformer: (this.deps.createTransformer ?? defaultTransformer)(config),
+        config,
+        project: project.value,
+        repository,
+        now: this.deps.now ?? (() => new Date()),
+      },
+      input,
+      hooks,
+    );
   }
 
   /**
@@ -381,6 +461,16 @@ function removeKeepingHistory(what: string, remove: () => void): void {
 function invalidJiraUrlMessage(value: string): string {
   const shown = value.includes("@") ? "(oculta, parece llevar usuario)" : `«${value.trim()}»`;
   return `La URL de Jira ${shown} no es válida: debe ser http(s)://<sitio>.atlassian.net, sin usuario, parámetros ni fragmento.`;
+}
+
+/** `FileSystemManager` real con la carpeta de tickets y los adjuntos de la configuración. */
+function defaultFileSystem(config: AppConfig): FileSystemManager {
+  return new FileSystemManager({ ticketsRootPath: config.ticketsRootPath, adjuntosDirName: config.adjuntosDirName });
+}
+
+/** `OllamaAITransformer` real con el host, el modelo y el timeout de la configuración. */
+function defaultTransformer(config: AppConfig): OllamaAITransformer {
+  return new OllamaAITransformer({ host: config.ollamaHost, model: config.ollamaModel, timeoutSeconds: config.ollamaTimeoutSeconds });
 }
 
 /** Recorta los textos del repositorio; una rama base en blanco pasa a ausente. */

@@ -96,6 +96,8 @@ DoD-b (revisión mergeada) no es un escenario: se tilda tras la merge. La tarea 
   - `SCRUM-3` con Ollama caído: documento con el aviso, sin `fase1.json`; después, con Ollama y **sin el flag**, reintenta sola (29 s), el aviso desaparece, la Fase 2 a mano se conserva y se guarda `fase1.json`.
 - **Cierre de la tarea 4:** el paso 7 de `runStartTicket` quedó en una función propia (`resolveFase1`) con un resultado explícito (`Fase1Outcome`), para que el flujo principal se lea de corrido. `typecheck` y `lint` limpios; 580 tests en verde (22 de este ticket: 18 unitarios y 4 de integración).
 
+- **Revisión de Cursor (2026-11-06), un hallazgo bajo corregido:** el TSDoc público seguía describiendo el comportamiento de TK-02f: `StartTicketInput.reprocessFase1` decía que «su efecto llega con TK-02h» y `TicketOrchestrator.startTicket` decía que, si Ollama falla, el documento queda siempre con el texto sin redactar, cuando con una Fase 1 válida previa un reproceso fallido deja el documento y `fase1.json` como estaban. Ambos comentarios describen ahora la reutilización, el reproceso, el reintento y la conservación de la Fase 1 anterior. Solo cambian comentarios; 580 tests en verde.
+
 Puntos **(ambiguos o asumidos)** aprobados con el contrato:
 
 1. *(ambiguo)* **Qué se registra cuando el reproceso falla.** El criterio dice que se conserva la Fase 1 anterior, pero no cómo queda la fila de `ticket_logs`. Se propone `ollama_status = 'fallback_deterministic'` (lo que pasó en esta ejecución) con la `prompt_version` de la Fase 1 conservada (la que sigue en el documento). Alternativa: `'reused'`, que describiría el documento pero ocultaría que el intento falló.

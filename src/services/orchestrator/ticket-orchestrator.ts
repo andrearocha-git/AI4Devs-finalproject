@@ -106,9 +106,14 @@ export class TicketOrchestrator {
    * registra la ejecución en `ticket_logs`. Nunca hace `commit`, `add` ni `push`.
    *
    * No lanza: todo corte se devuelve como `blocked` (con un mensaje apto para el usuario) y la cancelación como `cancelled`.
-   * Ollama nunca bloquea: si falla, el documento queda con el texto original sin redactar. Los cortes por una entrada inválida
-   * (clave o repositorio no configurados, épica, error de Jira) no se registran; los cortes en Git y los fallos de carpeta o
-   * documento tras crear la rama sí.
+   * La Fase 1 se genera una vez por ticket: si ya hay una válida en `fase1.json` (`generatedByOllama: true`) se **reutiliza** sin
+   * llamar a Ollama (`ollamaStatus: 'reused'`); si no hay ninguna válida (ausente, en fallback o ilegible) se redacta con Ollama, que
+   * **nunca bloquea**; con `reprocessFase1` se vuelve a redactar. Una Fase 1 nueva reemplaza solo el bloque de Fase 1 del documento
+   * y se guarda en `fase1.json` después de escribir el documento. Si Ollama falla, el documento queda con el texto original sin
+   * redactar, salvo que ya hubiera una Fase 1 válida: entonces se conserva (documento y `fase1.json` intactos).
+   *
+   * Los cortes por una entrada inválida (clave o repositorio no configurados, épica, error de Jira) no se registran; los cortes en
+   * Git y los fallos de carpeta o documento tras crear la rama sí.
    *
    * @param input Ticket, repositorio elegido (se omite solo si la clave no tiene repositorios), base de esta ejecución y reproceso.
    * @param hooks `onStep` con el progreso de cada paso y `ask` para la carga manual y la confirmación.

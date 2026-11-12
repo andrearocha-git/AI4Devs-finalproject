@@ -348,7 +348,7 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
 
 - **Definition of Done (DoD):**
   - [x] La `prompt_version` registrada es la de la Fase 1 que se usó (la nueva o la reutilizada).
-  - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
+  - [x] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---
 

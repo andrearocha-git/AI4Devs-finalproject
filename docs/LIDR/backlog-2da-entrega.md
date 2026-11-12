@@ -9,9 +9,9 @@
 | Archivo | Contenido |
 |---|---|
 | `docs/005-historias-de-usuario.md` | 3 historias: **US-01** (configurar, 6 CA), **US-02** (elegir y consultar el ticket en Jira, 6 CA), **US-03** (preparar rama, carpeta y documento con Ollama, 10 CA). |
-| `docs/006-tickets-de-trabajo.md` | **TK-00** y **TK-01** (hechos), **TK-02** (paraguas dividido en **TK-02a … TK-02g**), **TK-03** (paraguas dividido en **TK-03a** y **TK-03b**). |
+| `docs/006-tickets-de-trabajo.md` | **TK-00** y **TK-01** (hechos), **TK-02** (paraguas dividido en **TK-02a … TK-02i**), **TK-03** (paraguas dividido en **TK-03a** y **TK-03b**, y este en **TK-03b1, TK-03b2 y TK-03b3**). |
 
-Estado: TK-00, TK-01, TK-02a, TK-02b, TK-02c, TK-02d, TK-02e, TK-02f, TK-02g, TK-02h y TK-03a implementados (580 tests, typecheck y lint en verde; TK-02a, TK-02b, TK-02c, TK-02d, TK-02g y TK-03a revisados y fusionados en `feature/TK-02`; TK-02e y TK-02f revisados por Cursor y fusionados; TK-02h revisado por Cursor y fusionado). El Hito 1 está cerrado en código y probado en Windows con Jira y Git reales (falta el `bin` de `devflow`, Hito 3); en el Hito 2 queda TK-03b. Todo lo demás está especificado y sin código.
+Estado: TK-00, TK-01, TK-02a, TK-02b, TK-02c, TK-02d, TK-02e, TK-02f, TK-02g, TK-02h y TK-03a implementados (580 tests, typecheck y lint en verde; TK-02a, TK-02b, TK-02c, TK-02d, TK-02g y TK-03a revisados y fusionados en `feature/TK-02`; TK-02e y TK-02f revisados por Cursor y fusionados; TK-02h revisado por Cursor y fusionado). El Hito 1 está cerrado en código y probado en Windows con Jira y Git reales (falta el `bin` de `devflow`, Hito 3); en el Hito 2 queda TK-03b (dividido el 2026-11-12 en TK-03b1, TK-03b2 y TK-03b3) y el pequeño TK-02i. Todo lo demás está especificado y sin código.
 
 **Observación INVEST (sin modificar nada).** US-03 falla S (Small): 10 CA y esfuerzo Alto. TK-03 también es grande (dos comandos, cuatro prompts y todas las pantallas de resultado). Por eso el orden de abajo entrega las historias **por criterios de aceptación**, no de una vez, y TK-03 ya se dividió en TK-03a y TK-03b (§4).
 
@@ -63,7 +63,10 @@ Estado: TK-00, TK-01, TK-02a, TK-02b, TK-02c, TK-02d, TK-02e, TK-02f, TK-02g, TK
 | 2.2 | **TK-02e** Ollama AI Transformer ✅ | Prompts, schemas, Ajv, posprocesado, fallback | 1.1 |
 | 2.3 | **TK-02f** Orquestador: `startTicket` (núcleo) ✅ | Jira → Git → carpetas → Ollama → documento, confirmación única y `ticket_logs` | 1.2, 1.3, 2.1, 2.2 |
 | 2.4 | **TK-02h** Orquestador: Fase 1 reutilizable ✅ | Reutilizar la Fase 1 con otro repositorio y reprocesarla (`--reprocesar`) | 2.3 |
-| 2.5 | **TK-03b** `devflow start` | Selección de ticket y repositorio, carga manual, confirmación, progreso, pantallas de resultado | 2.3, 2.4 |
+| 2.5 | **TK-02i** Plantillas | «No especificado en el ticket.» en criterios vacíos (independiente) | 2.1 |
+| 2.6 | **TK-03b1** `devflow start`: núcleo | Validación del ID, lista de asignados, elección de repositorio, registro del comando, aviso sin claves | 2.3, 2.4 |
+| 2.7 | **TK-03b2** `devflow start`: `ask` | Carga manual (con tipo de issue) y confirmación única | 2.6 |
+| 2.8 | **TK-03b3** `devflow start`: progreso y pantallas | Spinner por paso (texto fijo para Ollama), éxito, avisos y bloqueos | 2.7 |
 
 *Nota de orden:* 2.1 y 2.2 son independientes (se pueden paralelizar). Si Ollama se retrasa, 2.2 puede entrar con solo el camino de fallback determinista y completarse después sin bloquear 2.3, siempre que el contrato del ticket lo apruebe.
 
@@ -71,7 +74,7 @@ Estado: TK-00, TK-01, TK-02a, TK-02b, TK-02c, TK-02d, TK-02e, TK-02f, TK-02g, TK
 
 **Verificación del hito**
 
-- Automática: tests de 02d, 02e, 02f, 02h y 03b; prueba de integración `tests/integration/ticket-flow.e2e.test.ts` con SQLite real en memoria, Git y disco temporales, y Jira/Ollama simulados.
+- Automática: tests de 02d, 02e, 02f, 02h, 02i y 03b1-03b3; prueba de integración `tests/integration/ticket-flow.e2e.test.ts` con SQLite real en memoria, Git y disco temporales, y Jira/Ollama simulados.
 - Integración real (manual, una vez): un ticket del Jira de pruebas con Ollama `qwen2.5:3b` (≈45 s en CPU según el spike; timeout de 120 s) sobre un repositorio local de prueba; repetirlo con Ollama apagado para ver el fallback.
 - Aceptación manual: recorrer los CA de US-02 y US-03 (épica, sin red, token inválido, cambios pendientes, rama existente, segundo repositorio, clave sin repositorios, `--base`).
 
@@ -92,7 +95,7 @@ Estado: TK-00, TK-01, TK-02a, TK-02b, TK-02c, TK-02d, TK-02e, TK-02f, TK-02g, TK
 
 1. ✅ **Aplicada (2026-11-02): dividir TK-03** (antes una sola unidad de esfuerzo Medio que en la práctica es grande) en dos tickets, para poder entregar el Hito 1 sin esperar al Orquestador completo:
    - **TK-03a** — `src/tui/cli.ts`, `config.command.ts` y los prompts de alta de claves, repositorios y sufijo. Depende de TK-02g.
-   - **TK-03b** — `start.command.ts`, selección de ticket y repositorio, carga manual, confirmación, spinner y pantallas de resultado. Depende de TK-02f y TK-02h.
+   - **TK-03b** — `start.command.ts`, selección de ticket y repositorio, carga manual, confirmación, spinner y pantallas de resultado. Depende de TK-02f y TK-02h. ✅ **Dividido el 2026-11-12** en TK-03b1 (núcleo), TK-03b2 (`ask`) y TK-03b3 (progreso y pantallas); ver `006`.
    TK-03 pasó a ser paraguas (como TK-02) y `006` y `README.md` ya lo reflejan.
 2. **Alternativa más fina para el Hito 1:** dividir TK-02g en «proyectos y sufijo» (depende solo de TK-02b) y «repositorios» (depende de TK-02c). Permite una primera demo con solo Jira. Solo vale la pena si 02b llega bastante antes que 02c.
 3. **Entregar US-03 por criterios** (sin tocar el texto de la historia): la tabla de abajo es la trazabilidad CA → tickets.
@@ -105,21 +108,21 @@ Estado: TK-00, TK-01, TK-02a, TK-02b, TK-02c, TK-02d, TK-02e, TK-02f, TK-02g, TK
 | US-01 CA3 | Repositorio asociado y validado | 02c · 02g · 03a | 1 |
 | US-01 CA4 | Sufijo propuesto desde Jira | 02b · 02g · 03a | 1 |
 | US-01 CA5 | Actualizar sin duplicar | 02g · 03a (+ TK-01 ya hecho) | 1 |
-| US-01 CA6 | Iniciar sin claves | 02f · 03b | 3 |
-| US-02 CA1 | Lista de asignados sin épicas | 02b · 02g · 03b | 2 |
+| US-01 CA6 | Iniciar sin claves | 02f · 03b1 | 3 |
+| US-02 CA1 | Lista de asignados sin épicas | 02b · 02g · 03b1 | 2 |
 | US-02 CA2 | Título, descripción y tipo desde Jira | 02b · 02f | 2 |
-| US-02 CA3 | Clave no configurada, antes de llamar a Jira | 02g · 03b | 2 |
-| US-02 CA4-5 | Fallback manual (red, token, ticket inexistente) | 02b · 02f · 03b | 2 |
-| US-02 CA6 | Épica bloqueada | 02a · 02f · 03b | 2 |
+| US-02 CA3 | Clave no configurada, antes de llamar a Jira | 02g · 03b1 | 2 |
+| US-02 CA4-5 | Fallback manual (red, token, ticket inexistente) | 02b · 02f · 03b2 | 2 |
+| US-02 CA6 | Épica bloqueada | 02a · 02f · 03b3 | 2 |
 | US-03 CA1 | Rama, carpeta y documento | 02c · 02d · 02e · 02f | 2 |
-| US-03 CA2-3 | Cambios pendientes / pull fallido | 02c · 02f · 03b | 2 |
+| US-03 CA2-3 | Cambios pendientes / pull fallido | 02c · 02f · 03b3 | 2 |
 | US-03 CA4 | Ollama caído → documento sin redactar | 02e · 02d · 02f | 2 |
 | US-03 CA5 | Rama ya existente | 02c · 02f (**H-04** resuelto) | 2 |
 | US-03 CA6 | Segundo repositorio y Fase 1 reutilizada | 02d · 02h | 2 |
 | US-03 CA7 | Clave sin repositorios: solo documento | 02f | 2 |
-| US-03 CA8 | `--base` de una sola vez | 02c · 02f · 03b | 2 |
-| US-03 CA9 | Reprocesar la Fase 1 (`--reprocesar`) | 02d · 02e · 02h · 03b | 2 |
-| US-03 CA10 | Rama solo en el remoto: se detiene con aviso | 02c · 02f · 03b | 2 |
+| US-03 CA8 | `--base` de una sola vez | 02c · 02f · 03b1 | 2 |
+| US-03 CA9 | Reprocesar la Fase 1 (`--reprocesar`) | 02d · 02e · 02h · 03b1 | 2 |
+| US-03 CA10 | Rama solo en el remoto: se detiene con aviso | 02c · 02f · 03b3 | 2 |
 
 ## 6. Dependencias entre tickets
 
@@ -127,7 +130,7 @@ Estado: TK-00, TK-01, TK-02a, TK-02b, TK-02c, TK-02d, TK-02e, TK-02f, TK-02g, TK
 TK-00 ─► TK-01 ─► TK-02a ─┬─► TK-02b ─┬─► TK-02g ─► TK-03a        (Hito 1)
                           ├─► TK-02c ─┤
                           │           └──────────┐
-                          ├─► TK-02d ────────────┼─► TK-02f ─► TK-02h ─► TK-03b   (Hito 2)
+                          ├─► TK-02d ────────────┼─► TK-02f ─► TK-02h ─► TK-03b1 ─► TK-03b2 ─► TK-03b3   (Hito 2)
                           └─► TK-02e ────────────┘
 ```
 

@@ -106,14 +106,14 @@
 
 ---
 
-### TK-02: Service Layer — Jira, Ollama, Git, FileSystem y Orquestador (ticket paraguas dividido en TK-02a … TK-02h)
+### TK-02: Service Layer — Jira, Ollama, Git, FileSystem y Orquestador (ticket paraguas dividido en TK-02a … TK-02i)
 
 - **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 2 | **Esfuerzo total:** Alto
 - **Dependencias Previas:** TK-01
 - **Capa / Módulo:** Backend / Servicios (Service Layer)
 - **Historias de Usuario Relacionadas:** US-02, US-03
 
-> **División (2026-11-02).** El TK-02 original (Jira REST Client, Ollama AI Transformer, Git Manager, FileSystem Manager y Orquestador en un solo ticket) tenía 5 componentes, 5 criterios técnicos y unos 17 archivos: no cabía en un contrato de 2-3 escenarios y 5 tareas (`/03-refinar-historia`, chequeo INVEST: fallaban S y T). Se divide en ocho sub-tickets (siete el 2026-11-02 y TK-02h el 2026-11-06), cada uno con su propio contrato en `docs/changes/TK-02x.md`. **TK-02 deja de implementarse como unidad**: es solo el paraguas; se considera cerrado cuando TK-02a … TK-02h lo están. Los criterios técnicos originales CA1-CA5 se conservan dentro del sub-ticket que los cubre.
+> **División (2026-11-02).** El TK-02 original (Jira REST Client, Ollama AI Transformer, Git Manager, FileSystem Manager y Orquestador en un solo ticket) tenía 5 componentes, 5 criterios técnicos y unos 17 archivos: no cabía en un contrato de 2-3 escenarios y 5 tareas (`/03-refinar-historia`, chequeo INVEST: fallaban S y T). Se divide en nueve sub-tickets (siete el 2026-11-02, TK-02h el 2026-11-06 y TK-02i el 2026-11-12), cada uno con su propio contrato en `docs/changes/TK-02x.md`. **TK-02 deja de implementarse como unidad**: es solo el paraguas; se considera cerrado cuando TK-02a … TK-02i lo están. Los criterios técnicos originales CA1-CA5 se conservan dentro del sub-ticket que los cubre.
 
 | Sub-ticket | Alcance | CA originales | Esfuerzo | Depende de |
 |---|---|---|---|---|
@@ -125,10 +125,11 @@
 | **TK-02f** | Orquestador: flujo `startTicket` (núcleo) y `ticket_logs` | CA5 (parte) | Alto | TK-02b, c, d, e |
 | **TK-02g** | Orquestador: gestión de configuración, proyectos y repositorios para la TUI | Contrato TUI | Medio | TK-02b, TK-02c |
 | **TK-02h** | Orquestador: reutilizar y reprocesar la Fase 1 (`reprocessFase1`, segundo repositorio) | CA5 (parte) | Medio | TK-02f |
+| **TK-02i** | Plantillas: «No especificado en el ticket.» cuando los criterios de aceptación están vacíos | Plantillas de TK-02d | Bajo | TK-02d |
 
 > **Segunda división (2026-11-06).** Al refinar TK-02f (`/03-refinar-historia`, chequeo INVEST: falla S) se vio que su criterio único reunía unos 14 comportamientos y 5 pasos orquestados (unos 45 tests). Se separó la **Fase 1 reutilizable** (US-03 CA6 y CA9) en TK-02h, que se apoya en el flujo de TK-02f. El nombre `TK-02h` evita renombrar las referencias a TK-02f que ya hay en los demás documentos. TK-02f conserva el flujo principal y TK-02h añade la reutilización y el reproceso encima.
 
-Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02f → TK-02h; TK-02g depende solo de TK-02b y TK-02c. TK-03a depende de TK-02g y TK-03b de TK-02f, TK-02h y TK-03a.
+Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02f → TK-02h; TK-02g depende solo de TK-02b y TK-02c; TK-02i depende solo de TK-02d. TK-03a depende de TK-02g y TK-03b (TK-03b1, b2 y b3) de TK-02f, TK-02h y TK-03a.
 
 **Reglas comunes a todos los sub-tickets** (Decisiones 1, 3 y 4 de la auditoría): toda configuración (credenciales, host, timeouts, sufijo de rama, raíz de tickets) se resuelve una única vez y se inyecta por constructor; ningún componente de la Service Layer accede a SQLite directamente (solo el Orquestador, vía `SQLiteStorageManager` de TK-01); todo paso devuelve `StepResult` y ninguna falla de una integración llega a la TUI como excepción cruda.
 
@@ -383,7 +384,32 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
 
 ---
 
-### TK-03: Controlador CLI e Interfaz Interactiva de Terminal (Windows) (ticket paraguas dividido en TK-03a y TK-03b)
+#### TK-02i: Plantillas — «No especificado en el ticket.» en criterios de aceptación vacíos
+
+- **Prioridad (MoSCoW):** Should Have | **Orden de Secuencia:** 2 (9.º) | **Esfuerzo:** Bajo
+- **Dependencias Previas:** TK-02d
+- **Historias de Usuario Relacionadas:** US-03
+
+> **Origen (2026-11-12).** Hallazgo de TK-02h: cuando el ticket no trae escenarios, la sección «Criterios de aceptación» del documento queda vacía (la plantilla no pinta nada con una lista vacía). Se resuelve fuera de TK-03b porque toca `templates/` y la plantilla de TK-02d, no la TUI. La desarrolladora autorizó expresamente tocar `templates/` para este ticket.
+
+- **Descripción y Alcance:**
+  Las plantillas `historia.md.hbs` y `bug.md.hbs` imprimen «No especificado en el ticket.» en la sección «Criterios de aceptación» cuando no hay escenarios, igual que con otros campos ausentes.
+
+- **Archivos a Crear / Modificar:**
+  - `templates/documents/historia.md.hbs` *(modificar)*
+  - `templates/documents/bug.md.hbs` *(modificar)*
+  - `tests/unit/services/filesystem/*.test.ts` *(modificar o añadir el caso)*
+
+- **Criterios de Aceptación Técnicos:**
+  1. Con una Fase 1 sin escenarios, el documento generado (plantillas `historia` y `bug`) contiene «No especificado en el ticket.» bajo «Criterios de aceptación»; con escenarios, se renderizan como hasta ahora.
+
+- **Definition of Done (DoD):**
+  - [ ] Ambas plantillas cubiertas por test.
+  - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
+
+---
+
+### TK-03: Controlador CLI e Interfaz Interactiva de Terminal (Windows) (ticket paraguas dividido en TK-03a y TK-03b, y este en TK-03b1, TK-03b2 y TK-03b3)
 
 - **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 3 | **Esfuerzo total:** Medio-Alto
 - **Dependencias Previas:** TK-01, TK-02f, TK-02g, TK-02h (el TK-02 original se dividió; ver la tabla en TK-02)
@@ -395,9 +421,9 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
 | Sub-ticket | Alcance | CA originales | Esfuerzo | Depende de |
 |---|---|---|---|---|
 | **TK-03a** | CLI base (`cli.ts`) y `devflow config` / `devflow config proyectos` con sus prompts de alta | CA9 | Medio | TK-02g |
-| **TK-03b** | `devflow start`: selección de ticket y repositorio, carga manual, confirmación, progreso y pantallas de resultado | CA1-CA8 | Medio-Alto | TK-02f, TK-02h, TK-03a |
+| **TK-03b** | `devflow start`: selección de ticket y repositorio, carga manual, confirmación, progreso y pantallas de resultado (**paraguas**, dividido el 2026-11-12 en TK-03b1, TK-03b2 y TK-03b3; ver su sección) | CA1-CA8 | Medio-Alto | TK-02f, TK-02h, TK-03a |
 
-Orden: TK-03a (Hito 1, ya con TK-02g) → TK-03b (Hito 2, con TK-02f y TK-02h).
+Orden: TK-03a (Hito 1, ya con TK-02g) → TK-03b1 → TK-03b2 → TK-03b3 (Hito 2, con TK-02f y TK-02h).
 
 **Reglas comunes a ambos sub-tickets:** **sin Ink** (Ink e inquirer compiten por stdin); la TUI nunca accede directamente a Jira, Git, Ollama, SQLite o al sistema de archivos — todo pasa por el Orquestador; la comunicación es asíncrona basada en eventos, no una llamada bloqueante única (Decisión 1 de la auditoría de arquitectura).
 
@@ -433,51 +459,125 @@ Orden: TK-03a (Hito 1, ya con TK-02g) → TK-03b (Hito 2, con TK-02f y TK-02h).
 
 ---
 
-#### TK-03b: Comando `devflow start` (selección, confirmación, progreso y pantallas de resultado)
+#### TK-03b: Comando `devflow start` (ticket paraguas dividido en TK-03b1, TK-03b2 y TK-03b3)
 
-- **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 3 (2.º) | **Esfuerzo:** Medio-Alto
+- **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 3 (2.º) | **Esfuerzo total:** Medio-Alto
 - **Dependencias Previas:** TK-02f, TK-02h, TK-03a
-- **Historias de Usuario Relacionadas:** US-02, US-03
+- **Historias de Usuario Relacionadas:** US-01 (CA6), US-02, US-03
+
+> **División (2026-11-12).** Al refinar TK-03b (`/03-refinar-historia`, chequeo INVEST: fallan S y T) se vio que sus 8 criterios técnicos, el aviso de US-01 CA6 y las decisiones de esta fecha no caben en un contrato de 2-3 escenarios y 5 tareas. Se divide en tres sub-tickets, cada uno con su propio contrato en `docs/changes/TK-03bx.md`, más un ticket pequeño de plantillas (TK-02i, en el paraguas TK-02). **TK-03b deja de implementarse como unidad**: es solo el paraguas; se considera cerrado cuando TK-03b1, TK-03b2 y TK-03b3 lo están. Los criterios técnicos originales CA1-CA8 se conservan dentro del sub-ticket que los cubre.
+
+| Sub-ticket | Alcance | CA originales | Esfuerzo | Depende de |
+|---|---|---|---|---|
+| **TK-03b1** | Núcleo de `devflow start`: validación del ID, lista de tickets asignados, elección de repositorio, registro del comando y flags en `cli.ts`, aviso de «sin claves» | CA1, CA2, CA4 + US-01 CA6 | Medio | TK-02f, TK-02h, TK-03a |
+| **TK-03b2** | Callback `ask` del Orquestador: carga manual (con tipo de issue opcional) y confirmación única de acciones | CA3, CA5 | Medio | TK-03b1 |
+| **TK-03b3** | Progreso (spinner por paso) y pantallas de resultado: éxito, avisos de Ollama y bloqueos | CA6, CA7, CA8 | Medio | TK-03b2 |
+
+Orden: TK-03b1 → TK-03b2 → TK-03b3. TK-02i (plantillas) es independiente y puede hacerse antes o en paralelo.
+
+**Decisiones de la división (2026-11-12):**
+
+1. **Sin gancho de progreso de Ollama en TK-03b.** El spinner del paso `ollama` muestra un texto fijo (p. ej. «Generando documento con Ollama (puede tardar ~1 min)...»); `startTicket` no recibe un gancho `onProgress` y `OllamaAITransformer.onToken` sigue sin conectarse a la TUI. El spinner con progreso real queda como mejora posterior.
+2. **Carga manual con tipo de issue.** El prompt manual añade la pregunta opcional «¿Es un bug? (s/N)» y `ManualTicketAnswer` gana un `issueType` opcional, para que un bug cargado a mano use la plantilla `bug` y no `historia`. Toca `src/shared/types/ticket-run.types.ts` y `start-ticket.ts` (TK-03b2).
+3. **Criterios de aceptación vacíos.** Se resuelve en TK-02i, no en la TUI.
+
+---
+
+#### TK-03b1: `devflow start` — validación, selección de ticket y repositorio
+
+- **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 3 (2.º, parte 1) | **Esfuerzo:** Medio
+- **Dependencias Previas:** TK-02f, TK-02h, TK-03a
+- **Historias de Usuario Relacionadas:** US-01 (CA6), US-02
 
 - **Descripción y Alcance:**
-  Comando `devflow start [ID] [--base <rama>] [--reprocesar]` (registrado en el `cli.ts` de TK-03a): parsing/validación del ID antes de invocar al Orquestador, prompts interactivos (elección de ticket en la lista de asignados, elección de repositorio —preseleccionado si la clave tiene uno solo—, carga manual de datos de Jira ante `FallbackManual`, confirmación única de acciones) y progreso en vivo mediante un spinner simple que consume los eventos `onStep` del Orquestador (TK-02f), incluido el progreso del *streaming* de Ollama. Incluye las pantallas de resultado final y las de aviso de `FallbackManual` / `FallbackDeterminista` / `ErrorBloqueante` (listado de cambios pendientes, fallo del pull, aviso de épica), cada una con un mensaje distinguible.
+  Registra `devflow start [ID] [--base <rama>] [--reprocesar]` en el `cli.ts` de TK-03a y resuelve todo lo que ocurre **antes** de llamar a `startTicket`: valida el formato del ID, muestra la lista de asignados si no hay ID, elige el repositorio (preseleccionado si hay uno solo) y avisa «primero configura una clave» si no hay ninguna. Con el ID y el repositorio resueltos llama a `startTicket` con los ganchos de TK-03b2 y TK-03b3; hasta que existan, el comando los recibe inyectados (en los tests, simulados).
 
 - **Archivos a Crear / Modificar:**
-  - `src/tui/cli.ts` *(modificar: registrar `start`)*
+  - `src/tui/cli.ts` *(modificar: registrar `start`, `CommandHandlers.start`, `createHandlers`)*
   - `src/tui/commands/start.command.ts`
   - `src/tui/prompts/ticket-selection.prompt.ts`
   - `src/tui/prompts/repository-selection.prompt.ts`
-  - `src/tui/prompts/manual-ticket-entry.prompt.ts`
-  - `src/tui/prompts/confirm-actions.prompt.ts`
-  - `src/tui/views/progress-view.ts`
-  - `src/tui/views/summary-view.ts`
-  - `src/tui/views/fallback-view.ts`
+  - `src/tui/validators.ts` *(modificar: `isValidTicketId`)*
   - `tests/unit/tui/*.test.ts`
 
 - **Contratos e Interfaces (Input/Output):**
-  - Entrada: `devflow start [TICKET_ID] [--base <rama>] [--reprocesar]` (el flag se pasa como `reprocessFase1` y se muestra en la confirmación) → sin `TICKET_ID`, la TUI obtiene la lista con `TicketOrchestrator.listAssignedTickets()` y presenta `TicketSelectionPrompt`; con el ID resuelto, obtiene los repositorios con `listRepositoriesForTicket(ticketId)`, presenta `RepositorySelectionPrompt` si hay más de uno y llama a `TicketOrchestrator.startTicket({ ticketId, repositoryId, baseBranchOverride, reprocessFase1 }, { onStep, ask })` (contratos definidos en TK-02), donde `ask` abre `ManualTicketEntryPrompt`.
-  - `onStep(step: 'jira' | 'git' | 'filesystem' | 'ollama', status: 'started' | 'ok' | 'fallback' | 'error', detail?: string): void` y `ask: AskCallback` (TK-02f)
+  - Entrada: `devflow start [TICKET_ID] [--base <rama>] [--reprocesar]` (el flag se pasa como `reprocessFase1`) → sin `TICKET_ID`, la TUI obtiene la lista con `TicketOrchestrator.listAssignedTickets()` y presenta `TicketSelectionPrompt`; con el ID resuelto, obtiene los repositorios con `listRepositoriesForTicket(ticketId)`, presenta `RepositorySelectionPrompt` si hay más de uno y llama a `TicketOrchestrator.startTicket({ ticketId, repositoryId, baseBranchOverride, reprocessFase1 }, { onStep, ask })`.
   - `TicketSelectionPrompt.ask(tickets: Array<{ ticketId: string; title: string; issueType: string }>): Promise<string>`
   - `RepositorySelectionPrompt.ask(repositories: Array<{ id: number; name: string; repoLocalPath: string }>): Promise<number>`
-  - `ManualTicketEntryPrompt.ask(): Promise<{ ticketId: string; title: string; description: string }>`
-  - `ConfirmActionsPrompt.ask(summary: { ticketId: string; issueType: string; repositoryName: string | null; branchName: string | null; baseBranch: string | null; folderPath: string; branchAlreadyExists: boolean; reprocessFase1: boolean }): Promise<boolean>` — una única confirmación consolidada (decidido en H-03, 2026-11-02): la TUI la muestra cuando el Orquestador invoca `ask({ kind: 'confirmActions' })` (si `branchAlreadyExists` es `true`, avisa que la rama ya existe y pregunta si se usa la misma) y devuelve `false` si el desarrollador cancela
-  - `SummaryView.render(result: TicketRunSummary): void`
   - `isValidTicketId(input: string): boolean` — formato `<CLAVE>-<número>` (`^[A-Z][A-Z0-9_]+-\d+$`).
 
 - **Criterios de Aceptación Técnicos:**
-  1. `devflow start` con un ID de formato inválido (vacío o sin guion) no invoca al Orquestador y muestra un mensaje de validación; con un ID de una clave no configurada, muestra el mensaje del Orquestador con las claves disponibles.
-  2. `devflow start` sin ID muestra la lista de tickets asignados que devuelve el Orquestador y continúa con el elegido (mock del Orquestador).
-  3. Al invocar el Orquestador el callback `ask({ kind: 'manualTicket' })`, la TUI abre `ManualTicketEntryPrompt` con el motivo del fallo y devuelve los datos ingresados al flujo (mock del Orquestador); `onStep('jira', 'fallback')` actualiza además el spinner.
-  4. Antes de llamar a `startTicket`: si la clave del ticket tiene varios repositorios, la TUI pide elegir uno; con uno solo lo preselecciona; sin repositorios no muestra la selección y no pasa `repositoryId`.
-  5. Al invocar el Orquestador `ask({ kind: 'confirmActions' })`, la TUI muestra el resumen (rama, base, carpeta) en una sola pantalla y devuelve `true` o `false`; con `false` no se muestra progreso de pasos y se informa que la ejecución fue cancelada sin cambios (mock del Orquestador). *(H-03)*
-  6. Al recibir eventos de progreso sucesivos (`started` → `ok` por paso), la vista de progreso actualiza el estado de cada paso sin bloquear el hilo principal.
-  7. Al finalizar con `ollamaStatus: 'fallback_deterministic'`, `SummaryView` muestra explícitamente el aviso `⚠️ Generado sin Ollama`; con `'reused'`, indica que se reutilizó el análisis del ticket.
-  8. Al recibir un resumen con `blocked` (`RepositorioNoEncontrado`, `CambiosPendientes` con la lista de archivos, `RamaExistenteEnRemoto`, `PullFallido`, `TipoIssueBloqueado`), la TUI muestra el mensaje correspondiente y no renderiza una pantalla de éxito.
+  1. `devflow start` con un ID de formato inválido (vacío o sin guion) no invoca al Orquestador y muestra un mensaje de validación; con un ID de una clave no configurada, muestra el mensaje del Orquestador con las claves disponibles. *(CA1 del TK-03b original)*
+  2. `devflow start` sin ID muestra la lista de tickets asignados que devuelve el Orquestador y continúa con el elegido (mock del Orquestador). *(CA2)*
+  3. Antes de llamar a `startTicket`: si la clave del ticket tiene varios repositorios, la TUI pide elegir uno; con uno solo lo preselecciona; sin repositorios no muestra la selección y no pasa `repositoryId`. *(CA4)*
+  4. Sin ninguna clave de proyecto configurada, `devflow start` indica «primero configura una clave» (`devflow config proyectos`) y no consulta a Jira. *(US-01 CA6)*
 
 - **Definition of Done (DoD):**
   - [ ] La TUI no importa clientes de Jira/Git/Ollama ni el storage manager — solo invoca al Orquestador (verificable por revisión de imports).
-  - [ ] Los 4 estados de resultado tienen una pantalla/mensaje distinguible para el usuario.
-  - [ ] Progreso en vivo (spinner) funcional sin llamada bloqueante única y sin dependencia de Ink.
+  - [ ] `--base` y `--reprocesar` llegan a `startTicket` como `baseBranchOverride` y `reprocessFase1`.
   - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---
+
+#### TK-03b2: `devflow start` — carga manual y confirmación de acciones (`ask`)
+
+- **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 3 (2.º, parte 2) | **Esfuerzo:** Medio
+- **Dependencias Previas:** TK-03b1
+- **Historias de Usuario Relacionadas:** US-02 (CA4-5), US-03 (CA2, CA5, CA9)
+
+- **Descripción y Alcance:**
+  Implementa el callback `ask` que el Orquestador usa durante el flujo: la carga manual de datos del ticket ante un fallo de Jira (`manualTicket`) y la confirmación única de acciones (`confirmActions`). La carga manual pregunta además, de forma opcional, si el ticket es un bug, y `ManualTicketAnswer` lleva ese tipo al Orquestador (decisión 2 del paraguas TK-03b).
+
+- **Archivos a Crear / Modificar:**
+  - `src/tui/prompts/manual-ticket-entry.prompt.ts`
+  - `src/tui/prompts/confirm-actions.prompt.ts`
+  - `src/tui/commands/start.command.ts` *(modificar: construir el `ask` con ambos prompts)*
+  - `src/shared/types/ticket-run.types.ts` *(modificar: `issueType` opcional en `ManualTicketAnswer`)*
+  - `src/services/orchestrator/start-ticket.ts` *(modificar: usar ese tipo en lugar de `""`)*
+  - `tests/unit/tui/*.test.ts`, `tests/unit/services/orchestrator/ticket-orchestrator.start.test.ts`
+
+- **Contratos e Interfaces (Input/Output):**
+  - `ManualTicketEntryPrompt.ask(reason: FallbackManualReason): Promise<{ title: string; description: string; issueType?: string }>` — muestra el motivo del fallo y pregunta «¿Es un bug? (s/N)»; con «s» devuelve el nombre de tipo que el Orquestador resuelve a la plantilla `bug`, con «N» o vacío no devuelve tipo (plantilla `historia`).
+  - `ConfirmActionsPrompt.ask(summary: ConfirmSummary): Promise<boolean>` — una única confirmación consolidada (H-03, 2026-11-02): si `branchAlreadyExists` es `true`, avisa que la rama ya existe y pregunta si se usa la misma; con `reprocessFase1` lo indica; devuelve `false` si el desarrollador cancela.
+
+- **Criterios de Aceptación Técnicos:**
+  1. Al invocar el Orquestador `ask({ kind: 'manualTicket' })`, la TUI abre `ManualTicketEntryPrompt` con el motivo del fallo y devuelve los datos ingresados al flujo, incluido el tipo si se marcó como bug (mock del Orquestador); en el Orquestador, un `issueType` de bug elige la plantilla `bug` y su ausencia la plantilla `historia`. *(CA3, ampliado por la decisión 2)*
+  2. Al invocar el Orquestador `ask({ kind: 'confirmActions' })`, la TUI muestra el resumen (rama, base, carpeta) en una sola pantalla y devuelve `true` o `false`; con `false` no se muestra progreso de pasos y se informa que la ejecución fue cancelada sin cambios (mock del Orquestador). *(CA5, H-03)*
+
+- **Definition of Done (DoD):**
+  - [ ] La TUI no importa clientes de Jira/Git/Ollama ni el storage manager.
+  - [ ] Un bug cargado a mano genera el documento con la plantilla `bug`.
+  - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
+
+---
+
+#### TK-03b3: `devflow start` — progreso y pantallas de resultado
+
+- **Prioridad (MoSCoW):** Must Have | **Orden de Secuencia:** 3 (2.º, parte 3) | **Esfuerzo:** Medio
+- **Dependencias Previas:** TK-03b2
+- **Historias de Usuario Relacionadas:** US-02, US-03
+
+- **Descripción y Alcance:**
+  Progreso en vivo mediante un spinner simple que consume los eventos `onStep` del Orquestador (TK-02f) y las pantallas de resultado final: éxito, aviso de `FallbackManual` / `FallbackDeterminista` y bloqueos (`ErrorBloqueante`: listado de cambios pendientes, fallo del pull, aviso de épica), cada una con un mensaje distinguible. El spinner del paso `ollama` muestra un texto fijo (decisión 1 del paraguas TK-03b): no hay gancho de progreso del *streaming*.
+
+- **Archivos a Crear / Modificar:**
+  - `src/tui/views/progress-view.ts`
+  - `src/tui/views/summary-view.ts`
+  - `src/tui/views/fallback-view.ts`
+  - `src/tui/commands/start.command.ts` *(modificar: conectar `onStep` y el resumen final)*
+  - `tests/unit/tui/*.test.ts`
+
+- **Contratos e Interfaces (Input/Output):**
+  - `onStep(step: 'jira' | 'git' | 'filesystem' | 'ollama', status: 'started' | 'ok' | 'fallback' | 'error', detail?: string): void` (TK-02f).
+  - `SummaryView.render(result: TicketRunSummary): void`.
+
+- **Criterios de Aceptación Técnicos:**
+  1. Al recibir eventos de progreso sucesivos (`started` → `ok` por paso), la vista de progreso actualiza el estado de cada paso sin bloquear el hilo principal; `onStep('jira', 'fallback')` actualiza además el spinner. *(CA6)*
+  2. Al finalizar con `ollamaStatus: 'fallback_deterministic'`, `SummaryView` muestra explícitamente el aviso `⚠️ Generado sin Ollama`; con `'reused'`, indica que se reutilizó el análisis del ticket. *(CA7)*
+  3. Al recibir un resumen con `blocked` (`RepositorioNoEncontrado`, `CambiosPendientes` con la lista de archivos, `RamaExistenteEnRemoto`, `PullFallido`, `TipoIssueBloqueado`), la TUI muestra el mensaje correspondiente y no renderiza una pantalla de éxito. *(CA8)*
+
+- **Definition of Done (DoD):**
+  - [ ] La TUI no importa clientes de Jira/Git/Ollama ni el storage manager.
+  - [ ] Los 4 estados de resultado tienen una pantalla/mensaje distinguible para el usuario.
+  - [ ] Progreso en vivo (spinner) funcional sin llamada bloqueante única y sin dependencia de Ink.
+  - [ ] Revisión de código aprobada y mergeada a la rama del ticket.

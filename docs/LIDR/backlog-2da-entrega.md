@@ -131,6 +131,7 @@ TK-00 ─► TK-01 ─► TK-02a ─┬─► TK-02b ─┬─► TK-02g ─► 
                           ├─► TK-02c ─┤
                           │           └──────────┐
                           ├─► TK-02d ────────────┼─► TK-02f ─► TK-02h ─► TK-03b1 ─► TK-03b2 ─► TK-03b3   (Hito 2)
+                          │            (TK-02i: plantillas, cuelga solo de TK-02d)
                           └─► TK-02e ────────────┘
 ```
 

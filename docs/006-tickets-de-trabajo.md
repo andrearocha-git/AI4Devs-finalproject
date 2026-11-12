@@ -504,7 +504,7 @@ Orden: TK-03b1 → TK-03b2 → TK-03b3. TK-02i (plantillas) es independiente y p
   - Entrada: `devflow start [TICKET_ID] [--base <rama>] [--reprocesar]` (el flag se pasa como `reprocessFase1`) → sin `TICKET_ID`, la TUI obtiene la lista con `TicketOrchestrator.listAssignedTickets()` y presenta `TicketSelectionPrompt`; con el ID resuelto, obtiene los repositorios con `listRepositoriesForTicket(ticketId)`, presenta `RepositorySelectionPrompt` si hay más de uno y llama a `TicketOrchestrator.startTicket({ ticketId, repositoryId, baseBranchOverride, reprocessFase1 }, { onStep, ask })`.
   - `TicketSelectionPrompt.ask(tickets: Array<{ ticketId: string; title: string; issueType: string }>): Promise<string>`
   - `RepositorySelectionPrompt.ask(repositories: Array<{ id: number; name: string; repoLocalPath: string }>): Promise<number>`
-  - `isValidTicketId(input: string): boolean` — formato `<CLAVE>-<número>` (`^[A-Z][A-Z0-9_]+-\d+$`).
+  - `isValidTicketId(input: string): boolean` — formato `<CLAVE>-<número>` con el **mismo criterio que el Orquestador** (`^[A-Za-z][A-Za-z0-9_]*-\d+$` sobre el texto recortado): acepta minúsculas (`scrum-2`) y claves de una sola letra (`A-1`), porque `startTicket` las normaliza a mayúsculas; la TUI no endurece la regla, solo evita llamar al Orquestador con un ID vacío o sin guion.
 
 - **Criterios de Aceptación Técnicos:**
   1. `devflow start` con un ID de formato inválido (vacío o sin guion) no invoca al Orquestador y muestra un mensaje de validación; con un ID de una clave no configurada, muestra el mensaje del Orquestador con las claves disponibles. *(CA1 del TK-03b original)*

@@ -81,7 +81,7 @@ Ref.: `002` §2.2.1.
 
 - **Sin ID:** la TUI llama a `TicketOrchestrator.listAssignedTickets()`. El cliente Jira ejecuta
   `project in (…) AND assignee = currentUser() AND statusCategory != Done AND issuetype != Epic ORDER BY updated DESC` y el usuario elige uno (US-02 CA1).
-- **Con ID:** la TUI valida el formato `^[A-Z][A-Z0-9_]+-\d+$` antes de invocar al Orquestador; si es inválido, muestra el error sin llamar a nada (TK-03 CA1).
+- **Con ID:** la TUI valida el formato `^[A-Za-z][A-Za-z0-9_]*-\d+$` (el mismo del Orquestador, que normaliza a mayúsculas) antes de invocar al Orquestador; si es inválido, muestra el error sin llamar a nada (TK-03 CA1).
 
 ### 2.2 Validación de clave y selección de repositorio — `📄 Especificado` · US-02 CA3 · TK-02/TK-03b1
 

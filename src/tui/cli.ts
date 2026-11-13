@@ -105,9 +105,12 @@ export interface HandlerDeps {
 }
 
 /**
- * Arma los manejadores de `config` y `config proyectos` con sus dependencias.
+ * Arma los manejadores de `config`, `config proyectos` y `start` con sus dependencias.
  *
- * @param deps Orquestador (perezoso), prompts y salida.
+ * `start` usa los ganchos provisionales (ver `provisionalHooks`) hasta TK-03b2 y TK-03b3, y falla con un mensaje claro si
+ * no se entregó `getStartOrchestrator`.
+ *
+ * @param deps Orquestadores (perezosos), prompts y salida.
  * @returns Los manejadores que espera {@link buildProgram}.
  */
 export function createHandlers(deps: HandlerDeps): CommandHandlers {

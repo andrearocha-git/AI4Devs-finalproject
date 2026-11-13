@@ -15,14 +15,16 @@ export interface ConfirmActionsPrompt {
 /**
  * Arma las líneas de la pantalla de confirmación: qué se va a crear y dónde, en un solo bloque.
  *
- * Sin repositorio no hay rama ni base y se aclara que solo se genera el documento; con la rama ya existente avisa de que
+ * Si el ticket no tiene tipo (carga manual sin marcar como bug) muestra solo el ID. Sin repositorio no hay rama ni base y se aclara que solo se genera el documento; con la rama ya existente avisa de que
  * se usará la misma; con `reprocessFase1` indica que se volverá a generar el análisis de Ollama.
  *
  * @param summary Resumen que entrega el Orquestador.
  * @returns Las líneas a mostrar, sin saltos de línea finales.
  */
 export function formatConfirmSummary(summary: ConfirmSummary): string[] {
-  const lines = [`Ticket: ${summary.ticketId} (${summary.issueType})`];
+  // Un ticket cargado a mano sin marcar como bug no tiene tipo: no se muestran paréntesis vacíos.
+  const type = summary.issueType.trim();
+  const lines = [`Ticket: ${summary.ticketId}${type === "" ? "" : ` (${type})`}`];
   if (summary.repositoryName !== null) {
     lines.push(`Repositorio: ${summary.repositoryName}`);
     if (summary.branchName !== null) lines.push(`Rama: ${summary.branchName}`);

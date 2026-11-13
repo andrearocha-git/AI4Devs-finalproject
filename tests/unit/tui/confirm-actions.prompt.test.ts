@@ -51,4 +51,11 @@ describe("TK-03b2 · E3 — formatConfirmSummary y confirmQuestion", () => {
     expect(text).not.toMatch(/base/i);
     expect(text).toContain("C:\\Tickets\\SCRUM-12\\api");
   });
+
+  it.each(["", "   "])("con un ticket cargado a mano sin tipo (%j) no deja unos paréntesis vacíos", (issueType) => {
+    const [ticketLine] = formatConfirmSummary({ ...SUMMARY, issueType });
+
+    expect(ticketLine).toBe("Ticket: SCRUM-12");
+  });
 });
+

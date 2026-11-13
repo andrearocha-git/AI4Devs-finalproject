@@ -286,7 +286,7 @@ Los cuatro mecanismos de integración evaluados (Jira REST, Ollama HTTP/JSON, Gi
 │   │   ├── cli.ts                  # Entry point: registro de comandos (Commander) — `devflow start [ID]`, `devflow config`
 │   │   ├── commands/               # start.command.ts, config.command.ts (incluye `config proyectos`)
 │   │   ├── prompts/                # Prompts interactivos (@inquirer/prompts): selección de ticket y de repositorio, carga manual, confirmación
-│   │   └── views/                  # progress-view (spinner por paso), summary-view, fallback-view; consumen los eventos onStep del Orquestador
+│   │   └── views/                  # progress-view (spinner por paso, sin dependencias), summary-view (éxito, avisos y bloqueos); consumen los eventos onStep del Orquestador
 │   ├── services/                   # Service Layer — TypeScript puro, sin dependencia de Commander/inquirer
 │   │   ├── orchestrator/
 │   │   │   ├── ticket-orchestrator.ts   # Coordina los pasos independientes (Jira/Git/FS/Ollama) para un repositorio por ejecución

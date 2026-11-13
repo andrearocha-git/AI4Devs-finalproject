@@ -562,14 +562,15 @@ Orden: TK-03b1 → TK-03b2 → TK-03b3. TK-02i (plantillas) es independiente y p
 
 - **Archivos a Crear / Modificar:**
   - `src/tui/views/progress-view.ts`
-  - `src/tui/views/summary-view.ts`
-  - `src/tui/views/fallback-view.ts`
-  - `src/tui/commands/start.command.ts` *(modificar: conectar `onStep` y el resumen final)*
+  - `src/tui/views/summary-view.ts` *(los avisos de `FallbackManual` y `FallbackDeterminista` viven aquí; `fallback-view.ts` se descartó el 2026-11-12 por ser líneas del propio resumen)*
+  - `src/tui/commands/start.command.ts` *(modificar: mostrar el resumen, lanzar la pantalla de bloqueo y `withProgressPause`)*
+  - `src/tui/cli.ts` *(modificar: `createHandlers` conecta `onStep` a la vista de progreso y la detiene siempre)*
   - `tests/unit/tui/*.test.ts`
 
 - **Contratos e Interfaces (Input/Output):**
   - `onStep(step: 'jira' | 'git' | 'filesystem' | 'ollama', status: 'started' | 'ok' | 'fallback' | 'error', detail?: string): void` (TK-02f).
-  - `SummaryView.render(result: TicketRunSummary): void`.
+  - `SummaryView.render(result: TicketRunSummary): void` y `formatSummary(result): string[]` (pura).
+  - `ProgressView`: `onStep`, `pause`, `resume`, `cancel` y `stop` (`createProgressView({ stream, env?, intervalMs? })`); sin dependencias: animación con `setInterval` y secuencias ANSI, una línea por evento sin TTY o con `TERM=dumb`.
 
 - **Criterios de Aceptación Técnicos:**
   1. Al recibir eventos de progreso sucesivos (`started` → `ok` por paso), la vista de progreso actualiza el estado de cada paso sin bloquear el hilo principal; `onStep('jira', 'fallback')` actualiza además el spinner. *(CA6)*
@@ -577,9 +578,9 @@ Orden: TK-03b1 → TK-03b2 → TK-03b3. TK-02i (plantillas) es independiente y p
   3. Al recibir un resumen con `blocked` (`RepositorioNoEncontrado`, `CambiosPendientes` con la lista de archivos, `RamaExistenteEnRemoto`, `PullFallido`, `TipoIssueBloqueado`), la TUI muestra el mensaje correspondiente y no renderiza una pantalla de éxito. *(CA8)*
 
 - **Definition of Done (DoD):**
-  - [ ] La TUI no importa clientes de Jira/Git/Ollama ni el storage manager.
-  - [ ] Los 4 estados de resultado tienen una pantalla/mensaje distinguible para el usuario.
-  - [ ] `SummaryView` no deja unos paréntesis vacíos cuando el ticket cargado a mano no tiene tipo (mismo criterio que la confirmación de TK-03b2).
-  - [ ] `SummaryView` sustituye el aviso provisional de `runStart` (TK-03b1), que lanza el mensaje de `blocked` para que un corte no termine en silencio; el éxito y la cancelación también se muestran.
-  - [ ] Progreso en vivo (spinner) funcional sin llamada bloqueante única y sin dependencia de Ink.
+  - [x] La TUI no importa clientes de Jira/Git/Ollama ni el storage manager.
+  - [x] Los 4 estados de resultado tienen una pantalla/mensaje distinguible para el usuario.
+  - [x] `SummaryView` no deja unos paréntesis vacíos cuando el ticket cargado a mano no tiene tipo (mismo criterio que la confirmación de TK-03b2).
+  - [x] `runStart` muestra el resumen con la vista y lanza la pantalla de bloqueo (encabezado del tipo y mensaje del Orquestador) para que un corte no termine en silencio; el éxito y la cancelación también se muestran.
+  - [x] Progreso en vivo (spinner) funcional sin llamada bloqueante única, sin dependencia de Ink y sin dependencias nuevas.
   - [ ] Revisión de código aprobada y mergeada a la rama del ticket.

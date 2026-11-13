@@ -5,6 +5,7 @@ import { join, sep } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { LocalFileStorage, type FileOps } from "../../../../src/database/local-file-storage.js";
 import { FileSystemManager } from "../../../../src/services/filesystem/filesystem-manager.js";
+import { NO_ESPECIFICADO } from "../../../../src/services/ollama/postprocess.js";
 import type { DocumentoFase1 } from "../../../../src/shared/types/documento-fase1.types.js";
 
 const roots: string[] = [];
@@ -629,5 +630,155 @@ describe("Revisión de la PR #4 de TK-02d: adjuntosDirName, rutas fuera de la ra
 
     expect(read).toMatchObject({ kind: "ErrorBloqueante", subtype: "PermisosInsuficientes", message: expect.stringMatching(/leer/i) });
     expect(saved).toMatchObject({ kind: "ErrorBloqueante", subtype: "PermisosInsuficientes", message: expect.stringMatching(/escribir/i) });
+  });
+});
+
+/** Texto de la sección «Criterios de aceptación» (hasta el siguiente encabezado de nivel 3). */
+function criteriosSection(document: string): string {
+  const heading = "### Criterios de aceptación";
+  const rest = document.slice(document.indexOf(heading) + heading.length);
+  const next = rest.indexOf("\n### ");
+  return next === -1 ? rest : rest.slice(0, next);
+}
+
+describe("TK-02i · E1 — historia sin escenarios: «No especificado en el ticket.» en los criterios", () => {
+  async function writeHistoria(root: string, fase1: DocumentoFase1): Promise<string> {
+    const documentPath = join(root, "SCRUM-7", "backend", "SCRUM-7.md");
+    const result = await manager(root).writeDocument({
+      documentPath,
+      tipo: "historia",
+      fase1,
+      repo: "backend",
+      rama: "features/SCRUM-7-AROCHA",
+      encabezado: ENCABEZADO,
+      regenerateFase1Only: false,
+    });
+    expect(result).toEqual({ kind: "Ok", value: { documentPath } });
+    return readFileSync(documentPath, "utf8");
+  }
+
+  it("sin escenarios la sección de criterios contiene «No especificado en el ticket.» y ninguna línea de criterio", async () => {
+    const document = await writeHistoria(tempRoot(), { ...HISTORIA, escenarios: [] });
+
+    const criterios = criteriosSection(document);
+
+    expect(criterios.trim()).toBe(NO_ESPECIFICADO);
+    expect(criterios).not.toContain("- [ ] CA");
+  });
+
+  it("el resto de la Fase 1 y los marcadores se escriben como hasta ahora", async () => {
+    const document = await writeHistoria(tempRoot(), { ...HISTORIA, escenarios: [] });
+
+    const block = fase1Block(document);
+    expect(document.indexOf(INICIO)).toBeGreaterThan(-1);
+    expect(document.indexOf(FIN)).toBeGreaterThan(document.indexOf(INICIO));
+    for (const expected of ["### Descripción", "### User Story", "**Como** analista", "### Casos de uso", "- Guardar un borrador", "### Preguntas abiertas", "- ¿Qué pasa con los campos opcionales?"]) {
+      expect(block).toContain(expected);
+    }
+    expect(document).toContain("## FASE 2");
+  });
+});
+
+describe("TK-02i · E2 — bug sin escenarios: «No especificado en el ticket.» en los criterios", () => {
+  async function writeBug(root: string, fase1: DocumentoFase1): Promise<string> {
+    const documentPath = join(root, "SCRUM-8", "backend", "SCRUM-8.md");
+    const result = await manager(root).writeDocument({
+      documentPath,
+      tipo: "bug",
+      fase1,
+      repo: "backend",
+      rama: "bugs/SCRUM-8-AROCHA",
+      encabezado: { ...ENCABEZADO, ticketId: "SCRUM-8" },
+      regenerateFase1Only: false,
+    });
+    expect(result).toEqual({ kind: "Ok", value: { documentPath } });
+    return readFileSync(documentPath, "utf8");
+  }
+
+  it("sin escenarios la sección de criterios contiene «No especificado en el ticket.» y ninguna línea de criterio", async () => {
+    const document = await writeBug(tempRoot(), { ...BUG, escenarios: [] });
+
+    const criterios = criteriosSection(document);
+
+    expect(criterios.trim()).toBe(NO_ESPECIFICADO);
+    expect(criterios).not.toContain("- [ ] CA");
+  });
+
+  it("«Qué falla», «Cómo reproducir» y los marcadores se escriben como hasta ahora", async () => {
+    const document = await writeBug(tempRoot(), { ...BUG, escenarios: [] });
+
+    const block = fase1Block(document);
+    expect(document.indexOf(INICIO)).toBeGreaterThan(-1);
+    expect(document.indexOf(FIN)).toBeGreaterThan(document.indexOf(INICIO));
+    for (const expected of [
+      "### Qué falla",
+      "**Comportamiento actual:** No pasa nada al pulsar.",
+      "**Comportamiento esperado:** Se guarda y se confirma.",
+      "### Cómo reproducir",
+      "1. Abrir el formulario",
+      "2. Pulsar Guardar",
+      "### Preguntas abiertas",
+    ]) {
+      expect(block).toContain(expected);
+    }
+    expect(document).toContain("☑ Bug  ☐ Feature");
+  });
+});
+
+describe("TK-02i · E3 — con escenarios se renderizan como hasta ahora y la regeneración conserva la Fase 2", () => {
+  const DOS_ESCENARIOS = [
+    { titulo: "Guardado correcto", given: "un formulario válido", when: "se pulsa Guardar", then: "se muestra la confirmación" },
+    { titulo: "Campo obligatorio vacío", given: "un campo obligatorio vacío", when: "se pulsa Guardar", then: "se marca el campo" },
+  ];
+
+  async function write(root: string, tipo: "historia" | "bug", fase1: DocumentoFase1, regenerateFase1Only = false): Promise<string> {
+    const documentPath = join(root, "SCRUM-7", "backend", "SCRUM-7.md");
+    const result = await manager(root).writeDocument({ documentPath, tipo, fase1, repo: "backend", encabezado: ENCABEZADO, regenerateFase1Only });
+    expect(result).toEqual({ kind: "Ok", value: { documentPath } });
+    return documentPath;
+  }
+
+  it.each([
+    { tipo: "historia" as const, fase1: { ...HISTORIA, escenarios: DOS_ESCENARIOS } },
+    { tipo: "bug" as const, fase1: { ...BUG, escenarios: DOS_ESCENARIOS } },
+  ])("$tipo: cada escenario aparece numerado con su Given, When y Then, y no aparece «No especificado en el ticket.»", async ({ tipo, fase1 }) => {
+    const documentPath = await write(tempRoot(), tipo, fase1);
+
+    const criterios = criteriosSection(readFileSync(documentPath, "utf8"));
+
+    expect(criterios).toContain("- [ ] CA1: Guardado correcto");
+    expect(criterios).toContain("  - **Given** un formulario válido");
+    expect(criterios).toContain("  - **When** se pulsa Guardar");
+    expect(criterios).toContain("  - **Then** se muestra la confirmación");
+    expect(criterios).toContain("- [ ] CA2: Campo obligatorio vacío");
+    expect(criterios).not.toContain(NO_ESPECIFICADO);
+  });
+
+  it.each(["historia", "bug"] as const)(
+    "%s: al regenerar solo la Fase 1 sin escenarios el texto aparece dentro de los marcadores y la Fase 2 escrita a mano se conserva",
+    async (tipo) => {
+      const root = tempRoot();
+      const fase1 = tipo === "historia" ? HISTORIA : BUG;
+      const documentPath = await write(root, tipo, fase1);
+      writeFileSync(documentPath, `${readFileSync(documentPath, "utf8")}\nNOTA ESCRITA A MANO EN LA FASE 2\n`);
+
+      await write(root, tipo, { ...fase1, escenarios: [] }, true);
+
+      const document = readFileSync(documentPath, "utf8");
+      expect(criteriosSection(fase1Block(document)).trim()).toBe(NO_ESPECIFICADO);
+      expect(document).toContain("NOTA ESCRITA A MANO EN LA FASE 2");
+      expect(document.split(INICIO)).toHaveLength(2);
+    },
+  );
+
+  it("regenerar desde «No especificado» a una Fase 1 con escenarios reemplaza el texto por los criterios", async () => {
+    const root = tempRoot();
+    const documentPath = await write(root, "historia", { ...HISTORIA, escenarios: [] });
+
+    await write(root, "historia", { ...HISTORIA, escenarios: DOS_ESCENARIOS }, true);
+
+    const criterios = criteriosSection(readFileSync(documentPath, "utf8"));
+    expect(criterios).toContain("- [ ] CA1: Guardado correcto");
+    expect(criterios).not.toContain(NO_ESPECIFICADO);
   });
 });

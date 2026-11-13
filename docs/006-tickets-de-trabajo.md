@@ -404,7 +404,7 @@ Orden sugerido: TK-02a → TK-02b, c, d y e (independientes entre sí) → TK-02
   1. Con una Fase 1 sin escenarios, el documento generado (plantillas `historia` y `bug`) contiene «No especificado en el ticket.» bajo «Criterios de aceptación»; con escenarios, se renderizan como hasta ahora.
 
 - **Definition of Done (DoD):**
-  - [ ] Ambas plantillas cubiertas por test.
+  - [x] Ambas plantillas cubiertas por test.
   - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---

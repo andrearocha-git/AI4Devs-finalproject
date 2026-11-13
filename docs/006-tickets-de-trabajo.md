@@ -579,6 +579,7 @@ Orden: TK-03b1 → TK-03b2 → TK-03b3. TK-02i (plantillas) es independiente y p
 - **Definition of Done (DoD):**
   - [ ] La TUI no importa clientes de Jira/Git/Ollama ni el storage manager.
   - [ ] Los 4 estados de resultado tienen una pantalla/mensaje distinguible para el usuario.
+  - [ ] `SummaryView` no deja unos paréntesis vacíos cuando el ticket cargado a mano no tiene tipo (mismo criterio que la confirmación de TK-03b2).
   - [ ] `SummaryView` sustituye el aviso provisional de `runStart` (TK-03b1), que lanza el mensaje de `blocked` para que un corte no termine en silencio; el éxito y la cancelación también se muestran.
   - [ ] Progreso en vivo (spinner) funcional sin llamada bloqueante única y sin dependencia de Ink.
   - [ ] Revisión de código aprobada y mergeada a la rama del ticket.

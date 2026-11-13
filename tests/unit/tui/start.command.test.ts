@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import type { StepResult } from "../../../src/shared/errors/result.types.js";
 import type { JiraProject, Repository } from "../../../src/shared/types/config.types.js";
 import type { StartTicketHooks, TicketRunSummary } from "../../../src/shared/types/ticket-run.types.js";
-import { createAskCallback, runStart, type StartOrchestrator } from "../../../src/tui/commands/start.command.js";
+import { createAskCallback, runStart, withProgressPause, type StartOrchestrator } from "../../../src/tui/commands/start.command.js";
+import type { ProgressView } from "../../../src/tui/views/progress-view.js";
 import type { ConfirmActionsPrompt } from "../../../src/tui/prompts/confirm-actions.prompt.js";
 import type { ManualTicketEntryPrompt } from "../../../src/tui/prompts/manual-ticket-entry.prompt.js";
 import type { RepositorySelectionPrompt } from "../../../src/tui/prompts/repository-selection.prompt.js";
@@ -404,5 +405,87 @@ describe("TK-03b2 · E3 — ask de la confirmación y cancelación", () => {
     await run("SCRUM-12");
 
     expect(lines.join("\n")).not.toMatch(/cancelada/i);
+  });
+});
+
+describe("TK-03b3 · E3 — runStart con la vista de resumen y pausa del progreso", () => {
+  it("un éxito se muestra con la vista de resumen y se devuelve el resumen", async () => {
+    const { run, lines } = setup();
+
+    const summary = await run("SCRUM-12");
+
+    expect(summary).toBe(SUMMARY);
+    expect(lines.join("\n")).toContain("listo para trabajar");
+  });
+
+  it.each([
+    { subtype: "CambiosPendientes", heading: /cambios pendientes/i },
+    { subtype: "TipoIssueBloqueado", heading: /tipo de ticket sin plantilla/i },
+    { subtype: "PullFallido", heading: /no se pudo actualizar la rama base/i },
+  ])("un bloqueo ($subtype) falla con su pantalla, con encabezado del tipo, y sin escribir una pantalla de éxito", async ({ subtype, heading }) => {
+    const { run, orchestrator, lines } = setup();
+    orchestrator.startTicket.mockResolvedValueOnce({ ...SUMMARY, blocked: { subtype, message: "Detalle del Orquestador" } });
+
+    const error = await run("SCRUM-12").catch((e: unknown) => e as Error);
+
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toMatch(heading);
+    expect((error as Error).message).toContain("Detalle del Orquestador");
+    expect(lines).toEqual([]);
+  });
+});
+
+describe("TK-03b3 · E3 — withProgressPause", () => {
+  const progressSpy = () => ({ onStep: vi.fn(), pause: vi.fn(), resume: vi.fn(), cancel: vi.fn(), stop: vi.fn() }) satisfies ProgressView;
+  const askReturning = (answer: unknown) => vi.fn(async () => answer) as unknown as Parameters<typeof withProgressPause>[0];
+
+  it("pausa antes de preguntar y reanuda después, devolviendo la respuesta tal cual", async () => {
+    const progress = progressSpy();
+    const order: string[] = [];
+    progress.pause.mockImplementation(() => order.push("pause"));
+    progress.resume.mockImplementation(() => order.push("resume"));
+    const inner = vi.fn(async () => {
+      order.push("ask");
+      return { title: "t", description: "d" };
+    }) as unknown as Parameters<typeof withProgressPause>[0];
+
+    const answer = await withProgressPause(inner, progress)({ kind: "manualTicket", ticketId: "SCRUM-5", reason: "not_found" });
+
+    expect(answer).toEqual({ title: "t", description: "d" });
+    expect(order).toEqual(["pause", "ask", "resume"]);
+    expect(progress.cancel).not.toHaveBeenCalled();
+  });
+
+  it("si la confirmación se acepta, reanuda", async () => {
+    const progress = progressSpy();
+
+    const answer = await withProgressPause(askReturning(true), progress)({ kind: "confirmActions", summary: {} as never });
+
+    expect(answer).toBe(true);
+    expect(progress.resume).toHaveBeenCalledTimes(1);
+    expect(progress.cancel).not.toHaveBeenCalled();
+  });
+
+  it("si la confirmación se rechaza, cancela el progreso y no reanuda", async () => {
+    const progress = progressSpy();
+
+    const answer = await withProgressPause(askReturning(false), progress)({ kind: "confirmActions", summary: {} as never });
+
+    expect(answer).toBe(false);
+    expect(progress.pause).toHaveBeenCalledTimes(1);
+    expect(progress.cancel).toHaveBeenCalledTimes(1);
+    expect(progress.resume).not.toHaveBeenCalled();
+  });
+
+  it("si el prompt falla (Ctrl+C), propaga el error sin reanudar", async () => {
+    const progress = progressSpy();
+    const exit = Object.assign(new Error("User force closed the prompt"), { name: "ExitPromptError" });
+    const failing = vi.fn(async () => {
+      throw exit;
+    }) as unknown as Parameters<typeof withProgressPause>[0];
+
+    await expect(withProgressPause(failing, progress)({ kind: "confirmActions", summary: {} as never })).rejects.toBe(exit);
+
+    expect(progress.resume).not.toHaveBeenCalled();
   });
 });

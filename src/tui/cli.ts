@@ -6,13 +6,13 @@ import type { TicketOrchestrator } from "../services/orchestrator/ticket-orchest
 import { resolveDatabasePath } from "../shared/config/app-config.provider.js";
 import { runConfigProyectos, type ProjectsOrchestrator } from "./commands/config-proyectos.command.js";
 import { runConfig, type ConfigOrchestrator } from "./commands/config.command.js";
-import { createAskCallback, runStart, type AskPrompts, type StartOptions, type StartOrchestrator, type StartPrompts } from "./commands/start.command.js";
+import { createAskCallback, runStart, withProgressPause, type AskPrompts, type StartOptions, type StartOrchestrator, type StartPrompts } from "./commands/start.command.js";
 import { createInquirerPrompts, type ConfigPrompts, type ProjectPrompts } from "./prompts/project-config.prompt.js";
 import { createConfirmActionsPrompt } from "./prompts/confirm-actions.prompt.js";
 import { createManualTicketEntryPrompt } from "./prompts/manual-ticket-entry.prompt.js";
 import { createRepositorySelectionPrompt } from "./prompts/repository-selection.prompt.js";
 import { createTicketSelectionPrompt } from "./prompts/ticket-selection.prompt.js";
-import type { StartTicketHooks } from "../shared/types/ticket-run.types.js";
+import { createProgressView, type ProgressView } from "./views/progress-view.js";
 
 /** Manejadores de los comandos; el programa solo los registra y los invoca (la lógica vive en `commands/`). */
 export interface CommandHandlers {
@@ -102,6 +102,8 @@ export interface HandlerDeps {
   startPrompts?: StartPrompts;
   /** Prompts de carga manual y confirmación de `start`; por defecto, los reales de `@inquirer/prompts`. */
   askPrompts?: AskPrompts;
+  /** Vista de progreso de `start`; por defecto, una real sobre `process.stdout` creada en cada ejecución. */
+  progress?: ProgressView;
   /** Escribe una línea de salida. */
   out: (line: string) => void;
   /** Variables de entorno (por defecto `process.env`). */
@@ -111,8 +113,8 @@ export interface HandlerDeps {
 /**
  * Arma los manejadores de `config`, `config proyectos` y `start` con sus dependencias.
  *
- * `start` usa un `onStep` provisional (ver `provisionalOnStep`) hasta TK-03b3 y falla con un mensaje claro si no se entregó
- * `getStartOrchestrator`.
+ * `start` conecta `onStep` a la vista de progreso, la pausa alrededor de cada pregunta y la detiene siempre al terminar; falla
+ * con un mensaje claro si no se entregó `getStartOrchestrator`.
  *
  * @param deps Orquestadores (perezosos), prompts y salida.
  * @returns Los manejadores que espera {@link buildProgram}.
@@ -124,31 +126,34 @@ export function createHandlers(deps: HandlerDeps): CommandHandlers {
     configProyectos: () => runConfigProyectos({ orchestrator: getOrchestrator(), prompts, out }),
     start: async (ticketId, options) => {
       if (!deps.getStartOrchestrator) throw new Error("«devflow start» no está disponible en esta configuración.");
-      await runStart(
-        {
-          orchestrator: deps.getStartOrchestrator(),
-          prompts: deps.startPrompts ?? {
-            ticketSelection: createTicketSelectionPrompt(),
-            repositorySelection: createRepositorySelectionPrompt(),
+      const progress = deps.progress ?? createProgressView({ stream: process.stdout });
+      const askPrompts = deps.askPrompts ?? {
+        manualTicketEntry: createManualTicketEntryPrompt(),
+        confirmActions: createConfirmActionsPrompt(out),
+      };
+      try {
+        await runStart(
+          {
+            orchestrator: deps.getStartOrchestrator(),
+            prompts: deps.startPrompts ?? {
+              ticketSelection: createTicketSelectionPrompt(),
+              repositorySelection: createRepositorySelectionPrompt(),
+            },
+            hooks: {
+              onStep: (step, status, detail) => progress.onStep(step, status, detail),
+              ask: withProgressPause(createAskCallback(askPrompts, out), progress),
+            },
+            out,
           },
-          hooks: {
-            onStep: provisionalOnStep,
-            ask: createAskCallback(
-              deps.askPrompts ?? { manualTicketEntry: createManualTicketEntryPrompt(), confirmActions: createConfirmActionsPrompt(out) },
-              out,
-            ),
-          },
-          out,
-        },
-        ticketId,
-        options,
-      );
+          ticketId,
+          options,
+        );
+      } finally {
+        progress.stop();
+      }
     },
   };
 }
-
-/** `onStep` provisional hasta TK-03b3 (spinner por paso): no muestra nada. */
-const provisionalOnStep: StartTicketHooks["onStep"] = () => {};
 
 /**
  * Punto de entrada real: abre la base en `%APPDATA%\DevFlowCLI\devflow.db` (al ejecutar un comando, no antes) y corre el programa.

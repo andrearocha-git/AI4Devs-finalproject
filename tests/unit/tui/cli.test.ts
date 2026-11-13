@@ -275,19 +275,23 @@ describe("TK-03b1 · E3 — createHandlers: `start`", () => {
     expect(orchestrator.startTicket).toHaveBeenCalledWith({ ticketId: "SCRUM-12", baseBranchOverride: "develop", reprocessFase1: true }, expect.anything());
   });
 
-  it("mientras falta TK-03b3, `onStep` es provisional (no hace nada) y `ask` entrega la carga manual y la confirmación a los prompts", async () => {
+  const progressSpy = () => ({ onStep: vi.fn(), pause: vi.fn(), resume: vi.fn(), cancel: vi.fn(), stop: vi.fn() });
+
+  it("`onStep` llega a la vista de progreso y `ask` entrega la carga manual y la confirmación a los prompts", async () => {
     const orchestrator = startOrchestrator();
+    const progress = progressSpy();
     const askPrompts = {
       manualTicketEntry: { ask: vi.fn(async () => ({ title: "Falla el login", description: "Pasos", isBug: true })) },
       confirmActions: { ask: vi.fn(async () => false) },
     };
-    const handlers = createHandlers({ ...unusedConfigDeps, getStartOrchestrator: (() => orchestrator) as never, askPrompts, out: () => {} });
+    const handlers = createHandlers({ ...unusedConfigDeps, getStartOrchestrator: (() => orchestrator) as never, askPrompts, progress, out: () => {} });
 
     await handlers.start("SCRUM-12", {});
 
     const hooks = orchestrator.startTicket.mock.calls[0]?.[1] as unknown as { onStep: (...a: unknown[]) => void; ask: (r: unknown) => Promise<unknown> };
     const summary = { ticketId: "SCRUM-12", issueType: "Story", repositoryName: null, branchName: null, baseBranch: null, folderPath: "/t", branchAlreadyExists: false, reprocessFase1: false };
-    expect(() => hooks.onStep("jira", "started")).not.toThrow();
+    hooks.onStep("jira", "started");
+    expect(progress.onStep).toHaveBeenCalledWith("jira", "started", undefined);
     await expect(hooks.ask({ kind: "manualTicket", ticketId: "SCRUM-12", reason: "not_found" })).resolves.toEqual({
       title: "Falla el login",
       description: "Pasos",
@@ -295,6 +299,43 @@ describe("TK-03b1 · E3 — createHandlers: `start`", () => {
     });
     await expect(hooks.ask({ kind: "confirmActions", summary })).resolves.toBe(false);
     expect(askPrompts.confirmActions.ask).toHaveBeenCalledWith(summary);
+  });
+
+  it("pausa el progreso alrededor de cada pregunta y lo cancela si no se confirma", async () => {
+    const orchestrator = startOrchestrator();
+    const progress = progressSpy();
+    const askPrompts = {
+      manualTicketEntry: { ask: vi.fn(async () => ({ title: "t", description: "d", isBug: false })) },
+      confirmActions: { ask: vi.fn(async () => false) },
+    };
+    const handlers = createHandlers({ ...unusedConfigDeps, getStartOrchestrator: (() => orchestrator) as never, askPrompts, progress, out: () => {} });
+    await handlers.start("SCRUM-12", {});
+    const hooks = orchestrator.startTicket.mock.calls[0]?.[1] as unknown as { ask: (r: unknown) => Promise<unknown> };
+
+    await hooks.ask({ kind: "manualTicket", ticketId: "SCRUM-12", reason: "not_found" });
+    expect(progress.pause).toHaveBeenCalledTimes(1);
+    expect(progress.resume).toHaveBeenCalledTimes(1);
+
+    await hooks.ask({ kind: "confirmActions", summary: {} });
+    expect(progress.pause).toHaveBeenCalledTimes(2);
+    expect(progress.cancel).toHaveBeenCalledTimes(1);
+    expect(progress.resume).toHaveBeenCalledTimes(1);
+  });
+
+  it("detiene la vista de progreso al terminar, también cuando el flujo falla", async () => {
+    const ok = startOrchestrator();
+    const failing = startOrchestrator();
+    failing.startTicket.mockRejectedValue(new Error("se cayó"));
+    const progressOk = progressSpy();
+    const progressFail = progressSpy();
+
+    await createHandlers({ ...unusedConfigDeps, getStartOrchestrator: (() => ok) as never, progress: progressOk, out: () => {} }).start("SCRUM-12", {});
+    await expect(
+      createHandlers({ ...unusedConfigDeps, getStartOrchestrator: (() => failing) as never, progress: progressFail, out: () => {} }).start("SCRUM-12", {}),
+    ).rejects.toThrow("se cayó");
+
+    expect(progressOk.stop).toHaveBeenCalledTimes(1);
+    expect(progressFail.stop).toHaveBeenCalledTimes(1);
   });
 
   it("sin Orquestador de `start` el manejador falla con un mensaje claro en lugar de una excepción cruda", async () => {

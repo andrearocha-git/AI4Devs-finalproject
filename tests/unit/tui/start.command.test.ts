@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import type { StepResult } from "../../../src/shared/errors/result.types.js";
 import type { JiraProject, Repository } from "../../../src/shared/types/config.types.js";
 import type { StartTicketHooks, TicketRunSummary } from "../../../src/shared/types/ticket-run.types.js";
-import { runStart, type StartOrchestrator } from "../../../src/tui/commands/start.command.js";
+import { createAskCallback, runStart, type StartOrchestrator } from "../../../src/tui/commands/start.command.js";
+import type { ConfirmActionsPrompt } from "../../../src/tui/prompts/confirm-actions.prompt.js";
+import type { ManualTicketEntryPrompt } from "../../../src/tui/prompts/manual-ticket-entry.prompt.js";
 import type { RepositorySelectionPrompt } from "../../../src/tui/prompts/repository-selection.prompt.js";
 import type { TicketSelectionPrompt } from "../../../src/tui/prompts/ticket-selection.prompt.js";
 
@@ -269,5 +271,138 @@ describe("TK-03b1 · E3 — cortes de startTicket (provisional hasta TK-03b3)", 
     const { run } = setup();
 
     await expect(run("SCRUM-12")).resolves.toBe(SUMMARY);
+  });
+});
+
+describe("TK-03b2 · E2 — ask de la carga manual", () => {
+  type ManualAnswer = Awaited<ReturnType<ManualTicketEntryPrompt["ask"]>>;
+
+  function setupAsk(answer: ManualAnswer | Error = { title: "Título", description: "Descripción", isBug: false }) {
+    const events: string[] = [];
+    const manualTicketEntry = {
+      ask: vi.fn(async () => {
+        events.push("prompt");
+        if (answer instanceof Error) throw answer;
+        return answer;
+      }),
+    } satisfies ManualTicketEntryPrompt;
+    const confirmActions = { ask: vi.fn(async () => true) } satisfies ConfirmActionsPrompt;
+    const ask = createAskCallback({ manualTicketEntry, confirmActions }, (line) => events.push(`out:${line}`));
+    return { ask, manualTicketEntry, confirmActions, events };
+  }
+
+  const reasons = ["network_timeout", "invalid_token", "not_found"] as const;
+
+  it.each(reasons)("%s: explica el motivo en español antes de abrir el prompt", async (reason) => {
+    const { ask, manualTicketEntry, events } = setupAsk();
+
+    await ask({ kind: "manualTicket", ticketId: "SCRUM-5", reason });
+
+    expect(manualTicketEntry.ask).toHaveBeenCalledTimes(1);
+    expect(events[0]).toMatch(/^out:.+/);
+    expect(events.at(-1)).toBe("prompt");
+  });
+
+  it("cada motivo tiene un texto distinto; el de token inválido no dice que el ticket no existe y el de no encontrado nombra el ticket", async () => {
+    const texts: string[] = [];
+    for (const reason of reasons) {
+      const { ask, events } = setupAsk();
+      await ask({ kind: "manualTicket", ticketId: "SCRUM-5", reason });
+      texts.push(events.filter((e) => e.startsWith("out:")).join("\n"));
+    }
+
+    expect(new Set(texts).size).toBe(3);
+    expect(texts[1]).toMatch(/email|Token/i);
+    expect(texts[1]).not.toMatch(/no existe|no encontr/i);
+    expect(texts[2]).toContain("SCRUM-5");
+  });
+
+  it("devuelve título y descripción tal cual y el tipo «Bug» solo si se marcó como bug", async () => {
+    const bug = setupAsk({ title: "Falla el login", description: "Pasos…", isBug: true });
+    const noBug = setupAsk({ title: "Nueva pantalla", description: "", isBug: false });
+
+    const bugAnswer = await bug.ask({ kind: "manualTicket", ticketId: "SCRUM-5", reason: "not_found" });
+    const noBugAnswer = await noBug.ask({ kind: "manualTicket", ticketId: "SCRUM-5", reason: "not_found" });
+
+    expect(bugAnswer).toEqual({ title: "Falla el login", description: "Pasos…", issueType: "Bug" });
+    expect(noBugAnswer).toEqual({ title: "Nueva pantalla", description: "" });
+    expect("issueType" in noBugAnswer).toBe(false);
+  });
+
+  it("no toca el prompt de confirmación al pedir la carga manual", async () => {
+    const { ask, confirmActions } = setupAsk();
+
+    await ask({ kind: "manualTicket", ticketId: "SCRUM-5", reason: "network_timeout" });
+
+    expect(confirmActions.ask).not.toHaveBeenCalled();
+  });
+
+  it("Ctrl+C durante el prompt se propaga sin capturarse", async () => {
+    const exit = Object.assign(new Error("User force closed the prompt"), { name: "ExitPromptError" });
+    const { ask } = setupAsk(exit);
+
+    await expect(ask({ kind: "manualTicket", ticketId: "SCRUM-5", reason: "not_found" })).rejects.toBe(exit);
+  });
+});
+
+describe("TK-03b2 · E3 — ask de la confirmación y cancelación", () => {
+  const CONFIRM_SUMMARY = {
+    ticketId: "SCRUM-12",
+    issueType: "Story",
+    repositoryName: "api",
+    branchName: "features/SCRUM-12-AROCHA",
+    baseBranch: "main",
+    folderPath: "/tickets/SCRUM-12/api",
+    branchAlreadyExists: false,
+    reprocessFase1: false,
+  };
+
+  function setupConfirm(answer: boolean | Error) {
+    const manualTicketEntry = { ask: vi.fn(async () => ({ title: "t", description: "d", isBug: false })) } satisfies ManualTicketEntryPrompt;
+    const confirmActions = {
+      ask: vi.fn<ConfirmActionsPrompt["ask"]>(async () => {
+        if (answer instanceof Error) throw answer;
+        return answer;
+      }),
+    } satisfies ConfirmActionsPrompt;
+    const lines: string[] = [];
+    const ask = createAskCallback({ manualTicketEntry, confirmActions }, (line) => lines.push(line));
+    return { ask, manualTicketEntry, confirmActions, lines };
+  }
+
+  it.each([true, false])("devuelve exactamente la respuesta del prompt (%s) y le entrega el resumen", async (answer) => {
+    const { ask, confirmActions, manualTicketEntry } = setupConfirm(answer);
+
+    const result = await ask({ kind: "confirmActions", summary: CONFIRM_SUMMARY });
+
+    expect(result).toBe(answer);
+    expect(confirmActions.ask).toHaveBeenCalledWith(CONFIRM_SUMMARY);
+    expect(manualTicketEntry.ask).not.toHaveBeenCalled();
+  });
+
+  it("Ctrl+C durante la confirmación se propaga sin capturarse", async () => {
+    const exit = Object.assign(new Error("User force closed the prompt"), { name: "ExitPromptError" });
+    const { ask } = setupConfirm(exit);
+
+    await expect(ask({ kind: "confirmActions", summary: CONFIRM_SUMMARY })).rejects.toBe(exit);
+  });
+
+  it("si la persona no confirma, runStart informa que se canceló sin cambios, devuelve el resumen y no lanza", async () => {
+    const { run, orchestrator, lines } = setup();
+    const cancelled = { ...SUMMARY, cancelled: true as const };
+    orchestrator.startTicket.mockResolvedValueOnce(cancelled);
+
+    const summary = await run("SCRUM-12");
+
+    expect(summary).toBe(cancelled);
+    expect(lines).toEqual(["Ejecución cancelada: no se creó nada."]);
+  });
+
+  it("sin cancelación runStart no escribe ningún aviso de cancelación", async () => {
+    const { run, lines } = setup();
+
+    await run("SCRUM-12");
+
+    expect(lines.join("\n")).not.toMatch(/cancelada/i);
   });
 });

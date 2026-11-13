@@ -6,11 +6,13 @@ import type { TicketOrchestrator } from "../services/orchestrator/ticket-orchest
 import { resolveDatabasePath } from "../shared/config/app-config.provider.js";
 import { runConfigProyectos, type ProjectsOrchestrator } from "./commands/config-proyectos.command.js";
 import { runConfig, type ConfigOrchestrator } from "./commands/config.command.js";
-import { runStart, type StartOptions, type StartOrchestrator, type StartPrompts } from "./commands/start.command.js";
+import { createAskCallback, runStart, type AskPrompts, type StartOptions, type StartOrchestrator, type StartPrompts } from "./commands/start.command.js";
 import { createInquirerPrompts, type ConfigPrompts, type ProjectPrompts } from "./prompts/project-config.prompt.js";
+import { createConfirmActionsPrompt } from "./prompts/confirm-actions.prompt.js";
+import { createManualTicketEntryPrompt } from "./prompts/manual-ticket-entry.prompt.js";
 import { createRepositorySelectionPrompt } from "./prompts/repository-selection.prompt.js";
 import { createTicketSelectionPrompt } from "./prompts/ticket-selection.prompt.js";
-import type { AskCallback, StartTicketHooks } from "../shared/types/ticket-run.types.js";
+import type { StartTicketHooks } from "../shared/types/ticket-run.types.js";
 
 /** Manejadores de los comandos; el programa solo los registra y los invoca (la lógica vive en `commands/`). */
 export interface CommandHandlers {
@@ -98,6 +100,8 @@ export interface HandlerDeps {
   getStartOrchestrator?: () => StartOrchestrator;
   /** Prompts de selección de `start`; por defecto, los reales de `@inquirer/prompts`. */
   startPrompts?: StartPrompts;
+  /** Prompts de carga manual y confirmación de `start`; por defecto, los reales de `@inquirer/prompts`. */
+  askPrompts?: AskPrompts;
   /** Escribe una línea de salida. */
   out: (line: string) => void;
   /** Variables de entorno (por defecto `process.env`). */
@@ -107,8 +111,8 @@ export interface HandlerDeps {
 /**
  * Arma los manejadores de `config`, `config proyectos` y `start` con sus dependencias.
  *
- * `start` usa los ganchos provisionales (ver `provisionalHooks`) hasta TK-03b2 y TK-03b3, y falla con un mensaje claro si
- * no se entregó `getStartOrchestrator`.
+ * `start` usa un `onStep` provisional (ver `provisionalOnStep`) hasta TK-03b3 y falla con un mensaje claro si no se entregó
+ * `getStartOrchestrator`.
  *
  * @param deps Orquestadores (perezosos), prompts y salida.
  * @returns Los manejadores que espera {@link buildProgram}.
@@ -127,7 +131,13 @@ export function createHandlers(deps: HandlerDeps): CommandHandlers {
             ticketSelection: createTicketSelectionPrompt(),
             repositorySelection: createRepositorySelectionPrompt(),
           },
-          hooks: provisionalHooks,
+          hooks: {
+            onStep: provisionalOnStep,
+            ask: createAskCallback(
+              deps.askPrompts ?? { manualTicketEntry: createManualTicketEntryPrompt(), confirmActions: createConfirmActionsPrompt(out) },
+              out,
+            ),
+          },
           out,
         },
         ticketId,
@@ -137,16 +147,8 @@ export function createHandlers(deps: HandlerDeps): CommandHandlers {
   };
 }
 
-/**
- * Ganchos provisionales de `startTicket` hasta que lleguen TK-03b2 (`ask`) y TK-03b3 (`onStep` y las pantallas):
- * `onStep` no muestra nada y `ask` corta el flujo con un aviso, así que `devflow start` real aún no completa un ticket.
- */
-const provisionalHooks: StartTicketHooks = {
-  onStep: () => {},
-  ask: (async () => {
-    throw new Error("«devflow start» aún no está completo: faltan TK-03b2 (carga manual y confirmación) y TK-03b3 (progreso y pantallas).");
-  }) as unknown as AskCallback,
-};
+/** `onStep` provisional hasta TK-03b3 (spinner por paso): no muestra nada. */
+const provisionalOnStep: StartTicketHooks["onStep"] = () => {};
 
 /**
  * Punto de entrada real: abre la base en `%APPDATA%\DevFlowCLI\devflow.db` (al ejecutar un comando, no antes) y corre el programa.

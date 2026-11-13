@@ -46,6 +46,11 @@ export type AskRequest =
 export interface ManualTicketAnswer {
   title: string;
   description: string;
+  /**
+   * Tipo de issue que la persona indica (p. ej. `Bug`); el Orquestador lo resuelve como el de Jira, así que `Bug`, `Error` o
+   * `Defecto` eligen la plantilla `bug`. Si falta o está en blanco, el ticket se trata como `historia`.
+   */
+  issueType?: string;
 }
 
 /**

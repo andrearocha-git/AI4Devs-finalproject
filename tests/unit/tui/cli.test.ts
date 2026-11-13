@@ -275,15 +275,26 @@ describe("TK-03b1 · E3 — createHandlers: `start`", () => {
     expect(orchestrator.startTicket).toHaveBeenCalledWith({ ticketId: "SCRUM-12", baseBranchOverride: "develop", reprocessFase1: true }, expect.anything());
   });
 
-  it("mientras faltan TK-03b2 y TK-03b3, los ganchos provisionales ignoran `onStep` y `ask` avisa que el comando no está completo", async () => {
+  it("mientras falta TK-03b3, `onStep` es provisional (no hace nada) y `ask` entrega la carga manual y la confirmación a los prompts", async () => {
     const orchestrator = startOrchestrator();
-    const handlers = createHandlers({ ...unusedConfigDeps, getStartOrchestrator: (() => orchestrator) as never });
+    const askPrompts = {
+      manualTicketEntry: { ask: vi.fn(async () => ({ title: "Falla el login", description: "Pasos", isBug: true })) },
+      confirmActions: { ask: vi.fn(async () => false) },
+    };
+    const handlers = createHandlers({ ...unusedConfigDeps, getStartOrchestrator: (() => orchestrator) as never, askPrompts, out: () => {} });
 
     await handlers.start("SCRUM-12", {});
 
     const hooks = orchestrator.startTicket.mock.calls[0]?.[1] as unknown as { onStep: (...a: unknown[]) => void; ask: (r: unknown) => Promise<unknown> };
+    const summary = { ticketId: "SCRUM-12", issueType: "Story", repositoryName: null, branchName: null, baseBranch: null, folderPath: "/t", branchAlreadyExists: false, reprocessFase1: false };
     expect(() => hooks.onStep("jira", "started")).not.toThrow();
-    await expect(hooks.ask({ kind: "confirmActions" })).rejects.toThrow(/aún no está completo.*TK-03b2.*TK-03b3/s);
+    await expect(hooks.ask({ kind: "manualTicket", ticketId: "SCRUM-12", reason: "not_found" })).resolves.toEqual({
+      title: "Falla el login",
+      description: "Pasos",
+      issueType: "Bug",
+    });
+    await expect(hooks.ask({ kind: "confirmActions", summary })).resolves.toBe(false);
+    expect(askPrompts.confirmActions.ask).toHaveBeenCalledWith(summary);
   });
 
   it("sin Orquestador de `start` el manejador falla con un mensaje claro en lugar de una excepción cruda", async () => {

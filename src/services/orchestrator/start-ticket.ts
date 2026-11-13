@@ -153,7 +153,7 @@ export async function runStartTicket(
   } else if (fetched.kind === "FallbackManual") {
     hooks.onStep("jira", "fallback", fetched.reason);
     const answer = await hooks.ask({ kind: "manualTicket", ticketId, reason: fetched.reason });
-    ticket = { ticketId, title: answer.title, description: answer.description, issueType: "", source: "manual" };
+    ticket = { ticketId, title: answer.title, description: answer.description, issueType: answer.issueType?.trim() ?? "", source: "manual" };
     jiraFetchStatus = "fallback_manual";
     jiraFetchError = fetched.reason;
   } else {

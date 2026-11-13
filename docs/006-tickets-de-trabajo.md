@@ -513,8 +513,8 @@ Orden: TK-03b1 → TK-03b2 → TK-03b3. TK-02i (plantillas) es independiente y p
   4. Sin ninguna clave de proyecto configurada, `devflow start` indica «primero configura una clave» (`devflow config proyectos`) y no consulta a Jira. *(US-01 CA6)*
 
 - **Definition of Done (DoD):**
-  - [ ] La TUI no importa clientes de Jira/Git/Ollama ni el storage manager — solo invoca al Orquestador (verificable por revisión de imports).
-  - [ ] `--base` y `--reprocesar` llegan a `startTicket` como `baseBranchOverride` y `reprocessFase1`.
+  - [x] La TUI no importa clientes de Jira/Git/Ollama ni el storage manager — solo invoca al Orquestador (verificable por revisión de imports).
+  - [x] `--base` y `--reprocesar` llegan a `startTicket` como `baseBranchOverride` y `reprocessFase1`.
   - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---

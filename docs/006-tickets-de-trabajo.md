@@ -537,16 +537,16 @@ Orden: TK-03b1 → TK-03b2 → TK-03b3. TK-02i (plantillas) es independiente y p
   - `tests/unit/tui/*.test.ts`, `tests/unit/services/orchestrator/ticket-orchestrator.start.test.ts`
 
 - **Contratos e Interfaces (Input/Output):**
-  - `ManualTicketEntryPrompt.ask(reason: FallbackManualReason): Promise<{ title: string; description: string; issueType?: string }>` — muestra el motivo del fallo y pregunta «¿Es un bug? (s/N)»; con «s» devuelve el nombre de tipo que el Orquestador resuelve a la plantilla `bug`, con «N» o vacío no devuelve tipo (plantilla `historia`).
-  - `ConfirmActionsPrompt.ask(summary: ConfirmSummary): Promise<boolean>` — una única confirmación consolidada (H-03, 2026-11-02): si `branchAlreadyExists` es `true`, avisa que la rama ya existe y pregunta si se usa la misma; con `reprocessFase1` lo indica; devuelve `false` si el desarrollador cancela.
+  - `ManualTicketEntryPrompt.ask(): Promise<{ title: string; description: string; isBug: boolean }>` — pide el título (obligatorio), la descripción (opcional) y «¿Es un bug?» (por defecto no). *(Ajustado al implementar, el 2026-11-12: el motivo del fallo lo explica `createAskCallback` por `out` antes de abrir el prompt, y es `createAskCallback` quien traduce `isBug` al tipo `Bug` de `ManualTicketAnswer.issueType`, que el Orquestador resuelve a la plantilla `bug`; sin bug no se envía tipo y se usa `historia`.)*
+  - `ConfirmActionsPrompt.ask(summary: ConfirmSummary): Promise<boolean>` — una única confirmación consolidada (H-03, 2026-11-02): si `branchAlreadyExists` es `true`, avisa que la rama ya existe y pregunta si se usa la misma (valor por defecto: no); con `reprocessFase1` lo indica; devuelve `false` si el desarrollador cancela, y `runStart` informa «Ejecución cancelada: no se creó nada.». El texto de la pantalla sale de `formatConfirmSummary` y `confirmQuestion` (funciones puras).
 
 - **Criterios de Aceptación Técnicos:**
   1. Al invocar el Orquestador `ask({ kind: 'manualTicket' })`, la TUI abre `ManualTicketEntryPrompt` con el motivo del fallo y devuelve los datos ingresados al flujo, incluido el tipo si se marcó como bug (mock del Orquestador); en el Orquestador, un `issueType` de bug elige la plantilla `bug` y su ausencia la plantilla `historia`. *(CA3, ampliado por la decisión 2)*
   2. Al invocar el Orquestador `ask({ kind: 'confirmActions' })`, la TUI muestra el resumen (rama, base, carpeta) en una sola pantalla y devuelve `true` o `false`; con `false` no se muestra progreso de pasos y se informa que la ejecución fue cancelada sin cambios (mock del Orquestador). *(CA5, H-03)*
 
 - **Definition of Done (DoD):**
-  - [ ] La TUI no importa clientes de Jira/Git/Ollama ni el storage manager.
-  - [ ] Un bug cargado a mano genera el documento con la plantilla `bug`.
+  - [x] La TUI no importa clientes de Jira/Git/Ollama ni el storage manager.
+  - [x] Un bug cargado a mano genera el documento con la plantilla `bug`.
   - [ ] Revisión de código aprobada y mergeada a la rama del ticket.
 
 ---

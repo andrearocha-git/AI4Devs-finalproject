@@ -1,7 +1,10 @@
 import type { TicketOrchestrator } from "../../services/orchestrator/ticket-orchestrator.js";
 import type { Repository } from "../../shared/types/config.types.js";
-import type { StartTicketHooks, TicketRunSummary } from "../../shared/types/ticket-run.types.js";
+import type { FallbackManualReason } from "../../shared/errors/result.types.js";
+import type { AskCallback, AskRequest, ManualTicketAnswer, StartTicketHooks, TicketRunSummary } from "../../shared/types/ticket-run.types.js";
 import { describeFailure } from "../failure-message.js";
+import type { ConfirmActionsPrompt } from "../prompts/confirm-actions.prompt.js";
+import type { ManualTicketEntryPrompt } from "../prompts/manual-ticket-entry.prompt.js";
 import type { RepositorySelectionPrompt } from "../prompts/repository-selection.prompt.js";
 import type { TicketSelectionPrompt } from "../prompts/ticket-selection.prompt.js";
 import { isValidTicketId } from "../validators.js";
@@ -78,6 +81,7 @@ export async function runStart(deps: StartDeps, ticketId: string | undefined, op
   );
   // Provisional hasta TK-03b3: sin pantallas de resultado, un corte no puede terminar en silencio y con código 0.
   if (summary.blocked) throw new Error(summary.blocked.message);
+  if (summary.cancelled) deps.out("Ejecución cancelada: no se creó nada.");
   return summary;
 }
 
@@ -108,4 +112,48 @@ async function chooseAssignedTicket(deps: StartDeps): Promise<string | undefined
     return undefined;
   }
   return deps.prompts.ticketSelection.ask(assigned.value);
+}
+
+/** Prompts con los que el Orquestador pregunta durante el flujo (`ask`). */
+export interface AskPrompts {
+  manualTicketEntry: ManualTicketEntryPrompt;
+  confirmActions: ConfirmActionsPrompt;
+}
+
+/** Tipo de issue que se envía al Orquestador cuando la persona marca el ticket manual como bug. */
+const MANUAL_BUG_TYPE = "Bug";
+
+/** Explica por qué se pide el ticket a mano; el de `invalid_token` nunca dice que el ticket no existe. */
+function describeManualReason(ticketId: string, reason: FallbackManualReason): string {
+  switch (reason) {
+    case "network_timeout":
+      return `Jira no respondió al pedir ${ticketId}. Revisa tu conexión; puedes cargar el ticket a mano para continuar.`;
+    case "invalid_token":
+      return `Jira rechazó el email o el API Token (revísalos con «devflow config»). Carga ${ticketId} a mano para continuar.`;
+    case "not_found":
+      return `Jira no encontró el ticket ${ticketId}. Si existe, cárgalo a mano para continuar.`;
+  }
+}
+
+/**
+ * Arma el callback `ask` de `startTicket` con los prompts de la TUI.
+ *
+ * Para `confirmActions` devuelve tal cual la respuesta del prompt. Para `manualTicket` explica el motivo del fallo de Jira por `out` antes de abrir el prompt y traduce «es un bug» al tipo
+ * `Bug` del Orquestador (sin `issueType` si no lo es). No captura errores: un Ctrl+C en un prompt se propaga para que el
+ * programa salga con el código 130.
+ *
+ * @param prompts Prompts de carga manual y de confirmación.
+ * @param out Escribe una línea de salida.
+ * @returns El callback que se entrega a `startTicket` como `hooks.ask`.
+ */
+export function createAskCallback(prompts: AskPrompts, out: (line: string) => void): AskCallback {
+  const ask = async (request: AskRequest): Promise<ManualTicketAnswer | boolean> => {
+    if (request.kind === "manualTicket") {
+      out(describeManualReason(request.ticketId, request.reason));
+      const { title, description, isBug } = await prompts.manualTicketEntry.ask();
+      return { title, description, ...(isBug ? { issueType: MANUAL_BUG_TYPE } : {}) };
+    }
+    return prompts.confirmActions.ask(request.summary);
+  };
+  return ask as unknown as AskCallback;
 }

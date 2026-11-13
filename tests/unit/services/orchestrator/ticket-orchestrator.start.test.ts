@@ -681,3 +681,40 @@ describe("Revisión de Cursor sobre TK-02f", () => {
     expect(existsSync(join(f.root, "SCRUM-2"))).toBe(false);
   });
 });
+
+describe("TK-03b2 · E1 — el Orquestador usa el tipo de la carga manual", () => {
+  const manualAnswer = (issueType?: string) => ({ title: "Título manual", description: "Descripción manual", ...(issueType !== undefined ? { issueType } : {}) });
+
+  async function startManual(issueType?: string) {
+    f.jira.fetchTicket.mockResolvedValue({ kind: "FallbackManual", reason: "not_found" });
+    const answer = manualAnswer(issueType);
+    f.ask.mockImplementation(async (request: { kind: string }) => (request.kind === "confirmActions" ? true : answer));
+    return f.start({ ticketId: "SCRUM-5", repositoryId: f.repo.id });
+  }
+
+  it.each([
+    { given: "Bug", ticketType: "Bug" },
+    { given: " bug ", ticketType: "bug" },
+  ])("un bug marcado a mano ($given) usa la plantilla bug, la rama de bugfix y registra el tipo", async ({ given, ticketType }) => {
+    const summary = await startManual(given);
+
+    expect(f.transformer.processContext).toHaveBeenCalledWith(
+      { ticketId: "SCRUM-5", title: "Título manual", description: "Descripción manual", issueType: ticketType, source: "manual" },
+      "bug",
+    );
+    expect(summary).toMatchObject({ jiraFetchStatus: "fallback_manual", issueType: ticketType, branchName: "bugs/SCRUM-5-AROCHA" });
+    expect(f.git.createBranch).toHaveBeenCalledWith(expect.objectContaining({ branchName: "bugs/SCRUM-5-AROCHA" }));
+    expect(f.rows()[0]).toMatchObject({ jira_fetch_status: "fallback_manual", branch_type: "bugfix" });
+  });
+
+  it.each([undefined, "", "   "])("sin tipo (%j) se mantiene el comportamiento de hoy: plantilla historia y rama de feature", async (given) => {
+    const summary = await startManual(given);
+
+    expect(f.transformer.processContext).toHaveBeenCalledWith(
+      { ticketId: "SCRUM-5", title: "Título manual", description: "Descripción manual", issueType: "", source: "manual" },
+      "historia",
+    );
+    expect(summary).toMatchObject({ jiraFetchStatus: "fallback_manual", issueType: "", branchName: "features/SCRUM-5-AROCHA" });
+    expect(f.rows()[0]).toMatchObject({ jira_fetch_status: "fallback_manual", branch_type: "feature" });
+  });
+});

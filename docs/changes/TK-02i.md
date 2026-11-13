@@ -1,6 +1,6 @@
 # Change: TK-02i — Plantillas: «No especificado en el ticket.» en criterios de aceptación vacíos
 
-- **Estado:** Aprobado
+- **Estado:** Implementado
 - **Fuente:** `docs/006-tickets-de-trabajo.md` (TK-02i)
 - **Depende de:** TK-02d (hecho y fusionado: `FileSystemManager.writeDocument` y las plantillas `historia` y `bug`).
 - **INVEST:** Cumple. Un solo criterio técnico, dos plantillas y un único método bajo prueba; cabe en 3 escenarios y 4 tareas.
@@ -39,9 +39,9 @@ Cuando el ticket no trae escenarios, la sección «Criterios de aceptación» de
 
 | Escenario | Criterios cubiertos | Test | Estado |
 |---|---|---|---|
-| E1 | CA1, DoD-a | _pendiente_ | Pendiente |
-| E2 | CA1, DoD-a | _pendiente_ | Pendiente |
-| E3 | CA1, DoD-a | _pendiente_ | Pendiente |
+| E1 | CA1, DoD-a | `tests/unit/services/filesystem/filesystem-manager.test.ts` › «TK-02i · E1 — historia sin escenarios: «No especificado en el ticket.» en los criterios» (2 casos: la sección contiene exactamente la constante `NO_ESPECIFICADO` y ninguna línea de criterio; el resto de la Fase 1 y los marcadores no cambian) | Hecho |
+| E2 | CA1, DoD-a | `tests/unit/services/filesystem/filesystem-manager.test.ts` › «TK-02i · E2 — bug sin escenarios: «No especificado en el ticket.» en los criterios» (2 casos: la sección contiene exactamente la constante `NO_ESPECIFICADO` y ninguna línea de criterio; «Qué falla», «Cómo reproducir», las preguntas abiertas y los marcadores no cambian) | Hecho |
+| E3 | CA1, DoD-a | `tests/unit/services/filesystem/filesystem-manager.test.ts` › «TK-02i · E3 — con escenarios se renderizan como hasta ahora y la regeneración conserva la Fase 2» (5 casos: escenarios numerados con su Given, When y Then en historia y bug sin el texto nuevo; al regenerar sin escenarios el texto entra en los marcadores y la Fase 2 a mano se conserva, en historia y bug; al regenerar con escenarios reemplaza el texto) | Hecho |
 
 DoD-b (revisión mergeada) no es un escenario: se tilda tras la merge.
 
@@ -60,10 +60,10 @@ DoD-b (revisión mergeada) no es un escenario: se tilda tras la merge.
 
 ## Tareas
 
-- [ ] 1. E1 en RED y GREEN: plantilla `historia` con «No especificado en el ticket.» sin escenarios
-- [ ] 2. E2 en RED y GREEN: la misma rama `{{else}}` en la plantilla `bug`
-- [ ] 3. E3 en RED y comprobación por mutación: con escenarios se renderizan como hasta ahora y la regeneración conserva la Fase 2
-- [ ] 4. Refactor, `npm run typecheck`, `npm run lint` y `npm test` sin regresiones
+- [x] 1. E1 en RED y GREEN: plantilla `historia` con «No especificado en el ticket.» sin escenarios
+- [x] 2. E2 en RED y GREEN: la misma rama `{{else}}` en la plantilla `bug`
+- [x] 3. E3 en RED y comprobación por mutación: con escenarios se renderizan como hasta ahora y la regeneración conserva la Fase 2
+- [x] 4. Refactor, `npm run typecheck`, `npm run lint` y `npm test` sin regresiones
 
 ## Decisiones y desvíos
 
@@ -78,3 +78,9 @@ _Sin registros._
 2. *(ambiguo)* **Solo los criterios de aceptación.** Otras listas de la Fase 1 también quedan vacías sin avisar si el ticket no las trae (Casos de uso, Preguntas abiertas, y en bug «Cómo reproducir»); `docs/006` limita este ticket a los criterios y se mantiene así. Si quieres el mismo tratamiento para las demás, sería otro ticket.
 3. **El literal vive en la plantilla.** El texto «No especificado en el ticket.» ya existe como constante `NO_ESPECIFICADO` en `src/services/ollama/postprocess.ts`, pero las plantillas son archivos versionados sin acceso a ella; se escribe el mismo literal en las dos plantillas (Handlebars `{{else}}` del `each`). Un test las compara con la constante para detectar que se desalinean.
 4. **E3 es una prueba de regresión.** Los casos de «con escenarios» y de regeneración deberían pasar a la primera, porque protegen comportamiento existente; en lugar de una fase roja se comprueba con una mutación temporal (quitar el `{{#each}}` o imprimir el texto siempre) que los tests fallan.
+
+**Registro al implementar (2026-11-12):**
+
+5. **Plantilla modificada con la autorización expresa de la desarrolladora** (decisión 1): `templates/documents/historia.md.hbs` gana la rama `{{else}}` del `{{#each escenarios}}` con «No especificado en el ticket.». El test compara la sección con la constante `NO_ESPECIFICADO` de `src/services/ollama/postprocess.ts` (propuesta 3), así que si el literal de la plantilla se desalinea, falla.
+6. **Plantilla `bug` modificada con la misma autorización expresa** (decisión 1): `templates/documents/bug.md.hbs` gana la misma rama `{{else}}` del `{{#each escenarios}}`. Con E1 y E2, ambas plantillas dicen lo mismo y las dos se comparan con `NO_ESPECIFICADO`.
+7. **Mutaciones de comprobación de E3** (propuesta 4 aprobada). Los 5 casos salieron en verde a la primera, porque protegen comportamiento existente; se comprobó con tres mutaciones temporales de las plantillas que cada una hace fallar tests: imprimir el texto siempre, fuera del `{{#each}}` (3 fallos); quitar el `{{#each}}` dejando solo el texto (4 fallos); y desalinear el literal de `historia` respecto de la constante (2 fallos). Las plantillas se restauraron y quedan con las 2 líneas añadidas en cada una.

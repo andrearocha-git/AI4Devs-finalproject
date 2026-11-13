@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { CommanderError } from "commander";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildProgram, createHandlers } from "../../../src/tui/cli.js";
+import type { StartOrchestrator } from "../../../src/tui/commands/start.command.js";
 import type { ConfigOrchestrator } from "../../../src/tui/commands/config.command.js";
 import type { ProjectsOrchestrator } from "../../../src/tui/commands/config-proyectos.command.js";
 import type { ConfigPrompts, ProjectPrompts } from "../../../src/tui/prompts/project-config.prompt.js";
@@ -9,7 +10,7 @@ import type { ConfigPrompts, ProjectPrompts } from "../../../src/tui/prompts/pro
 const version = (JSON.parse(readFileSync(new URL("../../../package.json", import.meta.url), "utf8")) as { version: string }).version;
 
 function setup() {
-  const handlers = { config: vi.fn(async () => {}), configProyectos: vi.fn(async () => {}) };
+  const handlers = { config: vi.fn(async () => {}), configProyectos: vi.fn(async () => {}), start: vi.fn(async () => {}) };
   const out: string[] = [];
   const err: string[] = [];
   const program = buildProgram(handlers, {
@@ -30,11 +31,11 @@ afterEach(() => {
 });
 
 describe("E1 — buildProgram (Commander)", () => {
-  it("registra solo `config`, con el subcomando `proyectos`", () => {
+  it("registra solo `config` (con el subcomando `proyectos`) y `start`", () => {
     const { program } = setup();
 
     expect(program.name()).toBe("devflow");
-    expect(program.commands.map((c) => c.name())).toEqual(["config"]);
+    expect(program.commands.map((c) => c.name())).toEqual(["config", "start"]);
     expect(program.commands[0]?.commands.map((c) => c.name())).toEqual(["proyectos"]);
   });
 
@@ -171,5 +172,123 @@ describe("E1 — createHandlers (arranque real)", () => {
 
     expect(orchestrator.saveConfig).toHaveBeenCalledTimes(1);
     expect(lines.join("\n")).toContain("Configuración guardada");
+  });
+});
+
+describe("TK-03b1 · E3 — registro de `devflow start`", () => {
+  it("registra `start` con `--base <rama>` y `--reprocesar`", () => {
+    const { program } = setup();
+
+    const start = program.commands.find((c) => c.name() === "start");
+
+    expect(start?.registeredArguments.map((a) => a.name())).toEqual(["ID"]);
+    expect(start?.registeredArguments[0]?.required).toBe(false);
+    expect(start?.options.map((o) => o.long)).toEqual(["--base", "--reprocesar"]);
+  });
+
+  it("la ayuda de `devflow` lista `start` y la de `start` lista sus dos opciones", async () => {
+    const { run, out } = setup();
+
+    await expect(run("--help")).rejects.toBeInstanceOf(CommanderError);
+    expect(out.join("")).toContain("start");
+    out.length = 0;
+    await expect(run("start", "--help")).rejects.toBeInstanceOf(CommanderError);
+
+    expect(out.join("")).toContain("--base");
+    expect(out.join("")).toContain("--reprocesar");
+  });
+
+  it("`devflow start SCRUM-12 --base develop --reprocesar` entrega el ID y las opciones al manejador", async () => {
+    const { run, handlers } = setup();
+
+    await run("start", "SCRUM-12", "--base", "develop", "--reprocesar");
+
+    expect(handlers.start).toHaveBeenCalledTimes(1);
+    expect(handlers.start).toHaveBeenCalledWith("SCRUM-12", { base: "develop", reprocesar: true });
+    expect(handlers.config).not.toHaveBeenCalled();
+  });
+
+  it("`devflow start` sin ID ni opciones entrega `undefined` y un objeto vacío", async () => {
+    const { run, handlers } = setup();
+
+    await run("start");
+
+    expect(handlers.start).toHaveBeenCalledWith(undefined, {});
+  });
+
+  it("un manejador de `start` que lanza se muestra como mensaje con código 1, sin traza", async () => {
+    const { run, err, handlers } = setup();
+    handlers.start.mockRejectedValue(new Error("Primero configura una clave"));
+
+    await run("start");
+
+    expect(err.join("")).toContain("Primero configura una clave");
+    expect(process.exitCode).toBe(1);
+  });
+
+  it("Ctrl+C durante `start` termina en silencio con código 130", async () => {
+    const { run, err, handlers } = setup();
+    handlers.start.mockRejectedValue(Object.assign(new Error("User force closed the prompt"), { name: "ExitPromptError" }));
+
+    await run("start", "SCRUM-12");
+
+    expect(err.join("")).toBe("");
+    expect(process.exitCode).toBe(130);
+  });
+});
+
+describe("TK-03b1 · E3 — createHandlers: `start`", () => {
+  const SUMMARY = { ticketId: "SCRUM-12", repositoryId: null, issueType: "Story", branchName: null, branchStatus: null, folderPath: null, documentPath: null, jiraFetchStatus: "ok", ollamaStatus: "ok" } as const;
+
+  function startOrchestrator() {
+    return {
+      listProjects: vi.fn(() => [{ id: 1, jiraProjectKey: "SCRUM", jiraProjectName: "Scrum", createdAt: "", updatedAt: "" }]),
+      listAssignedTickets: vi.fn(),
+      listRepositoriesForTicket: vi.fn(() => ({ kind: "Ok", value: [] }) as const),
+      startTicket: vi.fn<StartOrchestrator["startTicket"]>(async () => SUMMARY),
+    } satisfies Record<keyof StartOrchestrator, unknown>;
+  }
+
+  const unusedConfigDeps = {
+    getOrchestrator: vi.fn(() => {
+      throw new Error("no debería pedirse el Orquestador de configuración");
+    }),
+    prompts: {} as never,
+    out: () => {},
+    env: {},
+  };
+
+  it("no pide el Orquestador de `start` hasta que se ejecuta el comando", () => {
+    const getStartOrchestrator = vi.fn(startOrchestrator);
+
+    createHandlers({ ...unusedConfigDeps, getStartOrchestrator: getStartOrchestrator as never });
+
+    expect(getStartOrchestrator).not.toHaveBeenCalled();
+  });
+
+  it("`start` ejecuta el flujo real con el Orquestador y le pasa la rama base y el reproceso", async () => {
+    const orchestrator = startOrchestrator();
+    const handlers = createHandlers({ ...unusedConfigDeps, getStartOrchestrator: (() => orchestrator) as never });
+
+    await handlers.start("SCRUM-12", { base: "develop", reprocesar: true });
+
+    expect(orchestrator.startTicket).toHaveBeenCalledWith({ ticketId: "SCRUM-12", baseBranchOverride: "develop", reprocessFase1: true }, expect.anything());
+  });
+
+  it("mientras faltan TK-03b2 y TK-03b3, los ganchos provisionales ignoran `onStep` y `ask` avisa que el comando no está completo", async () => {
+    const orchestrator = startOrchestrator();
+    const handlers = createHandlers({ ...unusedConfigDeps, getStartOrchestrator: (() => orchestrator) as never });
+
+    await handlers.start("SCRUM-12", {});
+
+    const hooks = orchestrator.startTicket.mock.calls[0]?.[1] as unknown as { onStep: (...a: unknown[]) => void; ask: (r: unknown) => Promise<unknown> };
+    expect(() => hooks.onStep("jira", "started")).not.toThrow();
+    await expect(hooks.ask({ kind: "confirmActions" })).rejects.toThrow(/aún no está completo.*TK-03b2.*TK-03b3/s);
+  });
+
+  it("sin Orquestador de `start` el manejador falla con un mensaje claro en lugar de una excepción cruda", async () => {
+    const handlers = createHandlers({ ...unusedConfigDeps });
+
+    await expect(handlers.start("SCRUM-12", {})).rejects.toThrow(/no está disponible/);
   });
 });

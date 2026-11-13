@@ -4,7 +4,7 @@
 >
 > Fuentes de verdad: `docs/PRD.md`, `docs/001-descripcion-general-del-producto.md`, `docs/002-arquitectura-del-sistema.md`, `docs/005-historias-de-usuario.md`, `docs/006-tickets-de-trabajo.md`, `docs/ADR-001-arquitectura-inicial.md`. Si este archivo contradice a esas fuentes, gana la fuente; corregir aquí.
 
-**Estado del proyecto:** desarrollo en curso, ticket por ticket. Implementados: TK-00 (scaffold), TK-01 (Storage Layer), TK-02a (base compartida: `StepResult`, configuración, resolutor de tipo de issue, regla de lint), TK-02b (cliente REST de Jira), TK-02c (Git Manager), TK-02d (FileSystem Manager y plantillas), TK-02e (Ollama AI Transformer: prompts, schemas, Ajv y posprocesado), TK-02f (Orquestador: flujo `startTicket` y `ticket_logs`), TK-02h (Fase 1 reutilizable y reprocesable), TK-02g (Orquestador: gestión de configuración, proyectos y repositorios) y TK-03a (CLI base, `devflow config` y `devflow config proyectos`). Todo lo demás es comportamiento *especificado*, aún sin código; los pasos que ya tienen parte implementada llevan la etiqueta `🚧 En desarrollo`.
+**Estado del proyecto:** desarrollo en curso, ticket por ticket. Implementados: TK-00 (scaffold), TK-01 (Storage Layer), TK-02a (base compartida: `StepResult`, configuración, resolutor de tipo de issue, regla de lint), TK-02b (cliente REST de Jira), TK-02c (Git Manager), TK-02d (FileSystem Manager y plantillas), TK-02e (Ollama AI Transformer: prompts, schemas, Ajv y posprocesado), TK-02f (Orquestador: flujo `startTicket` y `ticket_logs`), TK-02h (Fase 1 reutilizable y reprocesable), TK-02g (Orquestador: gestión de configuración, proyectos y repositorios), TK-03a (CLI base, `devflow config` y `devflow config proyectos`) y TK-03b1 (`devflow start`: validación del ID, selección de ticket y repositorio y flags; el flujo completo espera a TK-03b2 y TK-03b3). Todo lo demás es comportamiento *especificado*, aún sin código; los pasos que ya tienen parte implementada llevan la etiqueta `🚧 En desarrollo`.
 
 ## Cómo mantener este documento
 
@@ -64,7 +64,7 @@ Ref.: `002` §2.2.1.
 - **Alta de clave:** se valida con `GET /rest/api/2/project/{key}` (la JQL ignora sin error las claves inexistentes). Ante un 404 se llama a `/myself`: **401 = token inválido**, **200 = la clave no existe**. Se guarda con el nombre del proyecto.
 - **Alta de repositorio** (0..N por clave): nombre (`backend`), ruta local y rama base (por defecto `main`). `GitManager.validateRepository` comprueba que sea un repo Git con remoto `origin` y que la rama base exista en el remoto.
 - **Edición:** *upsert* por `jira_project_key` y por `(jira_project_id, name)`; no quedan duplicados (TK-01 CA2). Borrar una clave borra en cascada sus repositorios (TK-01 CA3).
-- **Guarda:** sin ninguna clave configurada, `devflow start` indica que hay que dar de alta al menos una (US-01 CA6; se cierra con `devflow start`, TK-03b).
+- **Guarda:** sin ninguna clave configurada, `devflow start` indica que hay que dar de alta al menos una (US-01 CA6; cerrado en `devflow start`, TK-03b1).
 - **Menú:** `devflow config proyectos` es un menú interactivo que se repite hasta elegir «Salir» (listar, agregar clave, agregar/editar/quitar repositorio, quitar clave). Quitar algo pide confirmación. Si Git rechaza un repositorio, se muestra el motivo y se ofrece corregir sin perder lo escrito.
 - **Fallos de Jira:** clave inexistente, **token inválido (sin decir que la clave no existe)** y Jira sin respuesta tienen mensajes distintos.
 - **Baja con historial:** quitar una clave o un repositorio con tickets en `ticket_logs` se rechaza con un mensaje claro (no el error de SQLite) y no borra nada (TK-02g).
@@ -77,13 +77,13 @@ Ref.: `002` §2.2.1.
 
 **Historias:** US-02 · **Tickets:** TK-02 (Jira/Orquestador), TK-03 (prompts)
 
-### 2.1 Entrada — `devflow start [ID] [--base rama] [--reprocesar]` — `📄 Especificado` · TK-03b1
+### 2.1 Entrada — `devflow start [ID] [--base rama] [--reprocesar]` — `🚧 En desarrollo` · TK-03b1 (comando, validación del ID, lista de asignados y flags implementados; el flujo completo espera a TK-03b2 y TK-03b3, y hasta entonces `ask` corta con un aviso)
 
 - **Sin ID:** la TUI llama a `TicketOrchestrator.listAssignedTickets()`. El cliente Jira ejecuta
   `project in (…) AND assignee = currentUser() AND statusCategory != Done AND issuetype != Epic ORDER BY updated DESC` y el usuario elige uno (US-02 CA1).
 - **Con ID:** la TUI valida el formato `^[A-Za-z][A-Za-z0-9_]*-\d+$` (el mismo del Orquestador, que normaliza a mayúsculas) antes de invocar al Orquestador; si es inválido, muestra el error sin llamar a nada (TK-03 CA1).
 
-### 2.2 Validación de clave y selección de repositorio — `📄 Especificado` · US-02 CA3 · TK-02/TK-03b1
+### 2.2 Validación de clave y selección de repositorio — `✅ Implementado y probado` · US-02 CA3 · TK-02/TK-03b1 (probado con tests y el Orquestador simulado; aún no con el Jira real)
 
 - `listRepositoriesForTicket(ID)` deriva la clave del ID. Si la clave **no está configurada**, falla **antes de llamar a Jira** y muestra las claves disponibles.
 - Si la clave tiene varios repositorios, el usuario elige uno; con uno solo se preselecciona; sin repositorios no hay selección y no se pasa `repositoryId` (TK-03 CA4).
@@ -154,7 +154,7 @@ Los pasos 1-3 son de **solo lectura** (`GitManager.inspectRepository`) y se ejec
 
 **Historias:** US-03 · **Tickets:** TK-02
 
-### 4.1 Reutilización y reproceso de Fase 1 — `✅ Implementado y probado` · US-03 CA6, CA9 · TK-02h (se separó de TK-02f el 2026-11-06; falta la opción `--reprocesar` de la línea de comandos, TK-03b1)
+### 4.1 Reutilización y reproceso de Fase 1 — `✅ Implementado y probado` · US-03 CA6, CA9 · TK-02h (se separó de TK-02f el 2026-11-06; la opción `--reprocesar` ya está registrada en la línea de comandos, TK-03b1)
 
 - Si existe `ID\.devflow\fase1.json` (el ticket ya se ejecutó con otro repositorio) → se reutiliza, `ollama_status = 'reused'`, **no se invoca a Ollama**.
 - Si es la primera ejecución del ticket → 4.2.
@@ -280,3 +280,4 @@ Detectados al cruzar las fuentes (análisis pre-código, 2026-11-01). Cada uno i
 | 2026-11-06 | TK-02f implementado: `TicketOrchestrator.startTicket` (Jira o carga manual → tipo → inspección de Git → confirmación única → rama → carpeta → Ollama → documento) con registro en `ticket_logs`, todos los cortes y la cancelación; tipos en `src/shared/types/ticket-run.types.ts`. Probado con Git, carpetas y SQLite reales y, a mano, con el Jira y Ollama reales. La reutilización y el reproceso de la Fase 1 siguen para TK-02h. Pasos 2.3, 2.5, 3.2, 4.2, 4.4 y 4.5 actualizados. 551 tests (558 tras la revisión de Cursor). Commit `2a2859a`. | 2.3 · 2.4 · 2.5 · 3.2 · 4.2 · 4.4 · 4.5 · TK-02f |
 | 2026-11-06 | TK-02h implementado: `startTicket` reutiliza la Fase 1 guardada (`fase1.json`) con otro repositorio sin llamar a Ollama (`ollama_status = 'reused'`), la reprocesa con `reprocessFase1` regenerando solo el bloque de Fase 1 y conservando la Fase 2 a mano, conserva la anterior si el reproceso cae a fallback, y reintenta sola si la Fase 1 previa quedó sin redactar, ausente o ilegible. El documento se escribe antes que `fase1.json`. Probado con Git real y, a mano, con Ollama y Jira reales. Paso 4.1 a ✅. 580 tests. | 4.1 · 4.5 · TK-02h |
 | 2026-11-12 | TK-03b dividido en TK-03b1 (núcleo: validación, selección y registro del comando), TK-03b2 (`ask`: carga manual con tipo de issue y confirmación) y TK-03b3 (progreso y pantallas); nuevo TK-02i (plantillas: «No especificado en el ticket.»). Decidido: el spinner de Ollama muestra un texto fijo, sin gancho de progreso; la carga manual pregunta «¿Es un bug? (s/N)». Actualizados `006`, `002`, el backlog, el README y los pasos 2.1, 2.2, 2.4, 4.1, 4.2 y 5.2. | 2.1 · 2.4 · 4.2 · 5.2 · TK-03b · TK-02i |
+| 2026-11-12 | TK-03b1 implementado: `devflow start [ID] [--base] [--reprocesar]` registrado en `cli.ts`; valida el ID con el mismo criterio del Orquestador, avisa si no hay claves (US-01 CA6), muestra la lista de asignados, elige el repositorio (varios, uno o ninguno) y pasa los flags a `startTicket`. Los ganchos `onStep` y `ask` son provisionales hasta TK-03b2 y TK-03b3. Un test aprobado de TK-03a (`cli.test.ts`) se actualizó con autorización. 628 tests. Pasos 2.1 y 2.2 actualizados. | 2.1 · 2.2 · TK-03b1 |

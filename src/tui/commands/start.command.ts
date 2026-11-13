@@ -46,7 +46,8 @@ export interface StartOptions {
  * @param options Opciones `--base` y `--reprocesar`.
  * @returns El resumen de `startTicket`, o `undefined` si no se llegó a iniciar el flujo.
  * @throws Error con un mensaje para el usuario si el ID es inválido, no hay claves, la clave del ticket no está
- * configurada o Jira falla; el programa lo muestra y fija el código de salida 1.
+ * configurada, Jira falla o `startTicket` devuelve un resumen `blocked` (se lanza su mensaje; provisional hasta
+ * TK-03b3). El programa lo muestra y fija el código de salida 1.
  */
 export async function runStart(deps: StartDeps, ticketId: string | undefined, options: StartOptions): Promise<TicketRunSummary | undefined> {
   const { orchestrator } = deps;
@@ -66,7 +67,7 @@ export async function runStart(deps: StartDeps, ticketId: string | undefined, op
   if (repositories.kind !== "Ok") throw new Error(describeFailure(repositories));
 
   const repositoryId = await chooseRepository(deps, repositories.value);
-  return orchestrator.startTicket(
+  const summary = await orchestrator.startTicket(
     {
       ticketId,
       ...(repositoryId !== undefined ? { repositoryId } : {}),
@@ -75,6 +76,9 @@ export async function runStart(deps: StartDeps, ticketId: string | undefined, op
     },
     deps.hooks,
   );
+  // Provisional hasta TK-03b3: sin pantallas de resultado, un corte no puede terminar en silencio y con código 0.
+  if (summary.blocked) throw new Error(summary.blocked.message);
+  return summary;
 }
 
 /**

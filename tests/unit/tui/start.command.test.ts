@@ -251,3 +251,23 @@ describe("TK-03b1 · E3 — repositorio y flags", () => {
     );
   });
 });
+
+describe("TK-03b1 · E3 — cortes de startTicket (provisional hasta TK-03b3)", () => {
+  it.each([
+    { subtype: "TipoIssueBloqueado", message: "SCRUM-1 es una épica: elige un ticket que no lo sea." },
+    { subtype: "ErrorInesperado", message: "Jira rechazó el email o el API Token. Revisa que sean correctos." },
+    { subtype: "CambiosPendientes", message: "El repositorio api tiene cambios sin guardar:\n M src/a.ts" },
+    { subtype: "RamaExistenteEnRemoto", message: "La rama features/SCRUM-12-AROCHA solo existe en origin." },
+  ])("un resumen blocked ($subtype) se muestra con su mensaje y el comando falla en lugar de terminar en silencio", async ({ subtype, message }) => {
+    const { run, orchestrator } = setup();
+    orchestrator.startTicket.mockResolvedValueOnce({ ...SUMMARY, blocked: { subtype, message } });
+
+    await expect(run("SCRUM-12")).rejects.toThrow(message);
+  });
+
+  it("un resumen sin blocked se devuelve tal cual y no lanza", async () => {
+    const { run } = setup();
+
+    await expect(run("SCRUM-12")).resolves.toBe(SUMMARY);
+  });
+});

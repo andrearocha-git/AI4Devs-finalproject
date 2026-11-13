@@ -85,6 +85,16 @@ describe("TK-03b3 · E1 — vista de progreso con TTY", () => {
     view.stop();
   });
 
+  it("el paso de archivos no afirma haber escrito el documento: su evento ok llega al crear la carpeta, antes de esperar a Ollama", () => {
+    const { view, writes } = setup({ isTTY: false });
+
+    view.onStep("filesystem", "started");
+    view.onStep("filesystem", "ok");
+
+    expect(writes.join("")).toMatch(/carpeta/i);
+    expect(writes.join("")).not.toMatch(/documento/i);
+  });
+
   it("el temporizador no impide que el proceso termine (unref)", () => {
     const unref = vi.fn();
     vi.spyOn(globalThis, "setInterval").mockImplementation((() => ({ unref })) as never);

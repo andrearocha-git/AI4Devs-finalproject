@@ -36,7 +36,8 @@ export interface ProgressView {
 const LABELS: Record<StepName, string> = {
   jira: "Consultando Jira",
   git: "Revisando el repositorio y preparando la rama",
-  filesystem: "Creando la carpeta y el documento",
+  // `filesystem ok` llega al crear la carpeta, antes de esperar a Ollama: el documento aún no está escrito.
+  filesystem: "Creando la carpeta de evidencias",
   ollama: "Generando documento con Ollama (puede tardar ~1 min)...",
 };
 const MARKS = { ok: "✔", fallback: "⚠", error: "✖" } as const;

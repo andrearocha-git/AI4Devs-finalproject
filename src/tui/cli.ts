@@ -6,7 +6,11 @@ import type { TicketOrchestrator } from "../services/orchestrator/ticket-orchest
 import { resolveDatabasePath } from "../shared/config/app-config.provider.js";
 import { runConfigProyectos, type ProjectsOrchestrator } from "./commands/config-proyectos.command.js";
 import { runConfig, type ConfigOrchestrator } from "./commands/config.command.js";
+import { runStart, type StartOptions, type StartOrchestrator, type StartPrompts } from "./commands/start.command.js";
 import { createInquirerPrompts, type ConfigPrompts, type ProjectPrompts } from "./prompts/project-config.prompt.js";
+import { createRepositorySelectionPrompt } from "./prompts/repository-selection.prompt.js";
+import { createTicketSelectionPrompt } from "./prompts/ticket-selection.prompt.js";
+import type { AskCallback, StartTicketHooks } from "../shared/types/ticket-run.types.js";
 
 /** Manejadores de los comandos; el programa solo los registra y los invoca (la lógica vive en `commands/`). */
 export interface CommandHandlers {
@@ -14,6 +18,8 @@ export interface CommandHandlers {
   config: () => Promise<void>;
   /** `devflow config proyectos`: claves de proyecto y repositorios. */
   configProyectos: () => Promise<void>;
+  /** `devflow start [ID] [--base <rama>] [--reprocesar]`: prepara un ticket (rama, carpeta y documento). */
+  start: (ticketId: string | undefined, options: StartOptions) => Promise<void>;
 }
 
 /** Opciones de salida del programa; los tests las usan para capturar la salida y evitar `process.exit`. */
@@ -33,7 +39,7 @@ const packageVersion = (
 /**
  * Arma el programa de línea de comandos `devflow` con Commander, sin ejecutarlo.
  *
- * Registra `config` y su subcomando `proyectos`. Si un manejador lanza, el error se muestra como un mensaje en español
+ * Registra `config` (con su subcomando `proyectos`) y `start`. Si un manejador lanza, el error se muestra como un mensaje en español
  * por `writeErr` y se fija `process.exitCode = 1`; nunca se propaga como excepción cruda. Si el usuario cancela un prompt
  * con Ctrl+C no se muestra nada y el código de salida es 130.
  *
@@ -52,9 +58,9 @@ export function buildProgram(handlers: CommandHandlers, options: BuildProgramOpt
   });
   const writeErr = options.writeErr ?? ((text: string) => process.stderr.write(text));
 
-  const guarded = (handler: () => Promise<void>) => async (): Promise<void> => {
+  const guarded = <A extends unknown[]>(handler: (...args: A) => Promise<void>) => async (...args: A): Promise<void> => {
     try {
-      await handler();
+      await handler(...args);
     } catch (error) {
       if (error instanceof Error && error.name === "ExitPromptError") {
         process.exitCode = 130;
@@ -73,6 +79,13 @@ export function buildProgram(handlers: CommandHandlers, options: BuildProgramOpt
     .command("proyectos")
     .description("Gestiona las claves de proyecto de Jira y sus repositorios locales.")
     .action(guarded(handlers.configProyectos));
+  program
+    .command("start")
+    .description("Prepara un ticket de Jira: crea la rama, la carpeta de evidencias y el documento.")
+    .argument("[ID]", "ID del ticket (p. ej. SCRUM-12); sin él se elige de tus tickets asignados")
+    .option("--base <rama>", "rama base solo para esta ejecución")
+    .option("--reprocesar", "vuelve a generar el análisis de Ollama aunque ya exista")
+    .action(guarded((ticketId: string | undefined, options: StartOptions) => handlers.start(ticketId, options)));
   return program;
 }
 
@@ -81,6 +94,10 @@ export interface HandlerDeps {
   /** Entrega el Orquestador; se invoca al ejecutar un comando, no al arrancar, así `--help` no abre la base. */
   getOrchestrator: () => ConfigOrchestrator & ProjectsOrchestrator;
   prompts: ConfigPrompts & ProjectPrompts;
+  /** Entrega el Orquestador de `devflow start`; perezoso como `getOrchestrator`. Sin él, `start` falla con un mensaje claro. */
+  getStartOrchestrator?: () => StartOrchestrator;
+  /** Prompts de selección de `start`; por defecto, los reales de `@inquirer/prompts`. */
+  startPrompts?: StartPrompts;
   /** Escribe una línea de salida. */
   out: (line: string) => void;
   /** Variables de entorno (por defecto `process.env`). */
@@ -98,8 +115,35 @@ export function createHandlers(deps: HandlerDeps): CommandHandlers {
   return {
     config: () => runConfig({ orchestrator: getOrchestrator(), prompts, out, ...(deps.env ? { env: deps.env } : {}) }),
     configProyectos: () => runConfigProyectos({ orchestrator: getOrchestrator(), prompts, out }),
+    start: async (ticketId, options) => {
+      if (!deps.getStartOrchestrator) throw new Error("«devflow start» no está disponible en esta configuración.");
+      await runStart(
+        {
+          orchestrator: deps.getStartOrchestrator(),
+          prompts: deps.startPrompts ?? {
+            ticketSelection: createTicketSelectionPrompt(),
+            repositorySelection: createRepositorySelectionPrompt(),
+          },
+          hooks: provisionalHooks,
+          out,
+        },
+        ticketId,
+        options,
+      );
+    },
   };
 }
+
+/**
+ * Ganchos provisionales de `startTicket` hasta que lleguen TK-03b2 (`ask`) y TK-03b3 (`onStep` y las pantallas):
+ * `onStep` no muestra nada y `ask` corta el flujo con un aviso, así que `devflow start` real aún no completa un ticket.
+ */
+const provisionalHooks: StartTicketHooks = {
+  onStep: () => {},
+  ask: (async () => {
+    throw new Error("«devflow start» aún no está completo: faltan TK-03b2 (carga manual y confirmación) y TK-03b3 (progreso y pantallas).");
+  }) as unknown as AskCallback,
+};
 
 /**
  * Punto de entrada real: abre la base en `%APPDATA%\DevFlowCLI\devflow.db` (al ejecutar un comando, no antes) y corre el programa.
@@ -110,6 +154,7 @@ export async function main(argv: string[] = process.argv): Promise<void> {
   let orchestrator: TicketOrchestrator | undefined;
   const handlers = createHandlers({
     getOrchestrator: () => (orchestrator ??= createOrchestrator({ databasePath: resolveDatabasePath() })),
+    getStartOrchestrator: () => (orchestrator ??= createOrchestrator({ databasePath: resolveDatabasePath() })),
     prompts: createInquirerPrompts(),
     out: (line) => console.log(line),
   });

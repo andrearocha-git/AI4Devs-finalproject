@@ -5,6 +5,8 @@ import type { AskCallback, AskRequest, ManualTicketAnswer, StartTicketHooks, Tic
 import { describeFailure } from "../failure-message.js";
 import type { ConfirmActionsPrompt } from "../prompts/confirm-actions.prompt.js";
 import type { ManualTicketEntryPrompt } from "../prompts/manual-ticket-entry.prompt.js";
+import type { ProgressView } from "../views/progress-view.js";
+import { createSummaryView, formatSummary } from "../views/summary-view.js";
 import type { RepositorySelectionPrompt } from "../prompts/repository-selection.prompt.js";
 import type { TicketSelectionPrompt } from "../prompts/ticket-selection.prompt.js";
 import { isValidTicketId } from "../validators.js";
@@ -42,15 +44,16 @@ export interface StartOptions {
 /**
  * `devflow start [ID] [--base <rama>] [--reprocesar]`: resuelve todo lo previo a `startTicket` (ID, ticket, repositorio).
  *
- * Valida el formato del ID antes de tocar al Orquestador y avisa si no hay ninguna clave de proyecto configurada.
+ * Valida el formato del ID antes de tocar al Orquestador y avisa si no hay ninguna clave de proyecto configurada. Al terminar
+ * muestra la pantalla de resultado (éxito, avisos o cancelación) por `out`.
  *
  * @param deps Orquestador, prompts, ganchos y salida.
  * @param ticketId ID escrito en la línea de comandos; `undefined` si no se dio.
  * @param options Opciones `--base` y `--reprocesar`.
  * @returns El resumen de `startTicket`, o `undefined` si no se llegó a iniciar el flujo.
  * @throws Error con un mensaje para el usuario si el ID es inválido, no hay claves, la clave del ticket no está
- * configurada, Jira falla o `startTicket` devuelve un resumen `blocked` (se lanza su mensaje; provisional hasta
- * TK-03b3). El programa lo muestra y fija el código de salida 1.
+ * configurada, Jira falla o `startTicket` devuelve un resumen `blocked` (se lanza su pantalla de bloqueo: encabezado del tipo y
+ * mensaje del Orquestador). El programa lo muestra por stderr y fija el código de salida 1.
  */
 export async function runStart(deps: StartDeps, ticketId: string | undefined, options: StartOptions): Promise<TicketRunSummary | undefined> {
   const { orchestrator } = deps;
@@ -79,9 +82,8 @@ export async function runStart(deps: StartDeps, ticketId: string | undefined, op
     },
     deps.hooks,
   );
-  // Provisional hasta TK-03b3: sin pantallas de resultado, un corte no puede terminar en silencio y con código 0.
-  if (summary.blocked) throw new Error(summary.blocked.message);
-  if (summary.cancelled) deps.out("Ejecución cancelada: no se creó nada.");
+  if (summary.blocked) throw new Error(formatSummary(summary).join("\n"));
+  createSummaryView(deps.out).render(summary);
   return summary;
 }
 
@@ -156,4 +158,26 @@ export function createAskCallback(prompts: AskPrompts, out: (line: string) => vo
     return prompts.confirmActions.ask(request.summary);
   };
   return ask as unknown as AskCallback;
+}
+
+/**
+ * Envuelve el `ask` de `startTicket` para que la vista de progreso no pise los prompts.
+ *
+ * Pausa el progreso antes de preguntar y lo reanuda después; si la persona no confirma (`confirmActions` devuelve `false`),
+ * lo cancela para que no se muestre más progreso. Si el prompt falla (p. ej. Ctrl+C) propaga el error sin reanudar: quien
+ * creó la vista debe llamar a `stop()`.
+ *
+ * @param ask Callback `ask` ya armado con los prompts.
+ * @param progress Vista de progreso a coordinar.
+ * @returns Un callback `ask` con el mismo contrato que `ask`.
+ */
+export function withProgressPause(ask: AskCallback, progress: Pick<ProgressView, "pause" | "resume" | "cancel">): AskCallback {
+  const wrapped = async (request: AskRequest): Promise<ManualTicketAnswer | boolean> => {
+    progress.pause();
+    const answer = await (ask as unknown as (request: AskRequest) => Promise<ManualTicketAnswer | boolean>)(request);
+    if (request.kind === "confirmActions" && answer === false) progress.cancel();
+    else progress.resume();
+    return answer;
+  };
+  return wrapped as unknown as AskCallback;
 }

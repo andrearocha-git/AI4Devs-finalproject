@@ -37,7 +37,7 @@ Entorno de destino: **Windows 10/11**. El paquete es privado y no se publica en 
 
 **Requisitos previos**
 
-- **Node.js ≥ 22.13** (`node --version`); la herramienta comprueba la versión al arrancar.
+- **Node.js ≥ 22.13** (`node --version`). La herramienta no comprueba la versión al arrancar: la exigencia viene de `node:sqlite`, que no está disponible sin esa versión.
 - **Git** en el `PATH`, con acceso al remoto `origin` de cada repositorio que vayas a configurar.
 - **Ollama** instalado y activo (por defecto en `http://localhost:11434`), con el modelo mínimo `qwen2.5:3b`: `ollama pull qwen2.5:3b`. Solo con CPU, generar la Fase 1 de un ticket tarda entre 30 y 105 s; en equipos de 8 GB con varios IDEs abiertos puede ir más lento. Si Ollama no responde a tiempo, la herramienta no se detiene: genera el documento sin IA y lo avisa con `⚠️`.
 - El **email** de tu cuenta de Jira y un **API Token** clásico (se crea en id.atlassian.com; un token *with scopes* no funciona contra `*.atlassian.net`).
@@ -76,5 +76,5 @@ devflow --help
 **Si algo falla**
 
 - *«Generado sin Ollama»*: Ollama está apagado o no tiene el modelo; comprueba `ollama list` y vuelve a ejecutar el ticket (la Fase 1 se reintenta sola).
-- *Error de versión*: actualiza Node.js a 22.13 o superior.
+- *Error al cargar `node:sqlite` nada más arrancar*: tu Node.js es anterior a 22.13. El mensaje lo emite Node, no DevFlow; comprueba `node --version` y actualiza.
 - *Token inválido*: vuelve a ejecutar `devflow config` con un token nuevo.

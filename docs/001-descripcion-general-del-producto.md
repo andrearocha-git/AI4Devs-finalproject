@@ -55,7 +55,7 @@ devflow --help
 
 `npm link` crea el comando global `devflow`, que apunta a esa carpeta: no la borres ni la muevas (`npm install -g .` crea el mismo enlace). Si `devflow` no se reconoce, abre una terminal nueva y comprueba que la carpeta global de npm (`npm prefix -g`) está en el `PATH`.
 
-> Procedimiento verificado en WSL; la comprobación en Windows (PowerShell) está pendiente (issues #19 y #20).
+> Procedimiento verificado en WSL y en Windows 10 (PowerShell y `cmd`): `npm run build`, `npm link` y `devflow --help`. El uso completo (`devflow config`, `devflow config proyectos` y `devflow start` con Jira real) está pendiente (issue #20).
 
 **Primer arranque**
 

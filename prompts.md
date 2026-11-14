@@ -4,6 +4,8 @@ Para el armado de prompts se utilizó Gemini Notebook, comenzando por el armado 
 Los prompts principales son adjuntados en este documento. Adicionalmente, en `docs/LIDR/prompts-claude-fase-inicial.md` se encuentran las conversaciones completas utilizadas para las secciones: Descripción general del producto, Arquitectura del sistema y Modelo de datos. 
 
 
+📁 **Sobre la carpeta `docs/LIDR/`:** contiene todo lo relacionado con las entregas del curso (bitácoras, backlog de la 2.ª entrega y registro completo de prompts), **no** la funcionalidad ni la aplicación DevFlow CLI. La documentación del producto está en `docs/` (PRD, ADR y archivos numerados `001` a `009`).
+
 ## Índice
 
 1. [Descripción general del producto](#1-descripción-general-del-producto)

@@ -1,7 +1,7 @@
 ---
 name: 05-verificar-y-revisar
-argument-hint: <ID de historia o ticket implementado, ej. US-01 o TK-02>
-description: Verifica en modo solo-lectura la calidad (typecheck, lint, tests) y audita el diff de una historia (US-xx) o ticket (TK-xx) implementado, indicado por su ID, contra su contrato docs/changes/<ID>.md y sus criterios de aceptación. Emite un veredicto sin modificar nada ni hacer commits. Usa cuando se pida "verificar historia", "revisar cambios" o "/05-verificar-y-revisar".
+argument-hint: <ID de historia, ticket o issue de GitHub implementado, ej. US-01, TK-02 o GH-17>
+description: Verifica en modo solo-lectura la calidad (typecheck, lint, tests) y audita el diff de una historia (US-xx), ticket (TK-xx) o issue de GitHub (GH-nn) implementado, indicado por su ID, contra su contrato docs/changes/<ID>.md y sus criterios de aceptación. Emite un veredicto sin modificar nada ni hacer commits. Usa cuando se pida "verificar historia", "revisar cambios" o "/05-verificar-y-revisar".
 disable-model-invocation: false
 allowed-tools: [Read, Glob, Grep, "Bash(npm test:*)", "Bash(npm run lint:*)", "Bash(npm run typecheck:*)", "Bash(npx tsc --noEmit:*)", "Bash(git status:*)", "Bash(git diff:*)", "Bash(ls:*)"]
 ---
@@ -14,12 +14,12 @@ Ejecutar la suite completa de calidad y auditar las diferencias contra la especi
 === VERIFICACIONES PREVIAS (obligatorias) ===
 
 0. **Validar el Argumento**:
-   - La skill se invoca con un ID, ej. `/05-verificar-y-revisar US-01` o `/05-verificar-y-revisar TK-02`.
-   - Si NO se recibió ningún ID, **alerta al usuario**: "No indicaste ninguna historia ni ticket. Usa `/05-verificar-y-revisar US-xx` o `/05-verificar-y-revisar TK-xx`" y DETENTE.
-   - Busca el ID con Grep: `US-xx` en `docs/005-historias-de-usuario.md`, `TK-xx` en `docs/006-tickets-de-trabajo.md`. Si el prefijo no es válido o el ID no existe, alerta, lista los IDs disponibles y DETENTE.
+   - La skill se invoca con un ID, ej. `/05-verificar-y-revisar US-01`, `/05-verificar-y-revisar TK-02` o `/05-verificar-y-revisar GH-17`.
+   - Si NO se recibió ningún ID, **alerta al usuario**: "No indicaste ninguna historia, ticket ni issue. Usa `/05-verificar-y-revisar US-xx`, `/05-verificar-y-revisar TK-xx` o `/05-verificar-y-revisar GH-nn`" y DETENTE.
+   - Busca el ID con Grep: `US-xx` en `docs/005-historias-de-usuario.md` y `TK-xx` en `docs/006-tickets-de-trabajo.md`. Un `GH-nn` (`^GH-[0-9]+$`) no se busca en `docs/`: su fuente es un issue de GitHub y se audita contra su contrato `docs/changes/GH-nn.md`, que `0a` lee (esta skill no consulta GitHub). Si el prefijo no es válido o un `US-`/`TK-` no existe, alerta, lista los IDs disponibles y DETENTE.
 
 0a. **Leer el Contrato**:
-   - Lee `docs/changes/<ID>.md`. Si NO existe, continúa solo con los criterios de aceptación de la fuente y deja constancia en el reporte de que no hay contrato (observación, no falla).
+   - Lee `docs/changes/<ID>.md`. Si NO existe, continúa solo con los criterios de aceptación de la fuente (para un `GH-nn`, sin contrato no hay fuente que consultar: repórtalo como no verificable por falta de contrato) y deja constancia en el reporte de que no hay contrato (observación, no falla).
    - Si existe, anota su **Estado**: si no es `Implementado`, repórtalo como observación (la implementación puede estar incompleta).
 
 0b. **Verificar el Entorno**:

@@ -167,6 +167,19 @@ Implementa la consulta directa a Jira (con reintento, clasificación de fallos y
 
 Implementa los comandos `devflow start [ID]` y `devflow config`, la validación del ID, los prompts de selección de ticket y repositorio, carga manual y confirmación, y las vistas de progreso (spinner simple, sin Ink), resumen y fallback en la terminal — la TUI nunca accede a Jira, Git, Ollama o SQLite directamente, solo al orquestador. Vinculado a US-01, US-02 y US-03. Por su tamaño se dividió en sub-tickets (TK-03a: CLI base y `devflow config`; TK-03b, a su vez dividido en TK-03b1: validación y selección, TK-03b2: carga manual y confirmación, y TK-03b3: progreso y pantallas de resultado), cada uno con su contrato en `docs/changes/`.
 
+
+### Cómo se trabaja cada ticket: SDD liviano (y por qué no OpenSpec)
+
+Cada US, TK o issue de GitHub (`GH-nn`, con `nn` el número del issue) se desarrolla con **Spec-Driven Development liviano**: un único archivo de contrato por cambio, `docs/changes/<ID>.md`, que es la fuente de verdad aunque se pierda el contexto de la conversación. Las fases, cada una con una *skill* propia en `.claude/skills/`:
+
+1. **Refinar (`/03-refinar-historia <ID>`).** Lee la fuente (`docs/005`, `docs/006` o el issue), comprueba INVEST y redacta de 2 a 3 escenarios Given/When/Then trazados a los criterios de aceptación, los archivos afectados y un plan de máximo 5 tareas. El contrato nace en estado `Borrador`.
+2. **Aprobar.** El desarrollador revisa el contrato y lo pasa a `Aprobado`. Sin contrato aprobado no se escribe código.
+3. **Implementar con TDD (`/04-tdd-pair <ID>`).** Un escenario a la vez: test en rojo, código mínimo en verde y refactor (con TSDoc y reglas de capas en el lint). Cada escenario se cierra con la validación del desarrollador. Estados: `En implementación` → `Implementado`. **Cada escenario necesita un test** (o un `Sin test: <motivo>` aprobado y registrado), y un test ya aprobado solo se cambia con autorización expresa.
+4. **Verificar (`/05-verificar-y-revisar <ID>`).** Solo lectura: `typecheck`, `lint` y la suite completa, y una auditoría del diff contra el contrato (trazabilidad, tareas, desvíos). Emite un veredicto: Aprobada, Aprobada con observaciones o No aprobada.
+5. **Revisión externa y PR.** Una PR por ticket hacia `feature/entrega-2-ANR`; la revisa otra herramienta (Cursor), distinta de la que implementó, y los hallazgos se corrigen con TDD. La PR la fusiona el desarrollador, y `Closes #nn` cierra el issue.
+
+**Por qué no OpenSpec.** Se evaluó y se descartó para este proyecto: el flujo de arriba ya cubre lo mismo (propuesta, especificación, tareas y verificación) y además impone reglas propias (un test por escenario, tests aprobados protegidos, qué archivos puede tocar cada fase). Adoptar OpenSpec habría obligado a mantener dos sistemas de contratos (`openspec/` y los 15 ya escritos en `docs/changes/`) o a reescribirlos, y sumaría una dependencia sin aportar nada al producto que se entrega. Su ventaja —especificaciones archivadas como documentación viva— compensa más en un proyecto largo con muchos cambios que en esta entrega. El formato actual se inspira en OpenSpec, sin su herramienta.
+
 ---
 
 ## 7. Pull Requests

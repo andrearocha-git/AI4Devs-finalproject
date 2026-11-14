@@ -480,3 +480,76 @@ TK-02e convierte el texto de un ticket en la Fase 1 del documento llamando a Oll
 - Cobertura de `src/services/ollama/`: 98 % de sentencias y 92,5 % de ramas (umbral 80 %).
 - Con `qwen2.5:3b` real en WSL (solo CPU): 14 a 56 s por ticket, contra los 30 a 105 s del spike. Un timeout corto corta la generación a mitad, y un puerto sin Ollama o un modelo no instalado caen a fallback al instante.
 - Lo que no se hizo: medir en un PC real del equipo (8 GB con IDEs abiertos), que sigue siendo el riesgo principal del producto.
+
+#### **Orquestador de punta a punta: `startTicket` y la reutilización de la Fase 1 (TK-02f y TK-02h)**
+
+TK-02f es el flujo completo de `devflow start` del lado del servicio (Jira → Git → carpeta → Ollama → documento → `ticket_logs`). Era demasiado grande para un solo ticket y **el 2026-11-06 lo dividí en TK-02f (el flujo) y TK-02h (reutilización y reproceso de la Fase 1)**, para que cada PR fuera revisable. Los dos se revisaron con Cursor y se fusionaron en `feature/entrega-2-ANR`.
+
+##### **Gobierno del Agente y del flujo de entrega (TK-02f y TK-02h)**
+
+- Autoricé de forma expresa los dos cambios mínimos a tests ya aprobados: una línea (`fetchTicket: vi.fn()`) en el doble de Jira de TK-02g, y una línea (`readFase1: async () => ok(null)`) en cada uno de los tres dobles del gestor de archivos de TK-02f. Cada uno quedó anotado en «Decisiones y desvíos».
+- Aprobé los contratos con 12 puntos ambiguos o asumidos en TK-02f y 9 en TK-02h, por ejemplo: `TicketOrchestrator` recibe un cuarto parámetro opcional de dependencias (no cambia el constructor que ya usan los tests), y el orden de escritura en TK-02h es documento primero y `fase1.json` después, para que un fallo al escribir no destruya la Fase 1 anterior.
+- La prueba real se hizo con mi Jira de pruebas solo en lectura, Ollama real y **repositorios temporales con su propio `origin` local**, nunca los míos; el token no se imprimió.
+
+##### **Decisiones de Arquitectura e Intervenciones (TK-02f y TK-02h)**
+
+- Dos casos de «repositorio inexistente»: un `repositoryId` que no existe corta antes de llamar a Jira y no registra fila; que la **ruta** deje de ser un repositorio Git es un corte de Git y registra `branch_status = 'error'`.
+- `TicketRunSummary.jiraFetchStatus` admite `null` (se cortó antes de consultar a Jira) para no afirmar un `ok` que no ocurrió.
+- Sin fase roja real en E2 de TK-02f: el flujo completo ya estaba al escribir E1. Se dijo y se comprobó con tres mutaciones temporales del código (todas revertidas). Lo mismo en E3 de TK-02h: dos mutaciones.
+- **Cursor, TK-02f** (1 medio y 3 bajos, todos reales, corregidos con test en rojo primero): un `--base ""` (vacío es falsy) se saltaba **todo Git** y la fila quedaba con `branch_status = null`; ahora cuenta como ausente. Además, `onStep` no cerraba tres pasos, un `CambiosPendientes` tardío no se registraba como `pending_changes` y `docs/006` no reflejaba el `null`.
+- **Cursor, TK-02h** (1 bajo): el TSDoc público seguía describiendo el comportamiento de TK-02f. Solo cambiaron comentarios.
+- La prueba real de TK-02f dejó una observación: con Ollama marcando todo como ausente, «Criterios de aceptación» quedaba **vacío**. Se anotó sin tocar `templates/` y dio lugar a TK-02i.
+
+##### **Resultados de Calidad Obtenidos (TK-02f y TK-02h)**
+
+- Suite de pruebas: de 508 a 551 tests en verde al implementar TK-02f (558 tras la revisión de Cursor) y a 580 con TK-02h (22 de este ticket: 18 unitarios y 4 de integración).
+- Cobertura de `start-ticket.ts`: 100 % de sentencias y 97 % de ramas (umbral 80 %).
+- Prueba de integración `tests/integration/ticket-flow.e2e.test.ts` (7 casos en TK-02f, 11 con TK-02h) con Git, carpetas y SQLite reales, y Jira y Ollama simulados con msw.
+- Con `qwen2.5:3b` real en WSL (solo CPU): `SCRUM-2` tardó 49 s la primera vez; con el segundo repositorio, **1,3 s con `ollama = reused`**, sin llamar al modelo. Un reproceso con Ollama caído conserva el documento y `fase1.json` intactos.
+- Lo que no se comprobó: Git con rutas `C:\...` en Windows. Queda para el Hito 3.
+
+#### **`devflow start`: la TUI en tres tickets (TK-03b1, TK-03b2 y TK-03b3)**
+
+TK-03b era el comando `devflow start` completo. **El 2026-11-12 lo dividí en TK-03b1 (validación y selección de ticket y repositorio, PR #13), TK-03b2 (carga manual y confirmación, PR #14) y TK-03b3 (progreso y pantallas de resultado, PR #15)**: cuatro prompts, un spinner y todas las pantallas eran demasiado para una sola revisión. Los tres se revisaron con Cursor en su PR hacia `feature/entrega-2-ANR`.
+
+##### **Gobierno del Agente y del flujo de entrega (TK-03b1, TK-03b2 y TK-03b3)**
+
+- Cada ticket siguió el flujo completo: contrato aprobado por mí antes del código, commit, TDD escenario por escenario con mi validación, `/05-verificar-y-revisar`, documentación de seguimiento y PR que armé y fusioné yo.
+- **Autoricé de forma expresa un test aprobado modificado por ticket**, todos en `tests/unit/tui/cli.test.ts`: el de TK-03a (TK-03b1), el de TK-03b1 (TK-03b2) y el de TK-03b2 (TK-03b3). Cada vez era un test que dejaba de ser cierto porque un gancho provisional se reemplazaba; cada uno consta en «Decisiones y desvíos».
+- Los ganchos de `onStep` y `ask` fueron **provisionales** entre TK-03b1 y TK-03b3, así que `npm start -- start` real no funcionó hasta fusionar los tres.
+
+##### **Decisiones de Arquitectura e Intervenciones (TK-03b1, TK-03b2 y TK-03b3)**
+
+- **Spinner sin dependencias** (opción B que elegí): unas 30 líneas con `setInterval` y secuencias ANSI, una línea por evento sin TTY o con `TERM=dumb`, y marcos ASCII (`| / - \`) para cualquier consola de Windows. No se tocó `package.json`.
+- **Carga manual con «¿Es un bug?»:** el prompt devuelve `isBug` y `createAskCallback` lo traduce a `issueType: "Bug"`, así el adaptador de inquirer no contiene reglas. El tipo se **recorta**, no se normaliza.
+- **Los bloqueos se muestran lanzando un error con la pantalla** (encabezado por tipo más el mensaje del Orquestador): sale por stderr con código 1 y los tests aprobados de TK-03b1 no cambian. `fallback-view.ts` se descartó: los avisos viven en `summary-view.ts`.
+- `HandlerDeps` ganó campos opcionales (`getStartOrchestrator`, `startPrompts`, `askPrompts`, `progress`) para no tocar los tests de `createHandlers` ya aprobados.
+- **Cursor, TK-03b1** (1 medio): `startTicket` terminaba **en silencio y con código 0** ante una épica, un error de Jira o un corte de Git, aunque el Orquestador ya había escrito la fila en `ticket_logs`. Se corrigió. También se alineó la regex del ID con la del Orquestador.
+- **Cursor, TK-03b2** (1 bajo): una carga manual sin marcar como bug mostraba `Ticket: SCRUM-5 ()`; se corrigió con RED real.
+- **Cursor, TK-03b3** (1 bajo): la etiqueta «Creando la carpeta y el documento» afirmaba algo que aún no ocurría (el evento llega al crear la carpeta, antes de esperar a Ollama); ahora dice «Creando la carpeta de evidencias». El evento propio del documento quedó como mejora (issue #36).
+- Los casos que salieron en verde a la primera se comprobaron con mutaciones temporales, siempre revertidas; no se simuló una fase roja.
+
+##### **Resultados de Calidad Obtenidos (TK-03b1, TK-03b2 y TK-03b3)**
+
+- Suite de pruebas en verde en cada PR; la cifra de cierre del Hito 2 es 707 (ver TK-02i).
+- `typecheck` y `lint` limpios; la TUI solo importa del Orquestador.
+- Lo que no se pudo comprobar: el spinner, las marcas `✔ ⚠ ✖` y los prompts de `devflow start` en una terminal real. Solo se probaron con tests y un Orquestador simulado. Queda para la prueba en Windows (issue #20).
+
+#### **Plantillas: «No especificado en el ticket.» en los criterios vacíos (TK-02i)**
+
+TK-02i nació de la observación de la prueba real de TK-02f: una sección «Criterios de aceptación» vacía sin explicación. Se revisó en la PR #16.
+
+##### **Gobierno del Agente y del flujo de entrega (TK-02i)**
+
+- Autoricé de forma expresa tocar `templates/documents/historia.md.hbs` y `templates/documents/bug.md.hbs`, que el contrato no permite tocar solo.
+
+##### **Decisiones de Arquitectura e Intervenciones (TK-02i)**
+
+- **Solo los criterios de aceptación.** Casos de uso, preguntas abiertas y «Cómo reproducir» siguen sin aviso, porque `docs/006` limita el ticket; extenderlo sería otro ticket (issue #37, que necesita autorización para `templates/`).
+- El literal vive en las plantillas (no pueden importar la constante) y un test las compara con `NO_ESPECIFICADO` de `src/services/ollama/postprocess.ts` para detectar que se desalinean.
+- E3 es una prueba de regresión sin fase roja; se comprobó con tres mutaciones temporales de las plantillas, todas revertidas.
+
+##### **Resultados de Calidad Obtenidos (TK-02i)**
+
+- Suite de pruebas: **707 tests en verde** al cierre del Hito 2 (de 580 tras TK-02h), con `typecheck` y `lint` limpios.
+- Con TK-02i el Hito 2 queda cerrado en código. Falta la prueba en Windows (Hito 3).

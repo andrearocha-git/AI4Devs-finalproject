@@ -11,7 +11,7 @@
 | `docs/005-historias-de-usuario.md` | 3 historias: **US-01** (configurar, 6 CA), **US-02** (elegir y consultar el ticket en Jira, 6 CA), **US-03** (preparar rama, carpeta y documento con Ollama, 10 CA). |
 | `docs/006-tickets-de-trabajo.md` | **TK-00** y **TK-01** (hechos), **TK-02** (paraguas dividido en **TK-02a … TK-02i**), **TK-03** (paraguas dividido en **TK-03a** y **TK-03b**, y este en **TK-03b1, TK-03b2 y TK-03b3**). |
 
-Estado: TK-00, TK-01, TK-02a, TK-02b, TK-02c, TK-02d, TK-02e, TK-02f, TK-02g, TK-02h, TK-03a, TK-03b1, TK-03b2, TK-03b3 y TK-02i implementados (707 tests, typecheck y lint en verde; TK-02a, TK-02b, TK-02c, TK-02d, TK-02g y TK-03a revisados y fusionados en `feature/TK-02`; TK-02e y TK-02f revisados por Cursor y fusionados; TK-02h revisado por Cursor y fusionado; TK-03b1 revisado por Cursor y fusionado; TK-03b2 revisado por Cursor y fusionado; TK-03b3 revisado por Cursor y fusionado; TK-02i verificado con `/05`, pendiente de la revisión de Cursor). El Hito 1 está cerrado en código y probado en Windows con Jira y Git reales (falta el `bin` de `devflow`, Hito 3); el Hito 2 está cerrado en código con TK-02i (TK-03b se dividió el 2026-11-12 en TK-03b1, b2 y b3). Todo lo demás está especificado y sin código.
+Estado: TK-00, TK-01, TK-02a, TK-02b, TK-02c, TK-02d, TK-02e, TK-02f, TK-02g, TK-02h, TK-03a, TK-03b1, TK-03b2, TK-03b3 y TK-02i implementados, más el issue #17 `GH-17` (`build` y `bin`) (713 tests, typecheck y lint en verde; TK-02a, TK-02b, TK-02c, TK-02d, TK-02g y TK-03a revisados y fusionados en `feature/TK-02`; TK-02e y TK-02f revisados por Cursor y fusionados; TK-02h revisado por Cursor y fusionado; TK-03b1 revisado por Cursor y fusionado; TK-03b2 revisado por Cursor y fusionado; TK-03b3 revisado por Cursor y fusionado; TK-02i verificado con `/05`, pendiente de la revisión de Cursor). El Hito 1 está cerrado en código y probado en Windows con Jira y Git reales (el `bin` de `devflow` y el `build` se añadieron con GH-17; falta probarlos en Windows, Hito 3); el Hito 2 está cerrado en código con TK-02i (TK-03b se dividió el 2026-11-12 en TK-03b1, b2 y b3). Todo lo demás está especificado y sin código.
 
 **Observación INVEST (sin modificar nada).** US-03 falla S (Small): 10 CA y esfuerzo Alto. TK-03 también es grande (dos comandos, cuatro prompts y todas las pantallas de resultado). Por eso el orden de abajo entrega las historias **por criterios de aceptación**, no de una vez, y TK-03 ya se dividió en TK-03a y TK-03b (§4).
 
@@ -85,7 +85,7 @@ Estado: TK-00, TK-01, TK-02a, TK-02b, TK-02c, TK-02d, TK-02e, TK-02f, TK-02g, TK
 | # | Trabajo | Notas |
 |---|---|---|
 | 3.1 | Cierre de **US-01 CA6** y comprobación de **US-02 CA3** | Aviso «primero configura una clave» al iniciar sin claves |
-| 3.2 | Instalación: `bin` en `package.json`, script `build`/`start`, instrucciones en `docs/001` §1.4 y README §1.4 | Cierra **H-05**; actualizar «Build / test commands» en `CLAUDE.md` |
+| 3.2 | Instalación: `bin` en `package.json`, script `build`/`start`, instrucciones en `docs/001` §1.4 y README §1.4 | Cierra **H-05**; actualizar «Build / test commands» en `CLAUDE.md`. ✅ `bin`, `build` y «Build / test commands» hechos con **GH-17** (issue #17, 2026-11-14); pendiente: instrucciones de instalación (issue #18) |
 | 3.3 | ~~Decidir H-02, H-03 y H-04~~ | Decididos el 2026-11-02 |
 | 3.4 | ~~Validar **H-06** (nombres de `devflow config`)~~ | Decidido 2026-11-02 |
 | 3.5 | Prueba de aceptación completa sobre Windows 10/11 | Rutas, `%APPDATA%`, terminales; el desarrollo corre en WSL |

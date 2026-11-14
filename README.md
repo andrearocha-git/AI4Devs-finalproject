@@ -67,7 +67,25 @@ DevFlow CLI elimina el cambio de contexto (*context switching*) que sufre un des
 > Proporciona imágenes y/o videotutorial mostrando la experiencia del usuario desde que aterriza en la aplicación, pasando por todas las funcionalidades principales.
 
 ### **1.4. Instrucciones de instalación:**
-> Documenta de manera precisa las instrucciones para instalar y poner en marcha el proyecto en local (librerías, backend, frontend, servidor, base de datos, migraciones y semillas de datos, etc.)
+
+> Detalle completo (datos locales, actualización y solución de problemas) en [`docs/001-descripcion-general-del-producto.md`](docs/001-descripcion-general-del-producto.md#14-instrucciones-de-instalación). Entorno: Windows 10/11; el paquete es privado y se instala desde un clon del repositorio.
+
+**Requisitos previos:** Node.js ≥ 22.13, Git (con acceso a `origin`), Ollama activo con el modelo `qwen2.5:3b` (`ollama pull qwen2.5:3b`), y el email de tu cuenta de Jira con un API Token clásico (id.atlassian.com).
+
+**Instalación:**
+
+```text
+git clone https://github.com/andrearocha-git/AI4Devs-finalproject.git
+cd AI4Devs-finalproject
+npm install
+npm run build
+npm link
+devflow --help
+```
+
+> Procedimiento verificado en WSL; la comprobación en Windows (PowerShell) está pendiente (issues #19 y #20).
+
+**Primer arranque:** `devflow config` (Jira, carpeta de tickets y sufijo de rama), `devflow config proyectos` (claves de proyecto y repositorios) y `devflow start [ID]` (prepara un ticket). La base `devflow.db` y sus migraciones se crean solas en `%APPDATA%\DevFlowCLI\`; no hay semillas de datos ni servidor. **El API Token se guarda en claro** en esa base (decisión del MVP, ver [`docs/002`](docs/002-arquitectura-del-sistema.md)).
 
 ---
 

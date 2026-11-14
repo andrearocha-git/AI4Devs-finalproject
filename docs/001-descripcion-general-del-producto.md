@@ -33,4 +33,48 @@ Según el alcance del MVP definido en el PRD:
 
 ### **1.4. Instrucciones de instalación:**
 
-[A definir]
+Entorno de destino: **Windows 10/11**. El paquete es privado y no se publica en npm: se instala desde un clon del repositorio.
+
+**Requisitos previos**
+
+- **Node.js ≥ 22.13** (`node --version`); la herramienta comprueba la versión al arrancar.
+- **Git** en el `PATH`, con acceso al remoto `origin` de cada repositorio que vayas a configurar.
+- **Ollama** instalado y activo (por defecto en `http://localhost:11434`), con el modelo mínimo `qwen2.5:3b`: `ollama pull qwen2.5:3b`. Solo con CPU, generar la Fase 1 de un ticket tarda entre 30 y 105 s; en equipos de 8 GB con varios IDEs abiertos puede ir más lento. Si Ollama no responde a tiempo, la herramienta no se detiene: genera el documento sin IA y lo avisa con `⚠️`.
+- El **email** de tu cuenta de Jira y un **API Token** clásico (se crea en id.atlassian.com; un token *with scopes* no funciona contra `*.atlassian.net`).
+
+**Instalación**
+
+```text
+git clone https://github.com/andrearocha-git/AI4Devs-finalproject.git
+cd AI4Devs-finalproject
+npm install
+npm run build
+npm link
+devflow --help
+```
+
+`npm link` crea el comando global `devflow`, que apunta a esa carpeta: no la borres ni la muevas (`npm install -g .` crea el mismo enlace). Si `devflow` no se reconoce, abre una terminal nueva y comprueba que la carpeta global de npm (`npm prefix -g`) está en el `PATH`.
+
+> Procedimiento verificado en WSL; la comprobación en Windows (PowerShell) está pendiente (issues #19 y #20).
+
+**Primer arranque**
+
+1. `devflow config`: pide la URL de Jira, tu email, el API Token (se escribe enmascarado), la carpeta donde se guardarán los tickets (por defecto `%USERPROFILE%\DevFlowCLI\tickets`) y tu sufijo de rama (se sugiere desde tu nombre en Jira, por ejemplo `AROCHA`).
+2. `devflow config proyectos`: da de alta las claves de proyecto de Jira y, opcionalmente, los repositorios de cada una (nombre, ruta local y rama base, `main` por defecto).
+3. `devflow start [ID]`: prepara un ticket. Sin ID, muestra tus tickets asignados.
+
+**Datos locales**
+
+- La base de datos es `%APPDATA%\DevFlowCLI\devflow.db` (SQLite). **Se crea sola en el primer arranque y las migraciones se aplican solas**: no hay semillas de datos, ni servidor, ni frontend que levantar.
+- Las carpetas y los documentos de cada ticket se guardan en la carpeta de tickets, **fuera** de tus repositorios.
+- **El API Token se guarda en claro** en la columna `jira_api_token` de esa base (decisión del MVP, ver `002` §2.5): lo protegen solo los permisos de tu perfil de Windows. Si crees que se expuso, revócalo en Atlassian y vuelve a ejecutar `devflow config`.
+
+**Actualizar**
+
+`git pull`, `npm install` y `npm run build`; el comando enlazado usa el nuevo `dist/`.
+
+**Si algo falla**
+
+- *«Generado sin Ollama»*: Ollama está apagado o no tiene el modelo; comprueba `ollama list` y vuelve a ejecutar el ticket (la Fase 1 se reintenta sola).
+- *Error de versión*: actualiza Node.js a 22.13 o superior.
+- *Token inválido*: vuelve a ejecutar `devflow config` con un token nuevo.

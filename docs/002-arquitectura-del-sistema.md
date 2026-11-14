@@ -275,7 +275,10 @@ Los cuatro mecanismos de integración evaluados (Jira REST, Ollama HTTP/JSON, Gi
 ```
 ./                                  # raíz del repo
 ├── package.json                    # Proyecto Node.js/TypeScript: dependencias, scripts (build, test, start), engines.node >= 22.13
-├── tsconfig.json                   # Configuración del compilador TypeScript (strict)
+├── tsconfig.json                   # Configuración del compilador TypeScript (strict, `noEmit`; cubre `src/` y `tests/` para el `typecheck`)
+├── tsconfig.build.json             # Configuración del build: extiende `tsconfig.json`, emite `src/` a `dist/` (`npm run build`)
+├── scripts/
+│   └── copy-assets.mjs             # Copia las migraciones SQL a `dist/database/migrations/` (`tsc` solo emite JavaScript); sin comandos de shell, para que funcione en Windows
 ├── docs/                           # PRD, ADRs, especificación de arquitectura y de datos
 │   ├── PRD.md
 │   ├── ADR-001-arquitectura-inicial.md

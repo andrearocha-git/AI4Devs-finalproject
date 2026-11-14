@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+#!/usr/bin/env node
+import { readFileSync, realpathSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { Command } from "commander";
 import { createOrchestrator } from "../services/orchestrator/create-orchestrator.js";
@@ -175,7 +176,9 @@ export async function main(argv: string[] = process.argv): Promise<void> {
   }
 }
 
-// Solo se ejecuta cuando el archivo se lanza directamente (`npm start`), no al importarlo desde los tests.
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+// Solo se ejecuta cuando el archivo se lanza directamente (`npm start` o el bin `devflow`), no al importarlo desde los tests.
+// `argv[1]` se resuelve a su ruta real: si `devflow` es un enlace simbólico (`npm link` en Linux y macOS), Node deja `argv[1]` con la
+// ruta del enlace mientras que `import.meta.url` lleva la real, y sin esto el programa terminaba en silencio sin ejecutar nada.
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   await main();
 }

@@ -69,7 +69,7 @@ The scaffold exists (TK-00: `package.json`, `tsconfig.json`, `vitest.config.ts`,
 - Single test by name: `npm test -- -t "<name pattern>"`
 - Run the CLI: `npm start -- <args>` (`tsx src/tui/cli.ts`; e.g. `npm start -- --help`, `npm start -- config`, `npm start -- config proyectos`). It needs the Windows environment variables `APPDATA` and `USERPROFILE`; on Linux/WSL `resolveDatabasePath` (`win32.join`) creates a stray file named with backslashes in the current directory, so the interactive run is tested on Windows.
 - Build: `npm run build` (`tsc -p tsconfig.build.json` emits `src/` to `dist/`, then `scripts/copy-assets.mjs` copies the SQL migrations into `dist/database/migrations/`; `dist/` is git-ignored). `tsconfig.json` keeps `noEmit` and covers `tests/`, so `typecheck` is unchanged.
-- Install the built CLI as the `devflow` command: `npm run build`, then `npm link` (or `npm install -g .`). The `bin` entry points to `dist/tui/cli.js`; `files` ships only `dist/` and `templates/`. The Windows `.cmd` shim that npm generates has not been tested yet (Hito 3 acceptance test, issues #19 and #20).
+- Install the built CLI as the `devflow` command: `npm run build`, then `npm link` (or `npm install -g .`). The `bin` entry points to `dist/tui/cli.js`; `files` ships only `dist/` and `templates/`. The Windows shims that npm generates were checked on Windows 10 (PowerShell and `cmd`, Node 24) on 2026-11-14: `devflow --help` and `--version` work from any folder; the full interactive run (`devflow config`, `config proyectos`, `start`) is still the Hito 3 acceptance test (issue #20).
 
 Things to keep in mind when touching the build or any file read at run time:
 

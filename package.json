@@ -7,8 +7,16 @@
   "engines": {
     "node": ">=22.13"
   },
+  "bin": {
+    "devflow": "dist/tui/cli.js"
+  },
+  "files": [
+    "dist",
+    "templates"
+  ],
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json && node scripts/copy-assets.mjs dist",
     "lint": "eslint .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",

@@ -59,7 +59,7 @@ Restricciones técnicas ya decididas (ADR-006.1 aceptado, ADR-003.1, ADR-007.1) 
 
 ## Build / test commands
 
-The scaffold exists (TK-00: `package.json`, `tsconfig.json`, `vitest.config.ts`, `eslint.config.js`) and the Storage Layer (TK-01), the Service Layer pieces up to TK-02g and the CLI entry point for `devflow config` (TK-03a, `src/tui/`) are implemented. Run everything from the repo root, with Node ≥ 22.13:
+The scaffold exists (TK-00: `package.json`, `tsconfig.json`, `vitest.config.ts`, `eslint.config.js`) and the Storage Layer (TK-01), the Service Layer pieces up to TK-02g and the CLI entry point for `devflow config` (TK-03a, `src/tui/`) and the build/install setup (GH-17: `tsconfig.build.json`, `scripts/copy-assets.mjs`, `bin`) are implemented. Run everything from the repo root, with Node ≥ 22.13:
 
 - Install: `npm install`
 - Typecheck: `npm run typecheck` (`tsc --noEmit`, covers `src/`, `tests/` and `vitest.config.ts`)
@@ -68,5 +68,13 @@ The scaffold exists (TK-00: `package.json`, `tsconfig.json`, `vitest.config.ts`,
 - Single test file: `npm test -- tests/unit/smoke.test.ts`
 - Single test by name: `npm test -- -t "<name pattern>"`
 - Run the CLI: `npm start -- <args>` (`tsx src/tui/cli.ts`; e.g. `npm start -- --help`, `npm start -- config`, `npm start -- config proyectos`). It needs the Windows environment variables `APPDATA` and `USERPROFILE`; on Linux/WSL `resolveDatabasePath` (`win32.join`) creates a stray file named with backslashes in the current directory, so the interactive run is tested on Windows.
+- Build: `npm run build` (`tsc -p tsconfig.build.json` emits `src/` to `dist/`, then `scripts/copy-assets.mjs` copies the SQL migrations into `dist/database/migrations/`; `dist/` is git-ignored). `tsconfig.json` keeps `noEmit` and covers `tests/`, so `typecheck` is unchanged.
+- Install the built CLI as the `devflow` command: `npm run build`, then `npm link` (or `npm install -g .`). The `bin` entry points to `dist/tui/cli.js`; `files` ships only `dist/` and `templates/`. The Windows `.cmd` shim that npm generates has not been tested yet (Hito 3 acceptance test, issues #19 and #20).
 
-There is no `dev` or `build` script: `tsc` runs with `noEmit` and does not copy `schema.sql`, the migrations or `templates/`, so packaging (and the `bin` entry) is left for the Windows test milestone.
+Things to keep in mind when touching the build or any file read at run time:
+
+- `templates/` and `package.json` are **not** copied into `dist/`: the modules read them with paths relative to their own location (`../../../templates/...`, `../../package.json`), and `dist/` keeps the same depth as `src/`, so those paths still reach the package root. Do not change the `rootDir`/`outDir` depth without checking them. Only non-`.ts` files that live inside `src/` (today, the migrations) need copying.
+- `src/tui/cli.ts` starts with a `#!/usr/bin/env node` shebang and resolves `process.argv[1]` with `realpathSync` before comparing it with `import.meta.url`: without it, the program exits silently when launched through a symlinked `bin` (`npm link` on Linux/macOS).
+- `npm test` runs `tests/integration/build-install.test.ts`, which builds into a temporary directory and does not write `dist/`.
+
+There is no `dev` script: use `npm start` (`tsx`) while developing.

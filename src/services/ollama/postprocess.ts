@@ -63,14 +63,15 @@ const hasBlank = (e: EscenarioGherkin): boolean => isBlank(e.given) || isBlank(e
 
 /**
  * Completa con lo que el ticket dice (escenarios Dado / Cuando / Entonces) los `given`, `when` y `then` que el modelo dejó vacíos, y
- * descarta el escenario que sigue sin ninguno de los tres. Empareja por título (uno contiene al otro) o, si no, por posición cuando el
+ * descarta el escenario que sigue sin ninguno de los tres. `rescued` es `true` si completó algo desde el ticket. Empareja por título (uno contiene al otro) o, si no, por posición cuando el
  * modelo devolvió tantos escenarios como trae el ticket. No pisa lo que el modelo ya devolvió.
  */
-function rescueEscenarios(escenarios: EscenarioGherkin[], ticket: ContextoTicket): EscenarioGherkin[] {
-  if (!escenarios.some(hasBlank)) return escenarios;
+function rescueEscenarios(escenarios: EscenarioGherkin[], ticket: ContextoTicket): { escenarios: EscenarioGherkin[]; rescued: boolean } {
+  if (!escenarios.some(hasBlank)) return { escenarios, rescued: false };
   const fromTicket = parseGherkinScenarios(stripJiraWiki(ticket.description));
   const byPosition = fromTicket.length === escenarios.length;
-  return escenarios
+  let rescued = false;
+  const completed = escenarios
     .map((escenario, index) => {
       if (!hasBlank(escenario)) return escenario;
       const key = normalizeTitle(escenario.titulo);
@@ -80,6 +81,7 @@ function rescueEscenarios(escenarios: EscenarioGherkin[], ticket: ContextoTicket
           return key !== "" && other !== "" && (other.includes(key) || key.includes(other));
         }) ?? (byPosition ? fromTicket[index] : undefined);
       if (match === undefined) return escenario;
+      rescued = true;
       return {
         titulo: escenario.titulo,
         given: isBlank(escenario.given) ? match.given : escenario.given,
@@ -88,6 +90,7 @@ function rescueEscenarios(escenarios: EscenarioGherkin[], ticket: ContextoTicket
       };
     })
     .filter((escenario) => !(isBlank(escenario.given) && isBlank(escenario.when) && isBlank(escenario.then)));
+  return { escenarios: completed, rescued };
 }
 
 /** Valor de un campo ausente según su forma: texto, lista de textos, lista de objetos u objeto de textos. */
@@ -113,7 +116,8 @@ function absentValue(field: string, current: unknown): unknown {
  *    el modelo dejó vacías (no se pisa lo que ya devolvió) y la historia se marca presente, aunque el modelo la diera por ausente.
  *    Si el ticket no la trae, no se rescata nada: lo que el modelo haya inventado cae en `siFalta`.
  * 3. Rescate de los escenarios (GH-44): los `given`, `when` y `then` vacíos se completan con los Dado / Cuando / Entonces del ticket
- *    y el escenario que queda sin ninguno se descarta; si no queda ninguno, `escenarios` pasa a ausente.
+ *    y el escenario que queda sin ninguno se descarta; si no queda ninguno, `escenarios` pasa a ausente, y si se completó alguno desde el
+ *    ticket, `escenarios` se marca presente (aunque el modelo lo diera por ausente), como la historia.
  * 4. `siFalta`: todo campo que `presenteEnTicket` marca como ausente se sobrescribe con «No especificado en el ticket.»
  *    (una lista de objetos como los escenarios queda vacía) y se agrega su pregunta abierta, una sola vez.
  *
@@ -135,8 +139,10 @@ export function postprocess(document: ModelDocument, ticket: ContextoTicket, rul
 
   const presente: Record<string, boolean> = { ...doc.presenteEnTicket };
   if (doc.escenarios.length > 0) {
-    doc.escenarios = rescueEscenarios(doc.escenarios, ticket);
-    if (doc.escenarios.length === 0) presente.escenarios = false;
+    const { escenarios, rescued } = rescueEscenarios(doc.escenarios, ticket);
+    doc.escenarios = escenarios;
+    if (escenarios.length === 0) presente.escenarios = false;
+    else if (rescued) presente.escenarios = true;
   }
   for (const field of rules.verificarLiterales ?? []) {
     const value = doc[field];

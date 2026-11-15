@@ -216,6 +216,34 @@ describe("GH-44 · E3 — los escenarios salen con Given / When / Then rellenos,
     expect(result.presenteEnTicket?.escenarios).toBe(false);
     expect(result.preguntasAbiertas).toContain(PREGUNTA_ESCENARIOS);
   });
+
+  it("si el modelo dio los escenarios por ausentes pero el ticket los trae, los rellena y los marca presentes (como la historia)", () => {
+    const result = postprocess(
+      modelDocument({
+        presenteEnTicket: { historiaUsuario: true, casosDeUso: false, escenarios: false },
+        escenarios: [vacio("Registro exitoso"), vacio("Correo ya registrado"), vacio("Contraseña demasiado corta")],
+      }),
+      WIKI_TICKET,
+      RULES,
+    );
+    expect(result.escenarios.map((e) => e.then)).toEqual(ESCENARIOS_DEL_TICKET.map((e) => e.then));
+    expect(result.presenteEnTicket?.escenarios).toBe(true);
+    expect(result.preguntasAbiertas).not.toContain(PREGUNTA_ESCENARIOS);
+  });
+
+  it("si el modelo dio los escenarios por ausentes y el ticket no los trae, quedan vacíos con su pregunta abierta", () => {
+    const result = postprocess(
+      modelDocument({
+        presenteEnTicket: { historiaUsuario: false, casosDeUso: false, escenarios: false },
+        escenarios: [vacio("Uno")],
+      }),
+      PLAIN_TICKET,
+      RULES,
+    );
+    expect(result.escenarios).toEqual([]);
+    expect(result.presenteEnTicket?.escenarios).toBe(false);
+    expect(result.preguntasAbiertas).toContain(PREGUNTA_ESCENARIOS);
+  });
 });
 
 describe("GH-44 · E3 — el prompt de historia explica las equivalencias en español", () => {

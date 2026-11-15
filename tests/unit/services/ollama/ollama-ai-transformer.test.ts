@@ -105,7 +105,7 @@ function newTransformer(overrides: Partial<ConstructorParameters<typeof OllamaAI
 describe("E1 — respuesta válida de Ollama", () => {
   it.each([
     ["bug", validBug(), "bug-v1"],
-    ["historia", validHistoria(), "historia-v1"],
+    ["historia", validHistoria(), "historia-v2"],
   ] as const)("%s: devuelve Ok con el DocumentoFase1, generatedByOllama y la promptVersion del tipo", async (tipo, output, promptVersion) => {
     serve(JSON.stringify(output));
 

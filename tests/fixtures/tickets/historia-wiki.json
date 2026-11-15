@@ -1,0 +1,11 @@
+{
+  "id": "10106",
+  "key": "SCRUM-31",
+  "fields": {
+    "summary": "Registro de nuevos usuarios",
+    "description": "*Como* nuevo usuario, *quiero* registrarme con mi correo y una contraseña, *para* poder acceder a la aplicación.\n\nh3. *Criterios de Aceptación*\n\nh4. *1. Registro exitoso (**_Happy Path_**)*\n* *Dado* que estoy en la pantalla de registro\n* *Cuando* ingreso un correo válido y una contraseña de 8 caracteres\n* *Entonces* se crea mi cuenta y veo un mensaje de bienvenida\n\nh4. *2. Correo ya registrado*\n* *Dado* que ya existe una cuenta con mi correo\n* *Cuando* intento registrarme con ese correo\n* *Entonces* veo el mensaje \"El correo ya está registrado\"\n\nh4. *3. Contraseña demasiado corta*\n* *Dado* que estoy en la pantalla de registro\n* *Cuando* ingreso una contraseña de menos de 8 caracteres\n* *Entonces* el sistema rechaza el registro y explica el motivo\n",
+    "issuetype": {
+      "name": "Historia"
+    }
+  }
+}

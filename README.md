@@ -83,7 +83,7 @@ npm link
 devflow --help
 ```
 
-> Procedimiento verificado en WSL y en Windows 10 (PowerShell y `cmd`): `npm run build`, `npm link` y `devflow --help`. El uso completo (`devflow config`, `devflow config proyectos` y `devflow start` con Jira real) está pendiente (issue #20).
+> Procedimiento verificado en WSL y en Windows 11 (PowerShell y `cmd`): `npm run build`, `npm link` y `devflow --help`. El uso completo (`devflow config`, `devflow config proyectos` y `devflow start`) se verificó a mano en Windows 11 el 2026-11-15 (issue #20), con Jira real en solo lectura, repositorios de prueba con `origin` local y el Ollama de WSL (servicio al que Windows llega por `localhost:11434`), en Windows PowerShell 5.1, `cmd` y Windows Terminal. Windows 10 entra en el criterio del producto (Windows 10/11), pero no se probó en esta entrega.
 
 **Primer arranque:** `devflow config` (Jira, carpeta de tickets y sufijo de rama), `devflow config proyectos` (claves de proyecto y repositorios) y `devflow start [ID]` (prepara un ticket). La base `devflow.db` y sus migraciones se crean solas en `%APPDATA%\DevFlowCLI\`; no hay semillas de datos ni servidor. **El API Token se guarda en claro** en esa base (decisión del MVP, ver [`docs/002`](docs/002-arquitectura-del-sistema.md)).
 

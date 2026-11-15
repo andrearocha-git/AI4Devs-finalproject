@@ -117,7 +117,15 @@ Prácticas ya decididas (autenticación contra Jira sin navegador vía API Token
 
 ### **2.6. Tests**
 
-> Describe brevemente algunos de los tests realizados
+Los tests se escriben con **TDD** (Red → Green → Refactor) con Vitest, a partir de los escenarios Given/When/Then de un contrato por cambio (`docs/changes/<ID>.md`), que enlaza cada escenario con su test. Hay tres capas:
+
+- **Unitarias** (`tests/unit/`, por capa; Jira y Ollama simulados con `msw`). Dos ejemplos: el «Contrato del flujo» de `git-manager.test.ts`, que fija la secuencia exacta de comandos Git (`status`, `switch`, `pull --no-rebase --ff-only`, `switch -c`) y no se «arregla» si falla; y `postprocess.historia.test.ts`, que comprueba que la Fase 1 conserva la historia de usuario y los criterios Gherkin con el formato wiki de Jira.
+- **Integración** (`tests/integration/`): `ticket-flow.e2e.test.ts` (11 casos) recorre `devflow start` completo con Git, carpetas y SQLite reales; solo Jira y Ollama se simulan. `build-install.test.ts` compila a una carpeta temporal y ejecuta `devflow --help` como proceso hijo.
+- **Manual en Windows 11** (issue #20): recorrido con Jira real (solo lectura), repositorios de prueba y Ollama real, con 9 criterios. Sus hallazgos están en los issues #39 y #44; el segundo ya está corregido.
+
+Cada escenario se comprueba en RED y, tras el GREEN, con **mutaciones temporales** (se rompe el código a propósito y el test debe fallar). Resultado: 34 archivos y 793 tests en verde. La cobertura aún no se ha medido (issue #22).
+
+*Evaluado y descartado:* Cucumber.js (duplicaría los escenarios de los contratos); Playwright, Cypress y Testing Library no aplican, porque el producto es solo CLI/TUI.
 
 ---
 

@@ -413,4 +413,14 @@ Prácticas ya decididas a nivel arquitectónico (ver ADR-001):
 
 ### **2.6. Tests**
 
-[A definir en Entrega 2]
+Los tests se escriben con **TDD** (Red → Green → Refactor) con Vitest, a partir de los escenarios Given/When/Then de un contrato por cambio (`docs/changes/<ID>.md`), que enlaza cada escenario con su test. Cada ticket, cada issue `GH-nn` y cada una de las tres historias de usuario (US-01, US-02 y US-03, como verificación de los criterios ya implementados) tienen su contrato. Hay tres capas, que siguen la arquitectura de §2.1:
+
+- **Unitarias** (`tests/unit/`, una carpeta por capa: `tui/`, `services/` y `database/`). Jira y Ollama se simulan con `msw`; Git, el sistema de archivos y SQLite de los tests de su propia capa son reales. Un ejemplo es el «Contrato del flujo» de `git-manager.test.ts`, que fija la secuencia exacta de comandos Git del Git Manager (`status`, `switch`, `pull --no-rebase --ff-only` y `switch -c`; ADR-007.1) y no se «arregla» si falla.
+- **Integración** (`tests/integration/`): `ticket-flow.e2e.test.ts` recorre `devflow start` completo con Git, carpetas y SQLite reales, y solo simula Jira y Ollama; `build-install.test.ts` compila a una carpeta temporal y ejecuta `devflow --help` como proceso hijo.
+- **Manual en Windows 11** (issue #20): recorrido con Jira real en solo lectura, repositorios de prueba y Ollama real.
+
+Las reglas de acoplamiento entre capas (la TUI solo habla con el Orquestador y solo el Storage importa `node:sqlite`) las vigila el linter, con tests propios en `tests/unit/lint-rules.test.ts`. Los contratos más recientes se comprueban además, tras el GREEN, con **mutaciones temporales**: se rompe el código a propósito y el test debe fallar.
+
+La Service Layer (`src/services/**`) tiene un umbral de cobertura del 80 %, decidido en TK-02a y medido con `npm run test:coverage`. Las cifras (archivos, tests y cobertura) están solo en [`README.md` §2.6](../README.md#26-tests), que es la fuente, para que no se desalineen entre los dos documentos.
+
+*Evaluado y descartado:* Cucumber.js (duplicaría los escenarios de los contratos); Playwright, Cypress y Testing Library no aplican, porque el producto es solo CLI/TUI.

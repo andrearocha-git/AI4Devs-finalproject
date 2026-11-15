@@ -4,6 +4,7 @@ import type { StepResult } from "../../shared/errors/result.types.js";
 import type { DocumentoFase1 } from "../../shared/types/documento-fase1.types.js";
 import type { ContextoTicket, TipoTicket } from "../../shared/types/ticket-context.types.js";
 import { postprocessRulesFor, promptVersionFor } from "../orchestrator/issue-type-resolver.js";
+import { stripJiraWiki } from "./jira-wiki.js";
 import { postprocess, type ModelDocument } from "./postprocess.js";
 
 /** Configuración del transformer; llega entera por constructor (no lee `AppConfig` ni el entorno). */
@@ -48,12 +49,12 @@ function promptsFor(tipo: TipoTicket): TypePrompts {
   return prompts;
 }
 
-/** Rellena `ticket.user.md` en una sola pasada, para que un `{{...}}` dentro del texto del ticket no se vuelva a expandir. */
+/** Rellena `ticket.user.md` en una sola pasada (con la descripción sin el formato wiki de Jira), para que un `{{...}}` dentro del texto del ticket no se vuelva a expandir. */
 function userPrompt(ctx: ContextoTicket): string {
   const values: Record<string, string> = {
     ticketId: ctx.ticketId,
     title: ctx.title,
-    description: ctx.description.trim() === "" ? "(sin descripción)" : ctx.description,
+    description: ctx.description.trim() === "" ? "(sin descripción)" : stripJiraWiki(ctx.description),
   };
   return read("ticket.user.md")
     .trim()

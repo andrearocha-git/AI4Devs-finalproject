@@ -23,7 +23,7 @@
     "historia": {
       "default": true,
       "branchType": "feature",
-      "promptVersion": "historia-v1",
+      "promptVersion": "historia-v2",
       "siFalta": {
         "historiaUsuario": "¿Quién necesita esto, qué quiere y para qué?",
         "casosDeUso": "¿Cuáles son los casos de uso?",

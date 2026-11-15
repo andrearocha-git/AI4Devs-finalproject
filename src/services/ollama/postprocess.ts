@@ -1,5 +1,7 @@
 import type { PostprocessRules } from "../orchestrator/issue-type-resolver.js";
-import type { DocumentoFase1 } from "../../shared/types/documento-fase1.types.js";
+import type { DocumentoFase1, EscenarioGherkin } from "../../shared/types/documento-fase1.types.js";
+import { parseGherkinScenarios } from "./gherkin.js";
+import { stripJiraWiki } from "./jira-wiki.js";
 import type { ContextoTicket } from "../../shared/types/ticket-context.types.js";
 
 /** Lo que devuelve el modelo, ya validado contra el schema: la Fase 1 sin los campos que agrega el transformer. */
@@ -38,6 +40,56 @@ function textOf(value: unknown): string {
   return "";
 }
 
+/** «Como X, quiero Y, para Z» en una sola línea; el `para` termina en el primer punto o al final de la línea. */
+const HISTORIA_USUARIO = /\bComo\s+(.+?),?\s+quiero\s+(.+?),?\s+para\s+(.+?)\s*(?:\.|$)/im;
+
+type HistoriaUsuario = NonNullable<DocumentoFase1["historiaUsuario"]>;
+
+/** La historia de usuario que el ticket dice de forma explícita (en la descripción sin wiki, o en el título), o `null` si no la trae. */
+function findHistoriaUsuario(ticket: ContextoTicket): HistoriaUsuario | null {
+  for (const text of [stripJiraWiki(ticket.description), ticket.title]) {
+    const match = HISTORIA_USUARIO.exec(text);
+    if (match) return { como: (match[1] ?? "").trim(), quiero: (match[2] ?? "").trim(), para: (match[3] ?? "").trim() };
+  }
+  return null;
+}
+
+/** Título sin tildes, signos ni número inicial, para comparar el de un escenario del modelo con el del ticket. */
+const normalizeTitle = (title: string): string =>
+  title.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/[^a-z0-9]+/g, "").replace(/^\d+/, "");
+
+const isBlank = (value: string): boolean => value.trim() === "";
+const hasBlank = (e: EscenarioGherkin): boolean => isBlank(e.given) || isBlank(e.when) || isBlank(e.then);
+
+/**
+ * Completa con lo que el ticket dice (escenarios Dado / Cuando / Entonces) los `given`, `when` y `then` que el modelo dejó vacíos, y
+ * descarta el escenario que sigue sin ninguno de los tres. Empareja por título (uno contiene al otro) o, si no, por posición cuando el
+ * modelo devolvió tantos escenarios como trae el ticket. No pisa lo que el modelo ya devolvió.
+ */
+function rescueEscenarios(escenarios: EscenarioGherkin[], ticket: ContextoTicket): EscenarioGherkin[] {
+  if (!escenarios.some(hasBlank)) return escenarios;
+  const fromTicket = parseGherkinScenarios(stripJiraWiki(ticket.description));
+  const byPosition = fromTicket.length === escenarios.length;
+  return escenarios
+    .map((escenario, index) => {
+      if (!hasBlank(escenario)) return escenario;
+      const key = normalizeTitle(escenario.titulo);
+      const match =
+        fromTicket.find((candidate) => {
+          const other = normalizeTitle(candidate.titulo);
+          return key !== "" && other !== "" && (other.includes(key) || key.includes(other));
+        }) ?? (byPosition ? fromTicket[index] : undefined);
+      if (match === undefined) return escenario;
+      return {
+        titulo: escenario.titulo,
+        given: isBlank(escenario.given) ? match.given : escenario.given,
+        when: isBlank(escenario.when) ? match.when : escenario.when,
+        then: isBlank(escenario.then) ? match.then : escenario.then,
+      };
+    })
+    .filter((escenario) => !(isBlank(escenario.given) && isBlank(escenario.when) && isBlank(escenario.then)));
+}
+
 /** Valor de un campo ausente según su forma: texto, lista de textos, lista de objetos u objeto de textos. */
 function absentValue(field: string, current: unknown): unknown {
   if (Array.isArray(current)) {
@@ -57,7 +109,12 @@ function absentValue(field: string, current: unknown): unknown {
  *    título ni en la descripción del ticket hace descartar el **elemento** de la lista (paso, escenario completo) que lo contiene;
  *    en un campo de texto, o si se descartan todos los elementos, el campo pasa a ausente. Los números se comparan enteros
  *    («3» no está en «30», «2,5» es «2.5») y los textos sin distinguir mayúsculas.
- * 2. `siFalta`: todo campo que `presenteEnTicket` marca como ausente se sobrescribe con «No especificado en el ticket.»
+ * 2. Rescate de la historia de usuario (GH-44): si el ticket trae «Como … quiero … para …», se completan con ese texto las partes que
+ *    el modelo dejó vacías (no se pisa lo que ya devolvió) y la historia se marca presente, aunque el modelo la diera por ausente.
+ *    Si el ticket no la trae, no se rescata nada: lo que el modelo haya inventado cae en `siFalta`.
+ * 3. Rescate de los escenarios (GH-44): los `given`, `when` y `then` vacíos se completan con los Dado / Cuando / Entonces del ticket
+ *    y el escenario que queda sin ninguno se descarta; si no queda ninguno, `escenarios` pasa a ausente.
+ * 4. `siFalta`: todo campo que `presenteEnTicket` marca como ausente se sobrescribe con «No especificado en el ticket.»
  *    (una lista de objetos como los escenarios queda vacía) y se agrega su pregunta abierta, una sola vez.
  *
  * @param document Respuesta del modelo ya validada contra el schema; no se modifica.
@@ -77,6 +134,10 @@ export function postprocess(document: ModelDocument, ticket: ContextoTicket, rul
   };
 
   const presente: Record<string, boolean> = { ...doc.presenteEnTicket };
+  if (doc.escenarios.length > 0) {
+    doc.escenarios = rescueEscenarios(doc.escenarios, ticket);
+    if (doc.escenarios.length === 0) presente.escenarios = false;
+  }
   for (const field of rules.verificarLiterales ?? []) {
     const value = doc[field];
     if (Array.isArray(value) && value.length > 0) {
@@ -86,6 +147,16 @@ export function postprocess(document: ModelDocument, ticket: ContextoTicket, rul
     } else if (typeof value === "string" && isInvented(value)) {
       presente[field] = false;
     }
+  }
+  const historia = doc.historiaUsuario;
+  const found = "historiaUsuario" in rules.siFalta && historia !== undefined ? findHistoriaUsuario(ticket) : null;
+  if (historia !== undefined && found !== null) {
+    doc.historiaUsuario = {
+      como: historia.como.trim() || found.como,
+      quiero: historia.quiero.trim() || found.quiero,
+      para: historia.para.trim() || found.para,
+    };
+    presente.historiaUsuario = true;
   }
   doc.presenteEnTicket = presente;
 

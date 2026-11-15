@@ -783,6 +783,10 @@ Con ayuda de **Gemini Notebook** creé varias *skills*. Después se las pasé a 
 | 4 | `04-tdd-pair` | Implementar con TDD (Red → Green → Refactor) |
 | 5 | `05-verificar-y-revisar` | Control de calidad: verificar y revisar el resultado |
 
+### Bitácoras de la segunda entrega
+
+Cada ticket tiene su bitácora en [`docs/LIDR/bitacoras.md`](docs/LIDR/bitacoras.md), de TK-00 a TK-02i. Recogen el gobierno del agente y del flujo de entrega (qué autoricé y qué aprobé yo), las decisiones de arquitectura e intervenciones, las revisiones de Cursor con sus hallazgos y los resultados de calidad (tests, `typecheck`, `lint` y cobertura). Las de TK-02f y TK-02h y la de TK-03b1, TK-03b2 y TK-03b3 agrupan los tickets que se dividieron el 2026-11-06 y el 2026-11-12.
+
 ---
 
 ### Inicio del desarrollo desde la rama `feature/entrega-2-ANR`

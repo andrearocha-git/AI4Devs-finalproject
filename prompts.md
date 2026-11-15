@@ -442,11 +442,31 @@ Prácticas ya decididas a nivel arquitectónico (ver ADR-001)
 
 ### **2.6. Tests**
 
-**Prompt 1:**
+Los tests de la segunda entrega no se pidieron con prompts sueltos: salen de las tres *skills* de la sección 8, que se ejecutaron para cada ticket. Los bloques de abajo muestran, como ejemplo real, la invocación sobre el issue `GH-44` (la corrección de la Fase 1 con el formato wiki de Jira). Cada skill es un archivo versionado en `.claude/skills/`.
 
-**Prompt 2:**
+**Prompt 1: Refinar el ticket en un contrato con escenarios Given/When/Then, que son la especificación de los tests.**
 
-**Prompt 3:**
+```text
+/03-refinar-historia GH-44
+```
+
+Skill: [`.claude/skills/03-refinar-historia/SKILL.md`](.claude/skills/03-refinar-historia/SKILL.md). Escribe `docs/changes/<ID>.md` con 2 a 3 escenarios trazados a los criterios de aceptación y una tabla donde cada escenario debe terminar con un test.
+
+**Prompt 2: Implementar con TDD estricto, un escenario a la vez.**
+
+```text
+/04-tdd-pair GH-44
+```
+
+Skill: [`.claude/skills/04-tdd-pair/SKILL.md`](.claude/skills/04-tdd-pair/SKILL.md). Test en RED, código mínimo en GREEN, refactor y `npm run lint`; se detiene tras cada escenario para que el desarrollador lo valide y no deja cerrar un escenario sin test.
+
+**Prompt 3: Verificar y auditar el resultado contra el contrato.**
+
+```text
+/05-verificar-y-revisar GH-44
+```
+
+Skill: [`.claude/skills/05-verificar-y-revisar/SKILL.md`](.claude/skills/05-verificar-y-revisar/SKILL.md). Solo lectura: ejecuta `typecheck`, `lint` y la suite completa y audita la trazabilidad y el diff; emite «Aprobada», «Aprobada con observaciones» o «No aprobada».
 
 ---
 

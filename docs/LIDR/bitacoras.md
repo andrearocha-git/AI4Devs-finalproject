@@ -409,14 +409,14 @@ TK-03b era el comando `devflow start` completo. **El 2026-11-12 lo dividí en TK
 - **Carga manual con «¿Es un bug?»:** el prompt devuelve `isBug` y `createAskCallback` lo traduce a `issueType: "Bug"`, así el adaptador de inquirer no contiene reglas. El tipo se **recorta**, no se normaliza.
 - **Los bloqueos se muestran lanzando un error con la pantalla** (encabezado por tipo más el mensaje del Orquestador): sale por stderr con código 1 y los tests aprobados de TK-03b1 no cambian. `fallback-view.ts` se descartó: los avisos viven en `summary-view.ts`.
 - `HandlerDeps` ganó campos opcionales (`getStartOrchestrator`, `startPrompts`, `askPrompts`, `progress`) para no tocar los tests de `createHandlers` ya aprobados.
-- **Cursor, TK-03b1** (1 medio): `startTicket` terminaba **en silencio y con código 0** ante una épica, un error de Jira o un corte de Git, aunque el Orquestador ya había escrito la fila en `ticket_logs`. Se corrigió. También se alineó la regex del ID con la del Orquestador.
+- **Cursor, TK-03b1** (1 medio): `startTicket` terminaba **en silencio y con código 0** ante una épica, un error de Jira o un corte de Git, aunque el Orquestador ya había escrito la fila en `ticket_logs`. Se corrigió. También, tras la revisión de Cursor de la PR #12 (la división de TK-03b), se alineó en `docs/006` la regex del ID de TK-03b1 con el criterio del Orquestador (`^[A-Za-z][A-Za-z0-9_]*-\d+$`): el texto del ticket solo aceptaba mayúsculas, y el código ya admitía minúsculas y claves de una sola letra.
 - **Cursor, TK-03b2** (1 bajo): una carga manual sin marcar como bug mostraba `Ticket: SCRUM-5 ()`; se corrigió con RED real.
 - **Cursor, TK-03b3** (1 bajo): la etiqueta «Creando la carpeta y el documento» afirmaba algo que aún no ocurría (el evento llega al crear la carpeta, antes de esperar a Ollama); ahora dice «Creando la carpeta de evidencias». El evento propio del documento quedó como mejora (issue #36).
 - Los casos que salieron en verde a la primera se comprobaron con mutaciones temporales, siempre revertidas; no se simuló una fase roja.
 
 ##### **Resultados de Calidad Obtenidos (TK-03b1, TK-03b2 y TK-03b3)**
 
-- Suite de pruebas en verde en cada PR; la cifra de cierre del Hito 2 es 707 (ver TK-02i).
+- Suite de pruebas en verde en cada PR. Tests que aportó cada ticket, como la diferencia entre los totales de los commits de fusión de cada PR (se corrió Vitest sobre cada commit): TK-03b1 aportó 53 (633 en total al fusionar la PR #13), TK-03b2 aportó 24 (657, PR #14) y TK-03b3 aportó 41 (698, PR #15). La PR #12, la división de TK-03b, fue solo de documentación: la suite seguía en 580. La cifra de cierre del Hito 2 es 707 (ver TK-02i).
 - `typecheck` y `lint` limpios; la TUI solo importa del Orquestador.
 - Lo que no se pudo comprobar: el spinner, las marcas `✔ ⚠ ✖` y los prompts de `devflow start` en una terminal real. Solo se probaron con tests y un Orquestador simulado. Queda para la prueba en Windows (issue #20).
 
@@ -436,5 +436,5 @@ TK-02i nació de la observación de la prueba real de TK-02f: una sección «Cri
 
 ##### **Resultados de Calidad Obtenidos (TK-02i)**
 
-- Suite de pruebas: **707 tests en verde** al cierre del Hito 2 (de 580 tras TK-02h), con `typecheck` y `lint` limpios.
+- Suite de pruebas: **707 tests en verde** al cierre del Hito 2 (de 580 tras TK-02h), con `typecheck` y `lint` limpios. TK-02i aportó 9 tests (707 en total al fusionar la PR #16, frente a 698 tras TK-03b3), medidos como la diferencia entre los totales de los commits de fusión.
 - Con TK-02i el Hito 2 queda cerrado en código. Falta la prueba en Windows (Hito 3).

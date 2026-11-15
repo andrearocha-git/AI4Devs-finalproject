@@ -420,14 +420,26 @@ En el archivo readme se encuentra "Stack técnico ya decidido" modifiquemos esto
 ``` 
 
 ### **2.4. Infraestructura y despliegue**
- 
-⚠️ Debido a verificación del stack técnico, se completará está sección para la segunda entrega.
 
-**Prompt 1:**
+Esta sección se dejó para la segunda entrega, a la espera de que el stack estuviera verificado. Se completó al cerrar la entrega, con dos prompts: primero una auditoría de lo que faltaba en la documentación y después la orden de redactarla. Claude Code leyó el enunciado de la Lección 2 (para una CLI, lo mínimo es documentar el entorno de ejecución local y mostrar el flujo en video), `README.md`, `prompts.md`, `docs/001` §1.4, `docs/002` y `package.json`, y redactó el texto solo con lo que ya estaba verificado en el repositorio.
 
-**Prompt 2:**
+**Prompt 1: Auditar si la parte de despliegue estaba cargada.**
 
-**Prompt 3:**
+```text
+Chequea el readme y el prompt.md, la parte de despliegue está cargada?
+```
+
+Resultado: la sección 2.4 estaba vacía en `README.md`, `prompts.md` y `docs/002` (`[A definir en Entrega 2]`). La instalación (`README` §1.4) sí estaba completa y verificada en Windows 11, y falta el video de la sección 1.3.
+
+**Prompt 2: Redactar la sección 2.4 en los tres archivos.**
+
+```text
+sí, redacta 2.4 en los tres archivos
+```
+
+Resultado: `docs/002` §2.4 con un diagrama Mermaid de infraestructura, el entorno de ejecución, el proceso de instalación desde un clon, cómo se comprueba y lo que no hay; un resumen de ese texto en `README` §2.4; y esta sección.
+
+**Criterio humano:** la desarrolladora validó el alcance antes de escribir (solo la 2.4, en los tres archivos) y el texto declara lo que no hay en lugar de inventarlo: no hay CI/CD, ejecutable empaquetado, publicación en npm ni entornos separados, y Windows 10 no se probó.
 
 ### **2.5. Seguridad**
 

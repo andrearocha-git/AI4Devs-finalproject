@@ -109,7 +109,9 @@ Detalle de cada componente por capa (Controlador CLI/TUI, Orquestador de Ticket,
 
 ### **2.4. Infraestructura y despliegue**
 
-> Detalla la infraestructura del proyecto, incluyendo un diagrama en el formato que creas conveniente, y explica el proceso de despliegue que se sigue
+DevFlow CLI **no tiene infraestructura propia**: no hay servidor, base de datos remota, contenedores ni nube. Es una CLI que corre en el PC Windows 10/11 del desarrollador y solo habla con Jira Cloud (HTTPS), con el `origin` de sus repositorios (`git pull`) y con un Ollama local. El «despliegue» es la **instalación local desde un clon**: `npm install`, `npm run build` (compila `src/` a `dist/` y copia las migraciones SQL) y `npm link`, que crea el comando `devflow` (§1.4). Para actualizar: `git pull`, `npm install` y `npm run build`.
+
+Verificado a mano en Windows 11 (PowerShell 5.1 y `cmd`); Windows 10 no se probó. **No hay** CI/CD, ejecutable empaquetado, publicación en npm ni entornos separados: cada desarrollador tiene su propia instancia local. Diagrama de infraestructura, entorno de ejecución y comprobaciones en `docs/002-arquitectura-del-sistema.md`, §2.4.
 
 ### **2.5. Seguridad**
 

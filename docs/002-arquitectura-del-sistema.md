@@ -342,7 +342,63 @@ Los cuatro mecanismos de integración evaluados (Jira REST, Ollama HTTP/JSON, Gi
 
 ### **2.4. Infraestructura y despliegue**
 
-[A definir en Entrega 2]
+DevFlow CLI **no tiene infraestructura propia**: no hay servidor, base de datos remota, contenedores ni servicio en la nube. Es una herramienta de línea de comandos que corre en el PC Windows 10/11 del desarrollador y solo habla con tres cosas: Jira Cloud (por HTTPS), el remoto `origin` de sus repositorios (a través de `git pull`) y un Ollama local. Por eso el «despliegue» es la **instalación local** de la herramienta, no la publicación de un servicio.
+
+**Diagrama de infraestructura:**
+
+```mermaid
+graph LR
+    subgraph PC["PC Windows 10/11 del desarrollador"]
+        DEVFLOW["devflow (CLI/TUI, Node.js ≥ 22.13)<br/>instalado con npm link desde dist/"]
+        DB[("SQLite<br/>%APPDATA%\DevFlowCLI\devflow.db")]
+        TICKETS[("Carpeta de tickets, fuera de los repositorios<br/>%USERPROFILE%\DevFlowCLI\tickets")]
+        REPOS[("Repositorios Git locales")]
+        OLLAMA(["Ollama local<br/>localhost:11434, modelo qwen2.5:3b"])
+    end
+
+    JIRA(("Jira Cloud<br/>API REST v2, HTTPS")):::ext
+    ORIGIN(("Remoto origin<br/>de cada repositorio")):::ext
+
+    DEVFLOW -->|"config e historial"| DB
+    DEVFLOW -->|"carpeta y documento por ticket"| TICKETS
+    DEVFLOW -->|"git status, switch, pull, switch -c"| REPOS
+    DEVFLOW -->|"HTTP local, JSON estructurado"| OLLAMA
+    DEVFLOW -->|"Basic: email + API Token"| JIRA
+    REPOS -->|"git pull --no-rebase --ff-only"| ORIGIN
+
+    classDef ext fill:#eee,stroke:#999,stroke-dasharray: 5 5;
+```
+
+Las integraciones, los protocolos y los fallbacks de cada una están en §2.2.1; aquí solo se sitúa dónde vive cada pieza. La herramienta **nunca hace commit, add ni push**: lo único que toca del remoto es el `pull` de la rama base.
+
+**Entorno de ejecución**
+
+- **Sistema operativo:** Windows 10/11. El desarrollo se hizo en WSL, y la herramienta se verificó a mano en Windows 11 (PowerShell 5.1 y `cmd`, Windows Terminal; Node 24). Windows 10 está en el alcance del producto, pero **no se probó** en esta entrega.
+- **Requisitos:** Node.js ≥ 22.13 (por `node:sqlite`), Git en el `PATH` con acceso a `origin`, y Ollama activo con `qwen2.5:3b`. Solo con CPU, la Fase 1 de un ticket tarda entre 30 y 105 s.
+- **Credenciales:** email de Jira y API Token clásico, guardados en `app_config` (ver §2.5). No hay variables de entorno ni archivos `.env`.
+- **Datos locales:** la base `devflow.db` se crea sola en el primer arranque y las migraciones se aplican solas; no hay semillas de datos.
+
+**Proceso de despliegue (instalación desde un clon)**
+
+El paquete es privado y no se publica en npm.
+
+1. `git clone` del repositorio y `npm install`.
+2. `npm run build`: `tsc -p tsconfig.build.json` emite `src/` a `dist/` y `scripts/copy-assets.mjs` copia las migraciones SQL a `dist/database/migrations/`. `dist/` está en `.gitignore`.
+3. `npm link` (o `npm install -g .`): crea el comando global `devflow`, cuyo `bin` apunta a `dist/tui/cli.js`. `templates/` y `package.json` no se copian a `dist/`: la herramienta los lee por rutas relativas, y por eso `dist/` conserva la misma profundidad que `src/`.
+4. `devflow --help` para comprobar la instalación; después `devflow config`, `devflow config proyectos` y `devflow start [ID]`.
+
+Para **actualizar**: `git pull`, `npm install` y `npm run build`; el comando enlazado usa el nuevo `dist/`. El detalle paso a paso, con los datos locales y la solución de problemas, está en [`001` §1.4](001-descripcion-general-del-producto.md#14-instrucciones-de-instalación).
+
+**Cómo se comprueba que el despliegue funciona**
+
+- `tests/integration/build-install.test.ts` compila a un directorio temporal (sin escribir `dist/`) y comprueba que el resultado se ejecuta.
+- La instalación (`build`, `npm link` y `devflow --help`) y el uso completo se comprobaron a mano en Windows 11 (issues #19 y #20).
+
+**Lo que no hay en esta entrega**
+
+- **Sin CI/CD:** no hay pipeline ni workflows de GitHub Actions. Las comprobaciones (`typecheck`, `lint` y `npm test`) se ejecutan a mano, y la suite completa corre en unos 11 s.
+- **Sin ejecutable empaquetado ni publicación:** no hay `.exe`, ni *release* de GitHub, ni paquete en npm; el usuario compila desde el clon.
+- **Sin entornos separados:** no hay *staging* ni producción. Cada desarrollador tiene su propia instancia local, con su base y su configuración.
 
 ### **2.5. Seguridad**
 

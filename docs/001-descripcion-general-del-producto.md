@@ -29,7 +29,11 @@ Según el alcance del MVP definido en el PRD:
 
 ### **1.3. Diseño y experiencia de usuario:**
 
-[A definir]
+[![Demostración de DevFlow CLI (video de YouTube)](https://img.youtube.com/vi/i_tWna7VC9c/maxresdefault.jpg)](https://youtu.be/i_tWna7VC9c)
+
+**Videotutorial:** [Demostración del flujo principal en YouTube](https://youtu.be/i_tWna7VC9c)
+
+DevFlow CLI es solo de terminal, sin interfaz gráfica, así que la experiencia de usuario se muestra en un video de demostración: configuración inicial (`devflow config` y `devflow config proyectos`), inicio de una historia con `devflow start` (rama, carpeta de evidencias y documento generado con Ollama local), el documento con sus dos fases y un bug en una clave con dos repositorios, donde el programa pregunta en cuál trabajar. Los pasos se detallan en [`009-flujo-funcional.md`](009-flujo-funcional.md).
 
 ### **1.4. Instrucciones de instalación:**
 

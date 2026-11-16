@@ -64,7 +64,19 @@ DevFlow CLI elimina el cambio de contexto (*context switching*) que sufre un des
 
 ### **1.3. Diseño y experiencia de usuario:**
 
-> Proporciona imágenes y/o videotutorial mostrando la experiencia del usuario desde que aterriza en la aplicación, pasando por todas las funcionalidades principales.
+[![Demostración de DevFlow CLI (video de YouTube)](https://img.youtube.com/vi/i_tWna7VC9c/maxresdefault.jpg)](https://youtu.be/i_tWna7VC9c)
+
+**Videotutorial:** [Demostración del flujo principal en YouTube](https://youtu.be/i_tWna7VC9c)
+
+DevFlow CLI es una herramienta solo de terminal, sin interfaz gráfica, así que la experiencia de usuario se muestra en un video de demostración. Recorre el flujo completo:
+
+1. **Configuración inicial** (`devflow config`): URL de Jira, email, API token (oculto al escribirlo), carpeta de tickets fuera de los repositorios y sufijo de las ramas.
+2. **Proyectos y repositorios** (`devflow config proyectos`): alta de la clave `SCRUM`, validada contra Jira, y de sus repositorios con ruta local y rama base.
+3. **Iniciar un ticket** (`devflow start`): lista de tickets asignados, elección de una historia, resumen previo con la rama (`features/SCRUM-7-AROCHA`), la carpeta y el repositorio, creación de la rama y de la carpeta de evidencias, y generación del documento con Ollama local.
+4. **El documento generado**: tabla de datos del ticket, Fase 1 completada por la IA (descripción, historia de usuario, criterios Given/When/Then, casos de uso y preguntas abiertas) y Fase 2 para el desarrollador.
+5. **Un bug en una clave con dos repositorios**: el programa pregunta en cuál trabajar y usa el prefijo `bugs/` en la rama.
+
+Los pasos se detallan en [`docs/009-flujo-funcional.md`](docs/009-flujo-funcional.md).
 
 ### **1.4. Instrucciones de instalación:**
 

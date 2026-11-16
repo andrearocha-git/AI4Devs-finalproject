@@ -123,6 +123,18 @@ Estructura tu dictamen en:
 
 ✏️ Nota: Despues de cada prompt se le pide a Claude Code que actualice los archivos PRD.md, 000, 001 y 002
 
+**Prompt 3: Enlazar el video de demostración en la sección 1.3**
+
+La sección 1.3 era la única de la entrega sin responder. Como la herramienta es solo de terminal, la experiencia de usuario se muestra con un video. Se dio el enlace y el guion del video (no textual) para que Claude Code redactara la sección a partir de lo que el video muestra.
+
+```text
+ya tengo el video
+https://youtu.be/i_tWna7VC9c
+El video es una demo para que vean como funciona. "Guion del video — DevFlow CLI.md" tiene mas o menos lo que hace el video. no es textual pero para que tengas una idea
+```
+
+Resultado: enlace y resumen del flujo en `README` §1.3 y `docs/001` §1.3.
+
 ---
 
 ## 2. Arquitectura del Sistema

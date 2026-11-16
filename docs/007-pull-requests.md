@@ -63,7 +63,56 @@
 
 **Pull Request 2**
 
-[A definir]
+### 🚀 Pull Request: Entrega 2 — MVP de DevFlow CLI: `devflow config` y `devflow start` con Ollama local
+
+- **Rama:** `feature/entrega-2-ANR` → `main`
+
+#### 📌 Resumen Ejecutivo
+
+- **Propósito:** Implementa el MVP especificado en la Entrega 1. Desde la terminal, `devflow start` consulta Jira, crea la rama estándar en el repositorio elegido, crea la carpeta de evidencias fuera del repo y genera con Ollama local la Fase 1 del documento Markdown; `devflow config` y `devflow config proyectos` guardan la configuración. Se instala desde un clon con `npm run build` y `npm link`, y se probó de punta a punta en Windows 11.
+- **Historias de Usuario / Tickets Relacionados:** US-01, US-02, US-03 · TK-00 a TK-03 (con sus subtickets TK-02a a TK-02i y TK-03a a TK-03b3) · GH-17, GH-18, GH-19, GH-20 (instalación y prueba en Windows) y GH-44 (Fase 1 con el formato wiki de Jira).
+
+#### 🛠️ Cambios Generados por Capa
+
+- **🗄️ Base de Datos / Persistencia:** SQLite embebido (`node:sqlite`) con migración inicial y `SQLiteStorageManager` (`app_config`, `jira_projects`, `repositories`, `ticket_logs` con *upsert* por ticket y repositorio). Es lo único que importa `node:sqlite`.
+- **⚙️ Backend / Servicios:**
+  - Orquestador de ticket y de configuración; contrato de resultado `Ok | FallbackManual | FallbackDeterminista | ErrorBloqueante`.
+  - Cliente REST de Jira (API v2, Basic email + token) con clasificación de fallos.
+  - Git Manager con el flujo manual congelado: `status`, `switch`, `pull --ff-only` y `switch -c`; nunca commit, add ni push.
+  - FileSystem Manager: carpeta del ticket fuera del repo, `adjuntos/` y documento por ticket y repositorio.
+  - Ollama AI Transformer (`qwen2.5:3b`): JSON Schema en `format`, validación con Ajv, posprocesado y fallback determinista.
+- **🖥️ Frontend / TUI:** CLI con Commander e `@inquirer/prompts`: `devflow config`, `devflow config proyectos` y `devflow start`, con resumen previo, confirmación, spinner y mensajes de fallo.
+- **📄 Documentación / Specs:** plantillas versionadas en `templates/` (prompts, schemas y Handlebars para `bug` e `historia`), un contrato por ticket en `docs/changes/`, `docs/009-flujo-funcional.md`, instalación (§1.4), despliegue (§2.4), tests (§2.6) y bitácoras.
+
+#### 📂 Lista de Archivos Creados y Modificados
+
+- `src/database/`: esquema, migración y `SQLiteStorageManager`.
+- `src/services/`: orquestador, Jira, Git, sistema de archivos y Ollama.
+- `src/shared/`: tipos, configuración y contrato de resultado.
+- `src/tui/`: CLI, comandos, prompts y vistas.
+- `templates/`: prompts, JSON Schemas y plantillas del documento.
+- `tests/`: unitarios, de integración y fixtures (unas 8.800 líneas).
+- `package.json`, `tsconfig*.json`, `vitest.config.ts`, `eslint.config.js`, `scripts/copy-assets.mjs`: Node ≥ 22.13, TypeScript `strict`, Vitest, lint con reglas de capas, `build` y `bin devflow`.
+- `docs/changes/`: 24 contratos (TK, GH y US-01 a US-03).
+
+#### 🧪 Pruebas y Verificación (Evidencia)
+
+- **Comandos Ejecutados:** `npm run typecheck`, `npm run lint`, `npm test`, `npm run test:coverage`, `npm run build`, `npm link` y `devflow config`, `devflow config proyectos` y `devflow start` a mano.
+- **Resultados:**
+  - 829 tests en 36 archivos en verde; TDD con RED antes de GREEN y mutaciones temporales en 12 de los 24 contratos.
+  - Cobertura de la Service Layer: 98,97 % de sentencias y 94,92 % de ramas (umbral del 80 %).
+  - Prueba de aceptación en Windows 11 con repositorios de prueba, Jira Cloud real en solo lectura y Ollama (`qwen2.5:3b`, solo CPU) en WSL: camino feliz, reutilización de la Fase 1, `--reprocesar`, `--base`, token inválido, Ollama apagado, rutas con espacios y cancelación.
+  - Los 22 criterios de aceptación de US-01 a US-03 tienen test.
+  - `/code-review` de `src/`: 10 hallazgos, ninguno bloqueante; tres pasaron a deuda (#49, #50 y #51).
+  - Video de demostración del flujo principal (configuración, `devflow start` con una historia y con un bug, y el documento generado): [https://youtu.be/i_tWna7VC9c](https://youtu.be/i_tWna7VC9c); ver también `README` §1.3.
+  - No probado: Windows 10.
+
+#### ✅ Checklist de Calidad (Definition of Done)
+
+- [x] Código compilable y libre de errores.
+- [x] Criterios de Aceptación verificados contra la especificación.
+- [x] Documentación/Specs actualizadas y alineadas con el código.
+- [x] Sin variables de entorno, claves ni tokens expuestos.
 
 **Pull Request 3**
 

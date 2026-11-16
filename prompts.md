@@ -780,6 +780,12 @@ Necesito generar una descripción completa, profesional y estructurada para la P
 
 **Prompt 2:**
 
+```text
+Necesito que leas: Prompts.md (7. Pull Requests Prompt:1), el archivo 007-pull-request.md y Readme (7. Pull Requests) y completa lo realizado en la 2da Entrega, en la rama entrega-2-ANR. Se conciso. Solo deja lo relevante respecto a la aplicación y completa los tres archivos en una rama de cierre-2da-entrega
+```
+
+Resultado: Claude Code usó la plantilla del Prompt 1 y la evidencia del repositorio y de GitHub (`git diff origin/main...HEAD`, `gh pr list`, `gh pr view`) para completar la PR 2 en `docs/007` y `README` §7.
+
 **Prompt 3:**
 
 

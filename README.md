@@ -234,6 +234,8 @@ Cada US, TK o issue de GitHub (`GH-nn`, con `nn` el número del issue) se desarr
 
 **Pull Request 2**
 
+**Entrega 2 — MVP de DevFlow CLI: `devflow config` y `devflow start` con Ollama local** (`feature/entrega-2-ANR` → `main`). Implementa el MVP especificado en la Entrega 1: base SQLite, cliente de Jira, Git Manager (flujo manual congelado), carpetas de evidencias fuera del repositorio, Fase 1 del documento con Ollama y fallback determinista, y la CLI instalable con `devflow`. 829 tests en verde, cobertura de la Service Layer del 98,97 %, prueba de aceptación en Windows 11 y [video de demostración](https://youtu.be/i_tWna7VC9c) del flujo principal. Detalle en [`docs/007-pull-requests.md`](docs/007-pull-requests.md).
+
 **Pull Request 3**
 
 ---

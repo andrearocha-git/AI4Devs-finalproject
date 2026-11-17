@@ -4,6 +4,15 @@ Para el armado de prompts se utilizó Gemini Notebook, comenzando por el armado 
 Los prompts principales son adjuntados en este documento. Adicionalmente, en `docs/LIDR/prompts-claude-fase-inicial.md` se encuentran las conversaciones completas utilizadas para las secciones: Descripción general del producto, Arquitectura del sistema y Modelo de datos. 
 
 
+## Herramientas y modelos
+
+| Herramienta | Modelo | Para qué se usó |
+|---|---|---|
+| **Gemini Notebook** | No se registró la versión | Armar y validar los prompts (empezando por el del PRD) y las *skills* de trabajo, antes de pasárselos a Claude Code |
+| **Claude Code** (CLI) | Claude Sonnet 5.5, según el trailer `Co-Authored-By` de los commits de la 2.ª y la 3.ª entrega | Agente ejecutor: documentación, código con TDD, verificación y commits (siempre con mi visto bueno) |
+| **Cursor** | No se registró el modelo de cada revisión | Revisor externo de cada PR, con la skill `pr-review`; distinto del agente que implementó, para que no se revise a sí mismo |
+| **Ollama** (local) | `qwen2.5:3b` | No es una herramienta de desarrollo: es el LLM que usa **la aplicación** en `devflow start` para redactar la Fase 1 del documento (nunca modelos en la nube) |
+
 📁 **Sobre la carpeta `docs/LIDR/`:** contiene todo lo relacionado con las entregas del curso (bitácoras, backlog de la 2.ª entrega y registro completo de prompts), **no** la funcionalidad ni la aplicación DevFlow CLI. La documentación del producto está en `docs/` (PRD, ADR y archivos numerados `001` a `009`).
 
 ## Índice
@@ -520,11 +529,27 @@ Verifica únicamente que:
 
 ### 4. Especificación de la API
 
-**Prompt 1:**
+La sección 4 solo tenía un párrafo y un `[A definir]`. Se completó en la 3.ª entrega (PR #57), en una rama aparte, a partir de estos prompts.
 
-**Prompt 2:**
+**Prompt 1: Preguntar si conviene especificar cómo consume Jira la aplicación.**
 
-**Prompt 3:**
+```text
+mientras cursor trabaja... lee el archivo 004. Seria conveniente especificar los servicios o como consume Jira la app?
+```
+
+Resultado: Claude Code leyó `docs/004` y el cliente real (`jira-rest-client.ts`) y propuso una tabla de endpoints, otra de errores y un párrafo de autenticación, avisando de que `README` §4 y `docs/004` se reflejan entre sí.
+
+**Prompt 2: Ampliar el alcance a Ollama.**
+
+```text
+hazlo con Ollama. Pero despues...
+```
+
+*(El mensaje seguía con la revisión de Cursor de otra PR, que se atendió primero.)*
+
+Resultado: `docs/004` quedó con 4.1 (Jira v2, solo lectura) y 4.2 (Ollama: `POST /api/generate` con el JSON Schema en `format`; `GET /api/tags` solo en el instalador).
+
+> **Nota:** el agente propuso Ollama solo como opcional y preguntó. Decidí incluirlo porque la sección se llama «Especificación de la API» y la aplicación consume dos APIs, no una. Después, la revisión de Cursor halló un dato que el agente había escrito mal: `/myself` también se usa para sugerir el sufijo de rama y para el nombre del desarrollador, no solo para interpretar un 404; se corrigió en un commit aparte.
 
 ---
 
@@ -786,7 +811,13 @@ Necesito que leas: Prompts.md (7. Pull Requests Prompt:1), el archivo 007-pull-r
 
 Resultado: Claude Code usó la plantilla del Prompt 1 y la evidencia del repositorio y de GitHub (`git diff origin/main...HEAD`, `gh pr list`, `gh pr view`) para completar la PR 2 en `docs/007` y `README` §7.
 
-**Prompt 3:**
+**Prompt 3: Completar la PR 3 (3.ª entrega) y limpiar las ramas.**
+
+```text
+empieza por la PR 3 y borra las ramas. si creas una rama crea una rama para documentacion final
+```
+
+Resultado: Claude Code borró las cinco ramas ya fusionadas, creó `feature/documentacion-final` y completó la PR 3 en `docs/007` y `README` §7 con el diff real (`git diff --stat`) y las PR de GitHub (#56 a #59). Al revisar sus propias cifras corrigió un dato antes de proponer el commit (cinco hallazgos de Cursor, no cuatro).
 
 
 ---

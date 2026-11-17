@@ -84,7 +84,14 @@ Los pasos se detallan en [`docs/009-flujo-funcional.md`](docs/009-flujo-funciona
 
 **Requisitos previos:** Node.js ≥ 22.13, Git (con acceso a `origin`), Ollama activo con el modelo `qwen2.5:3b` (`ollama pull qwen2.5:3b`), y el email de tu cuenta de Jira con un API Token clásico (id.atlassian.com).
 
-**Instalación:**
+**Instalación y actualización con un comando (recomendada):** `scripts/install.ps1` (Windows PowerShell 5.1 o PowerShell 7) comprueba Node.js, Git y Ollama, clona el repositorio en `%USERPROFILE%\DevFlowCLI\app`, compila y crea el comando `devflow`. Si ya está instalado, trae las novedades con `git pull --ff-only` y recompila; si el clon tiene cambios locales o su rama diverge de `origin`, se detiene sin tocar nada. Parámetros: `-Rama` (por defecto `final-project-ANR`, hasta que `main` tenga el código), `-Carpeta` y `-Repositorio`.
+
+```text
+Invoke-WebRequest https://raw.githubusercontent.com/andrearocha-git/AI4Devs-finalproject/final-project-ANR/scripts/install.ps1 -OutFile install.ps1
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+**Instalación manual (alternativa):**
 
 ```text
 git clone https://github.com/andrearocha-git/AI4Devs-finalproject.git
@@ -137,7 +144,7 @@ Los tests se escriben con **TDD** (Red → Green → Refactor) con Vitest, a par
 - **Integración** (`tests/integration/`): `ticket-flow.e2e.test.ts` (11 casos) recorre `devflow start` completo con Git, carpetas y SQLite reales; solo Jira y Ollama se simulan. `build-install.test.ts` compila a una carpeta temporal y ejecuta `devflow --help` como proceso hijo.
 - **Manual en Windows 11** (issue #20): recorrido con Jira real (solo lectura), repositorios de prueba y Ollama real, con 9 criterios. Sus hallazgos están en los issues #39 y #44; el segundo ya está corregido.
 
-Cada escenario se comprueba primero en RED. En 12 de los 24 contratos se comprueba además, tras el GREEN, con **mutaciones temporales**: se rompe el código a propósito y el test debe fallar. Resultado: 36 archivos y 829 tests en verde. La Service Layer (`src/services/**`) tiene un umbral de cobertura del 80 % (decidido en TK-02a, con `npm run test:coverage`) y hoy mide 98,97 % de sentencias, 94,92 % de ramas, 100 % de funciones y 99,69 % de líneas.
+Cada escenario se comprueba primero en RED. En 13 de los 25 contratos se comprueba además, tras el GREEN, con **mutaciones temporales**: se rompe el código a propósito y el test debe fallar. Resultado: 39 archivos y 858 tests en verde. La Service Layer (`src/services/**`) tiene un umbral de cobertura del 80 % (decidido en TK-02a, con `npm run test:coverage`) y hoy mide 98,97 % de sentencias, 94,92 % de ramas, 100 % de funciones y 99,69 % de líneas.
 
 *Evaluado y descartado:* Cucumber.js (duplicaría los escenarios de los contratos); Playwright, Cypress y Testing Library no aplican, porque el producto es solo CLI/TUI.
 
@@ -234,7 +241,7 @@ Cada US, TK o issue de GitHub (`GH-nn`, con `nn` el número del issue) se desarr
 
 **Pull Request 2**
 
-**Entrega 2 — MVP de DevFlow CLI: `devflow config` y `devflow start` con Ollama local** (`feature/entrega-2-ANR` → `main`). Implementa el MVP especificado en la Entrega 1: base SQLite, cliente de Jira, Git Manager (flujo manual congelado), carpetas de evidencias fuera del repositorio, Fase 1 del documento con Ollama y fallback determinista, y la CLI instalable con `devflow`. 829 tests en verde, cobertura de la Service Layer del 98,97 %, prueba de aceptación en Windows 11 y [video de demostración](https://youtu.be/i_tWna7VC9c) del flujo principal. Detalle en [`docs/007-pull-requests.md`](docs/007-pull-requests.md).
+**Entrega 2 — MVP de DevFlow CLI: `devflow config` y `devflow start` con Ollama local** (`feature/entrega-2-ANR` → `main`). Implementa el MVP especificado en la Entrega 1: base SQLite, cliente de Jira, Git Manager (flujo manual congelado), carpetas de evidencias fuera del repositorio, Fase 1 del documento con Ollama y fallback determinista, y la CLI instalable con `devflow`. 858 tests en verde, cobertura de la Service Layer del 98,97 %, prueba de aceptación en Windows 11 y [video de demostración](https://youtu.be/i_tWna7VC9c) del flujo principal. Detalle en [`docs/007-pull-requests.md`](docs/007-pull-requests.md).
 
 **Pull Request 3**
 

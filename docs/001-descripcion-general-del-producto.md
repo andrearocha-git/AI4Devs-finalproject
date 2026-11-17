@@ -41,12 +41,25 @@ Entorno de destino: **Windows 10/11**. El paquete es privado y no se publica en 
 
 **Requisitos previos**
 
-- **Node.js ≥ 22.13** (`node --version`). La herramienta no comprueba la versión al arrancar: la exigencia viene de `node:sqlite`, que no está disponible sin esa versión.
+- **Node.js ≥ 22.13** (`node --version`). La herramienta no comprueba la versión al arrancar: la exigencia viene de `node:sqlite`, que no está disponible sin esa versión. La comprueba el instalador (`scripts/install.ps1`).
 - **Git** en el `PATH`, con acceso al remoto `origin` de cada repositorio que vayas a configurar.
 - **Ollama** instalado y activo (por defecto en `http://localhost:11434`), con el modelo mínimo `qwen2.5:3b`: `ollama pull qwen2.5:3b`. Solo con CPU, generar la Fase 1 de un ticket tarda entre 30 y 105 s; en equipos de 8 GB con varios IDEs abiertos puede ir más lento. Si Ollama no responde a tiempo, la herramienta no se detiene: genera el documento sin IA y lo avisa con `⚠️`.
 - El **email** de tu cuenta de Jira y un **API Token** clásico (se crea en id.atlassian.com; un token *with scopes* no funciona contra `*.atlassian.net`).
 
-**Instalación**
+**Instalación y actualización con un comando (recomendada)**
+
+`scripts/install.ps1` (Windows PowerShell 5.1 o PowerShell 7) hace todo lo de abajo por ti y avisa de lo que falte:
+
+1. Comprueba Node.js ≥ 22.13 y Git; si falta alguno, lo dice y se detiene sin tocar nada. Si Ollama está apagado o no tiene `qwen2.5:3b`, solo avisa (con `ollama pull qwen2.5:3b`).
+2. Si no hay instalación, clona la rama `-Rama` (por defecto `final-project-ANR`, hasta que `main` tenga el código) en `-Carpeta` (por defecto `%USERPROFILE%\DevFlowCLI\app`), y ejecuta `npm install`, `npm run build` y `npm link`; después comprueba `devflow --help`.
+3. Si ya hay instalación, compara con `origin`: si no hay novedades y la instalación está completa, no cambia nada; si las hay, hace `git pull --ff-only`, `npm install`, `npm run build` y `npm link` y muestra la versión nueva. Si el clon está al día pero no tiene la marca de instalación completa (`dist/.instalacion-completa`, que el instalador escribe al terminar sin error: una instalación a mano, una hecha con una versión anterior del script o una que falló a medias), lo recompila y lo enlaza. Si el clon tiene cambios locales sin guardar o su rama diverge de `origin`, se detiene sin tocar nada.
+
+```text
+Invoke-WebRequest https://raw.githubusercontent.com/andrearocha-git/AI4Devs-finalproject/final-project-ANR/scripts/install.ps1 -OutFile install.ps1
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+**Instalación manual (alternativa)**
 
 ```text
 git clone https://github.com/andrearocha-git/AI4Devs-finalproject.git
@@ -75,7 +88,7 @@ devflow --help
 
 **Actualizar**
 
-`git pull`, `npm install` y `npm run build`; el comando enlazado usa el nuevo `dist/`.
+Vuelve a ejecutar `scripts/install.ps1`: si hay novedades en `origin`, hace `git pull --ff-only`, `npm install`, `npm run build` y `npm link`, y el comando enlazado usa el nuevo `dist/`. Si una instalación o actualización falló a medias, volver a ejecutarlo la completa. A mano: `git pull`, `npm install` y `npm run build`.
 
 **Si algo falla**
 

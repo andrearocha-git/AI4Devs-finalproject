@@ -17,10 +17,10 @@ describe("GH-24 · E1 — el backlog refleja el Hito 3 hecho", () => {
   const row = (prefix: string): string => lines.find((line) => line.startsWith(prefix)) ?? "";
   const estado = row("Estado:");
 
-  it("la línea «Estado» da la suite actual: 36 archivos y 829 tests, no 731", () => {
+  it("la línea «Estado» da la suite actual: 39 archivos y 858 tests, no 731", () => {
     expect(estado).not.toBe("");
-    expect(estado).toContain("36 archivos");
-    expect(estado).toContain("829 tests");
+    expect(estado).toContain("39 archivos");
+    expect(estado).toContain("858 tests");
     expect(estado).not.toContain("731 tests");
   });
 
@@ -108,8 +108,8 @@ describe("GH-24 · E3 — el README da la cifra de tests actual", () => {
     expect(Number(dicho?.[1])).toBe(archivosDeTest);
   });
 
-  it("dice 829 tests en verde, no los 793 anteriores", () => {
-    expect(seccion).toContain("829 tests en verde");
+  it("dice 858 tests en verde, no los 793 anteriores", () => {
+    expect(seccion).toContain("858 tests en verde");
     expect(seccion).not.toContain("793 tests");
   });
 

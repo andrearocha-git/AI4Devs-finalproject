@@ -166,7 +166,7 @@ Atributos, tipos, restricciones (`CHECK`, `UNIQUE`, `FOREIGN KEY`) y DDL complet
 
 ## 4. Especificación de la API
 
-Detalle completo en [`docs/004-especificacion-de-la-api.md`](docs/004-especificacion-de-la-api.md). En resumen: DevFlow CLI no expone una API propia en el MVP — es una herramienta CLI/TUI sin interfaz web (ver Non-Goals del PRD). Sus integraciones por API son como **consumidora** de dos servicios: la API REST v2 de Jira Cloud (solo lectura: ticket, validación de proyectos, tickets abiertos y `/myself` para interpretar un 404) para extraer el contexto de los tickets, y la API local de Ollama (`POST /api/generate` con el JSON Schema en `format`) para redactar la Fase 1 del documento. El detalle de endpoints, autenticación y errores está en `docs/004`.
+Detalle completo en [`docs/004-especificacion-de-la-api.md`](docs/004-especificacion-de-la-api.md). En resumen: DevFlow CLI no expone una API propia en el MVP — es una herramienta CLI/TUI sin interfaz web (ver Non-Goals del PRD). Sus integraciones por API son como **consumidora** de dos servicios: la API REST v2 de Jira Cloud (solo lectura: ticket, validación de proyectos, tickets abiertos y `/myself`, para el nombre del desarrollador y para interpretar un 404) para extraer el contexto de los tickets, y la API local de Ollama (`POST /api/generate` con el JSON Schema en `format`) para redactar la Fase 1 del documento. El detalle de endpoints, autenticación y errores está en `docs/004`.
 
 ---
 

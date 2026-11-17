@@ -26,7 +26,7 @@ Ambos se llaman **directamente por HTTP** con el `fetch` de Node, sin MCP Server
 | 1 | `GET /rest/api/2/issue/{id}?fields=summary,description,issuetype` | `devflow start [ID]`, para obtener el ticket | `fields.summary` → título; `fields.description` → descripción (`""` si viene vacía o `null`); `fields.issuetype.name` → tipo de issue (decide la plantilla y el prefijo de rama) |
 | 2 | `GET /rest/api/2/project/{key}` | `devflow config proyectos`, al dar de alta una clave | `key` y `name` del proyecto (se guarda el nombre en `jira_projects`). Es necesario porque la JQL ignora sin error las claves que no existen |
 | 3 | `GET /rest/api/2/search/jql?jql=…&fields=summary,issuetype&maxResults=50` | `devflow start` sin ID, para elegir un ticket de una lista | `key`, `fields.summary` y `fields.issuetype.name` de hasta 50 tickets, sin paginación en el MVP |
-| 4 | `GET /rest/api/2/myself` | Solo para **interpretar un 404** (ver abajo) | Nada del cuerpo; solo importa el código de estado |
+| 4 | `GET /rest/api/2/myself` | (a) En `devflow config`, para sugerir el sufijo de rama; (b) en `devflow start`, si el ticket vino de Jira, para poner el nombre en el encabezado del documento; (c) para **interpretar un 404** (ver abajo) | `displayName` en (a) y (b): del nombre se sugiere el sufijo (inicial y apellido) y se escribe como «desarrollador» en el documento; si la llamada falla en (b), el flujo sigue sin ese dato. En (c) no se lee el cuerpo: solo importa el código de estado |
 
 **JQL del endpoint 3** (fija, no la escribe el usuario):
 

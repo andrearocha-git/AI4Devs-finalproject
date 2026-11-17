@@ -258,6 +258,8 @@ Cada US, TK o issue de GitHub (`GH-nn`, con `nn` el número del issue) se desarr
 
 **Pull Request 3**
 
+**Entrega 3 — Instalador para Windows, especificación de la API consumida y guía de verificación** (`final-project-ANR` → `main`). Un solo comando, `scripts/install.ps1`, instala o actualiza DevFlow CLI en Windows sin pisar trabajo local (probado en Windows 11 con PowerShell 5.1, 7 y `cmd`); `docs/004` especifica los endpoints de Jira y de Ollama que la herramienta consume; y §1.4 explica cómo verificar el trabajo sin credenciales o con un Jira propio. 858 tests en verde, sin cambios en `src/`, y cinco hallazgos de la revisión externa corregidos antes de fusionar. Detalle en [`docs/007-pull-requests.md`](docs/007-pull-requests.md).
+
 ---
 
 > Registro de los prompts utilizados durante el desarrollo con asistencia de IA: [`prompts.md`](prompts.md) (resumen ejecutivo, un prompt por sección) y [`docs/LIDR/prompts-claude-fase-inicial.md`](docs/LIDR/prompts-claude-fase-inicial.md) (registro completo, verbatim).

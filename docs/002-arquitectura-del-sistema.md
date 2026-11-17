@@ -128,7 +128,7 @@ sequenceDiagram
             end
             GITM-->>ORCH: Ok(la rama ya existe en local: sí | no)
         end
-        ORCH->>TUI: ask(confirmActions, resumen: rama, base, carpeta, si la rama ya existe; si existe, consulta si se usa la misma)
+        ORCH->>TUI: ask(confirmActions, resumen: rama, base, carpeta, si la rama ya existe, consulta si se usa la misma)
         TUI->>Dev: ¿Continuar? (muestra rama, base y carpeta)
         Dev-->>TUI: sí | no
         TUI-->>ORCH: confirmación
@@ -238,7 +238,7 @@ Antes de iniciar la implementación (TK-01, TK-02, TK-03), se audita aquí la vi
 
 **2. Requisitos Previos del Entorno Windows**
 
-- Node.js ≥ 22.13 (requerido por `node:sqlite`); la herramienta comprueba la versión al arrancar.
+- Node.js ≥ 22.13 (requerido por `node:sqlite`); la versión la comprueba el instalador (`scripts/install.ps1`), no la aplicación al arrancar.
 - Git instalado y disponible en el `PATH` del sistema, con acceso al remoto `origin` de cada repositorio configurado (el pull de la rama base lo necesita).
 - Ollama instalado localmente, con el servicio activo en el puerto configurado (`ollama_host`, por defecto **11434**) y al menos un modelo descargado (`ollama_model`, mínimo `qwen2.5:3b`).
 - Conectividad de red hacia la instancia de Jira del equipo (`jira_base_url`), sin requerimientos de proxy/VPN más allá de los que el desarrollador ya usa para acceder a Jira desde el navegador.
@@ -380,14 +380,14 @@ Las integraciones, los protocolos y los fallbacks de cada una están en §2.2.1;
 
 **Proceso de despliegue (instalación desde un clon)**
 
-El paquete es privado y no se publica en npm.
+El paquete es privado y no se publica en npm. `scripts/install.ps1` automatiza los pasos de abajo: comprueba Node.js ≥ 22.13, Git y Ollama (solo avisa si falta Ollama o el modelo), clona la rama indicada, compila y enlaza `devflow`; si ya hay instalación, compara con `origin` y actualiza con `git pull --ff-only`, y se detiene sin tocar nada si el clon tiene cambios locales o su rama diverge. A mano:
 
 1. `git clone` del repositorio y `npm install`.
 2. `npm run build`: `tsc -p tsconfig.build.json` emite `src/` a `dist/` y `scripts/copy-assets.mjs` copia las migraciones SQL a `dist/database/migrations/`. `dist/` está en `.gitignore`.
 3. `npm link` (o `npm install -g .`): crea el comando global `devflow`, cuyo `bin` apunta a `dist/tui/cli.js`. `templates/` y `package.json` no se copian a `dist/`: la herramienta los lee por rutas relativas, y por eso `dist/` conserva la misma profundidad que `src/`.
 4. `devflow --help` para comprobar la instalación; después `devflow config`, `devflow config proyectos` y `devflow start [ID]`.
 
-Para **actualizar**: `git pull`, `npm install` y `npm run build`; el comando enlazado usa el nuevo `dist/`. El detalle paso a paso, con los datos locales y la solución de problemas, está en [`001` §1.4](001-descripcion-general-del-producto.md#14-instrucciones-de-instalación).
+Para **actualizar**: volver a ejecutar `scripts/install.ps1`, o a mano `git pull`, `npm install` y `npm run build`; el comando enlazado usa el nuevo `dist/`. El detalle paso a paso, con los datos locales y la solución de problemas, está en [`001` §1.4](001-descripcion-general-del-producto.md#14-instrucciones-de-instalación).
 
 **Cómo se comprueba que el despliegue funciona**
 
@@ -397,7 +397,7 @@ Para **actualizar**: `git pull`, `npm install` y `npm run build`; el comando enl
 **Lo que no hay en esta entrega**
 
 - **Sin CI/CD:** no hay pipeline ni workflows de GitHub Actions. Las comprobaciones (`typecheck`, `lint` y `npm test`) se ejecutan a mano, y la suite completa corre en unos 11 s.
-- **Sin ejecutable empaquetado ni publicación:** no hay `.exe`, ni *release* de GitHub, ni paquete en npm; el usuario compila desde el clon.
+- **Sin ejecutable empaquetado ni publicación:** no hay `.exe`, ni *release* de GitHub, ni paquete en npm; el usuario instala desde un clon, con `scripts/install.ps1` o a mano.
 - **Sin entornos separados:** no hay *staging* ni producción. Cada desarrollador tiene su propia instancia local, con su base y su configuración.
 
 ### **2.5. Seguridad**

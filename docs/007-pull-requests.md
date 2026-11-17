@@ -99,7 +99,7 @@
 
 - **Comandos Ejecutados:** `npm run typecheck`, `npm run lint`, `npm test`, `npm run test:coverage`, `npm run build`, `npm link` y `devflow config`, `devflow config proyectos` y `devflow start` a mano.
 - **Resultados:**
-  - 829 tests en 36 archivos en verde; TDD con RED antes de GREEN y mutaciones temporales en 12 de los 24 contratos.
+  - 856 tests en 39 archivos en verde; TDD con RED antes de GREEN y mutaciones temporales en 12 de los 24 contratos.
   - Cobertura de la Service Layer: 98,97 % de sentencias y 94,92 % de ramas (umbral del 80 %).
   - Prueba de aceptación en Windows 11 con repositorios de prueba, Jira Cloud real en solo lectura y Ollama (`qwen2.5:3b`, solo CPU) en WSL: camino feliz, reutilización de la Fase 1, `--reprocesar`, `--base`, token inválido, Ollama apagado, rutas con espacios y cancelación.
   - Los 22 criterios de aceptación de US-01 a US-03 tienen test.

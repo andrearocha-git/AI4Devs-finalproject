@@ -116,4 +116,55 @@
 
 **Pull Request 3**
 
-[A definir]
+### 🚀 Pull Request: Entrega 3 — Instalador para Windows, especificación de la API consumida y guía de verificación
+
+- **Rama:** `final-project-ANR` → `main` (el trabajo se integró en cuatro PR parciales hacia `final-project-ANR`: #56, #57, #58 y #59)
+
+#### 📌 Resumen Ejecutivo
+
+- **Propósito:** Cierra el producto para entregarlo a quien no es la autora. Un solo comando (`scripts/install.ps1`) instala o actualiza DevFlow CLI en Windows sin pisar trabajo local; la sección 4 deja de ser un párrafo y especifica las dos APIs que la herramienta consume (Jira Cloud v2 y Ollama); y el README explica cómo verificar el trabajo sin credenciales o con un Jira propio.
+- **Historias de Usuario / Tickets Relacionados:** GH-55 (issue #55, instalador). Sin código nuevo en `src/`: la aplicación no cambia.
+
+#### 🛠️ Cambios Generados por Capa
+
+- **🗄️ Base de Datos / Persistencia:** N/A (sin cambios).
+- **⚙️ Backend / Servicios:** N/A en `src/`. El instalador es un script de PowerShell (5.1 y 7), `scripts/install.ps1`:
+  - Comprueba Node ≥ 22.13 y Git (bloquean) y Ollama con `qwen2.5:3b` (solo avisa).
+  - Sin instalación previa: clona, `npm install`, `npm run build`, `npm link` y `devflow --help`.
+  - Con instalación previa: compara con `origin`; si está al día no cambia nada, y si hay novedades hace `git pull --ff-only`, recompila y vuelve a enlazar con `npm link`.
+  - Se detiene sin tocar nada si el clon tiene cambios locales o su rama diverge de `origin`.
+  - Un clon al día pero sin la marca `dist/.instalacion-completa` (una compilación o un `npm link` que fallaron a medias, o una instalación manual) se completa; `Restore-LockfileTrasNpm` evita que el `package-lock.json` que reescribe `npm` bloquee la siguiente ejecución.
+- **🖥️ Frontend / TUI:** N/A (sin cambios).
+- **📄 Documentación / Specs:**
+  - `docs/004`: endpoints de Jira (`issue`, `project`, `search/jql` y `myself`), JQL fija, regla del 404, clasificación de errores y reintentos; y de Ollama (`POST /api/generate` con el JSON Schema en `format`, `GET /api/tags` solo en el instalador).
+  - README §1.4 y `docs/001`: instalación y actualización con un comando, y «Cómo verificarlo» (suite automática sin credenciales y recorrido manual con un Jira propio).
+  - `docs/002`: la comprobación de la versión de Node se atribuye al instalador, y se corrige el diagrama de secuencia E2E, que Mermaid no podía renderizar por un `;` dentro de un mensaje.
+  - `docs/009`, `CLAUDE.md`, el backlog y el contrato `docs/changes/GH-55.md`, con las decisiones y los desvíos.
+
+#### 📂 Lista de Archivos Creados y Modificados
+
+- `scripts/install.ps1`: creado (UTF-8 con BOM, necesario para las tildes en Windows PowerShell 5.1).
+- `tests/unit/scripts/`: `ps-helper.ts`, `install-ps1.requisitos.test.ts` e `install-ps1.estado.test.ts`: creados; ejecutan el script con repositorios Git temporales.
+- `tests/unit/docs/instalador-docs.test.ts`: creado; coherencia de la documentación con el instalador.
+- `tests/unit/docs/cierre-hito-3.test.ts`: modificado; cifras de la suite.
+- `docs/changes/GH-55.md`: creado; contrato con 3 escenarios y el registro de decisiones.
+- `docs/004-especificacion-de-la-api.md`, `docs/001-…`, `docs/002-…`, `docs/007-…`, `docs/009-…`, `docs/LIDR/backlog-2da-entrega.md`, `README.md` y `CLAUDE.md`: modificados.
+- En total, 15 archivos entre las cuatro PR parciales (unas 1.050 líneas añadidas); ninguno bajo `src/`, `templates/` ni la configuración del proyecto.
+
+#### 🧪 Pruebas y Verificación (Evidencia)
+
+- **Comandos Ejecutados:** `npm run typecheck`, `npm run lint` y `npm test`; el instalador a mano en Windows 11; `/05-verificar-y-revisar GH-55`; revisión externa de cada PR con Cursor.
+- **Resultados:**
+  - La suite pasa de 36 archivos y 829 tests a **39 archivos y 858 tests** en verde (el instalador aporta 29 con TDD, y con mutaciones temporales en el contrato de GH-55).
+  - Prueba manual en Windows 11 (build 10.0.26200): requisitos con `PATH` recortado, instalación nueva con Windows PowerShell 5.1 y con PowerShell 7, «ya está al día», actualización con novedades, cambios locales y rama divergida (se detiene con código 1 sin tocar nada), ejecución desde `cmd`, instalación con los valores por defecto desde GitHub y descarga del script con `Invoke-WebRequest`.
+  - La prueba halló un fallo que los tests no veían: `npm install` reescribe `package-lock.json` y la segunda ejecución se detenía por «cambios locales». Corregido.
+  - Cursor revisó las PR #56 y #57 y encontró cinco hallazgos: dos de severidad media (el reintento tras una compilación o un `npm link` fallidos, en dos rondas) y tres bajos (una cifra de mutaciones desactualizada, `docs/001` con el comportamiento anterior y un uso de `/myself` sin documentar). Los cinco se corrigieron antes de fusionar.
+  - Los textos de `docs/004` se contrastaron con `jira-rest-client.ts` y `ollama-ai-transformer.ts`.
+  - No probado: Windows 10, y el fallo real de `copy-assets` o de `npm link` (solo con tests de la decisión).
+
+#### ✅ Checklist de Calidad (Definition of Done)
+
+- [x] Código compilable y libre de errores.
+- [x] Criterios de Aceptación verificados contra la especificación (los 7 del issue #55).
+- [x] Documentación/Specs actualizadas y alineadas con el código.
+- [x] Sin variables de entorno, claves ni tokens expuestos.

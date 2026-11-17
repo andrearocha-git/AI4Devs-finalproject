@@ -84,7 +84,7 @@ Los pasos se detallan en [`docs/009-flujo-funcional.md`](docs/009-flujo-funciona
 
 **Requisitos previos:** Node.js ≥ 22.13, Git (con acceso a `origin`), Ollama activo con el modelo `qwen2.5:3b` (`ollama pull qwen2.5:3b`), y el email de tu cuenta de Jira con un API Token clásico (id.atlassian.com).
 
-**Instalación y actualización con un comando (recomendada):** `scripts/install.ps1` (Windows PowerShell 5.1 o PowerShell 7) comprueba Node.js, Git y Ollama, clona el repositorio en `%USERPROFILE%\DevFlowCLI\app`, compila y crea el comando `devflow`. Si ya está instalado, trae las novedades con `git pull --ff-only` y recompila; si el clon tiene cambios locales o su rama diverge de `origin`, se detiene sin tocar nada. Parámetros: `-Rama` (por defecto `final-project-ANR`, hasta que `main` tenga el código), `-Carpeta` y `-Repositorio`.
+**Instalación y actualización con un comando (recomendada):** `scripts/install.ps1` (Windows PowerShell 5.1 o PowerShell 7) comprueba Node.js, Git y Ollama, clona el repositorio en `%USERPROFILE%\DevFlowCLI\app`, compila y crea el comando `devflow`. Si ya está instalado, trae las novedades con `git pull --ff-only`, recompila y vuelve a enlazar con `npm link`; si el clon tiene cambios locales o su rama diverge de `origin`, se detiene sin tocar nada. Parámetros: `-Rama` (por defecto `final-project-ANR`, hasta que `main` tenga el código), `-Carpeta` y `-Repositorio`.
 
 ```text
 Invoke-WebRequest https://raw.githubusercontent.com/andrearocha-git/AI4Devs-finalproject/final-project-ANR/scripts/install.ps1 -OutFile install.ps1
@@ -257,6 +257,8 @@ Cada US, TK o issue de GitHub (`GH-nn`, con `nn` el número del issue) se desarr
 **Entrega 2 — MVP de DevFlow CLI: `devflow config` y `devflow start` con Ollama local** (`feature/entrega-2-ANR` → `main`). Implementa el MVP especificado en la Entrega 1: base SQLite, cliente de Jira, Git Manager (flujo manual congelado), carpetas de evidencias fuera del repositorio, Fase 1 del documento con Ollama y fallback determinista, y la CLI instalable con `devflow`. 858 tests en verde, cobertura de la Service Layer del 98,97 %, prueba de aceptación en Windows 11 y [video de demostración](https://youtu.be/i_tWna7VC9c) del flujo principal. Detalle en [`docs/007-pull-requests.md`](docs/007-pull-requests.md).
 
 **Pull Request 3**
+
+**Entrega 3 — Instalador para Windows, especificación de la API consumida y guía de verificación** (`final-project-ANR` → `main`). Un solo comando, `scripts/install.ps1`, instala o actualiza DevFlow CLI en Windows sin pisar trabajo local (probado en Windows 11 con PowerShell 5.1, 7 y `cmd`); `docs/004` especifica los endpoints de Jira y de Ollama que la herramienta consume; y §1.4 explica cómo verificar el trabajo sin credenciales o con un Jira propio. 858 tests en verde, sin cambios en `src/`, y cinco hallazgos de la revisión externa corregidos antes de fusionar. Detalle en [`docs/007-pull-requests.md`](docs/007-pull-requests.md).
 
 ---
 

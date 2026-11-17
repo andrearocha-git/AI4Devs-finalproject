@@ -1,0 +1,95 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "presenteEnTicket",
+    "resumen",
+    "pasosParaReproducir",
+    "comportamientoEsperado",
+    "comportamientoActual",
+    "entorno",
+    "escenarios",
+    "preguntasAbiertas"
+  ],
+  "properties": {
+    "presenteEnTicket": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pasosParaReproducir",
+        "comportamientoEsperado",
+        "comportamientoActual",
+        "entorno",
+        "escenarios"
+      ],
+      "properties": {
+        "pasosParaReproducir": {
+          "type": "boolean"
+        },
+        "comportamientoEsperado": {
+          "type": "boolean"
+        },
+        "comportamientoActual": {
+          "type": "boolean"
+        },
+        "entorno": {
+          "type": "boolean"
+        },
+        "escenarios": {
+          "type": "boolean"
+        }
+      }
+    },
+    "resumen": {
+      "type": "string"
+    },
+    "pasosParaReproducir": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "comportamientoEsperado": {
+      "type": "string"
+    },
+    "comportamientoActual": {
+      "type": "string"
+    },
+    "entorno": {
+      "type": "string"
+    },
+    "escenarios": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "titulo",
+          "given",
+          "when",
+          "then"
+        ],
+        "properties": {
+          "titulo": {
+            "type": "string"
+          },
+          "given": {
+            "type": "string"
+          },
+          "when": {
+            "type": "string"
+          },
+          "then": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "preguntasAbiertas": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

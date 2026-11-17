@@ -1,0 +1,81 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## What this repository is
+
+This repo is the AI4Devs (LIDR) final-project deliverable for **DevFlow CLI** — a planned CLI/TUI tool for Windows 10/11 that eliminates context-switching when a developer starts a Jira ticket: it queries Jira, creates a standardized Git branch, creates a local ticket folder outside the repo, and uses a local LLM (Ollama) to draft the first sections of a Markdown dev document.
+
+**Application code is being built ticket by ticket.** The repo holds the product/architecture documentation, the project scaffold from TK-00 (`package.json`, `tsconfig.json`, Vitest, ESLint — see "Build / test commands") and, so far, the Storage Layer from TK-01 (`src/database/`, `src/shared/types/`). Do not assume any other module under `src/` exists until it is actually created (check the tree before trusting a path in the docs).
+
+## Documentation layout
+
+`README.md` (repo root, single canonical file — the old lowercase `readme.md` was merged into it and deleted, since having both on a case-insensitive filesystem like Windows risks a checkout collision) carries the course's fixed-skeleton deliverable structure (sections 0-7, Spanish, `>` blockquotes are the grader's instructions where still unanswered) as its body, with a short product tagline up top. Heavy sections (2, 3, 5, 6) are kept short in `README.md` and link out to `docs/` instead of duplicating content, to avoid the two drifting apart:
+
+- `docs/PRD.md` — product spec (scope, non-goals, measurable success criteria).
+- `docs/ADR-001-arquitectura-inicial.md` — the architecture decision log (MADR-style). Contains §0 (evaluation of the 3-layer pattern) plus ADR-001.1 through ADR-005.1 and ADR-007.1 (Git Manager scope change); the stack decision is ADR-006.1 in `docs/008-evaluacion-stack-tecnologico.md` (Accepted).
+- `docs/001-descripcion-general-del-producto.md` … `docs/007-pull-requests.md` (plus `docs/008-evaluacion-stack-tecnologico.md`) — one file per `README.md` section (1 through 7), kept in sync with the PRD/ADR content. **File names have no accents** (`descripcion`, not `descripción`) — an explicit repo convention; don't reintroduce them when creating new files in this numbered series. Section 0 (Ficha del proyecto) has no separate `docs/000-*.md` file — its content lives only in `README.md` §0, since it was short enough not to need a dedicated file.
+- `docs/009-flujo-funcional.md` — living document of the end-to-end functional flow (install → ticket → Git/folders → Ollama → Fase 2 + `ticket_logs`), with a per-step status (`Especificado` / `En desarrollo` / `Implementado`) and the open gaps H-01…H-06 cross-referenced to US/TK. Not tied to a `README.md` section (deliberately not linked from it). Update it whenever a step is implemented or a gap is resolved, and keep it in sync with `docs/002-*.md` and `docs/005-*.md`/`docs/006-*.md`.
+- `docs/changes/<ID>.md` — one lightweight "spec contract" per US/TK or GitHub issue (e.g. `docs/changes/TK-01.md`, or `docs/changes/GH-17.md` for issue #17; for `GH-nn` the source of the acceptance criteria is the issue body, read with `gh issue view`), created by `/03-refinar-historia` **before** any code and read by `/04-tdd-pair` and `/05-verificar-y-revisar`. Holds the BDD scenarios traced to the source acceptance criteria, affected files, tasks and a status (`Borrador` → `Aprobado` → `En implementación` → `Implementado`). `/04-tdd-pair` refuses to start without an approved contract and only touches its status, task checkboxes, traceability table and "Decisiones y desvíos". **Every scenario needs a test:** the traceability table's Test column holds a test path or `Sin test: <motivo>` (status `Hecho sin test`), the latter only with the developer's approval and a note in "Decisiones y desvíos"; `/05-verificar-y-revisar` fails an undeclared missing test and reports declared ones as observations. The folder does not exist until the first contract is written; these are working documents, not tied to a `README.md` section.
+- `docs/LIDR/` — course-deliverable documents of the developer's branch (**ANR**, not the DevFlow CLI app): `bitacoras.md`, `prompts-claude-fase-inicial.md` and `backlog-2da-entrega.md`. Not part of the product docs.
+- `prompts.md` (repo root) — executive summary of the prompts used, one per course section, mirroring `README.md`'s own section anchors (`#1-...`) in its index — not links to `docs/` files.
+- `docs/LIDR/prompts-claude-fase-inicial.md` — verbatim log of the prompts used to build the docs above.
+
+When a PRD/ADR decision changes something described in `docs/001-*.md` or `docs/002-*.md`, update those files too, **and** the corresponding short summary in `README.md` — they're meant to mirror each other, not drift.
+
+## Architecture already decided (see ADR-001 for full rationale)
+
+The tool follows a **3-layer pattern**: TUI Layer → Service Layer (an *orchestrator of independent steps*, not one monolithic method) → Storage Layer. Key decisions already locked in, all cross-referenced from `docs/002-arquitectura-del-sistema.md` §2.2:
+
+- **CLI/TUI only** — no GUI, no web/Electron, no OAuth-with-browser flow anywhere (Jira auth is API Token/PAT). (ADR-001.1)
+- **SQLite embedded** (`node:sqlite`) for config + ticket history (`app_config`, `jira_projects`, `repositories`, `ticket_logs` — schema in `docs/003-modelo-de-datos.md`), not flat files. Only the Orchestrator writes `ticket_logs`; no other component touches SQLite directly. (ADR-002.1)
+- **Ollama local LLM with deterministic fallback** — never OpenAI/Anthropic cloud APIs, for privacy and cost reasons. Ollama must return structured JSON (the type's JSON Schema passed in `format`, validated with Ajv) before rendering to Markdown; anything that fails validation (including any code snippet) falls back to raw unstructured text, never blocking the flow. (ADR-003.1)
+- **Evidence folders stay local, outside the project's Git repo entirely** — `<tickets_root>/ID/<repo>/adjuntos/` and the generated Markdown doc live under the developer's Windows user profile, never inside the tracked repository. (ADR-004.1)
+- **Jira REST API is called directly** (Jira Cloud API v2, Basic email + API Token) — no MCP Server (e.g. Atlassian Rovo MCP) intermediary, to avoid OAuth/browser flows and keep token/latency budget under the tool's own control. (ADR-005.1)
+- **Git Manager's scope (changed decision — see ADR-007.1):** it verifies the repo exists, runs `git status --porcelain` and stops listing the files if there are pending changes, if the branch already exists locally informs, the Orchestrator asks to confirm using it and it continues (if it exists only on `origin` it stops with `RamaExistenteEnRemoto`; it never creates or publishes remote branches), updates the base branch (`git switch <base>` if not on it, then `git pull --no-rebase --ff-only origin <base>`; names starting with `refs/` are rejected and an in-progress merge/rebase/cherry-pick/revert counts as pending changes), then creates the branch with `git switch -c <branch> <base>`. A failed pull is a blocking error (never branch from a stale base). It **never commits, adds or pushes**. Base branch is per repository (default `main`), with a one-off `--base` override. (The original minimal scope — only repo/branch existence checks, no status, no pull — is superseded.)
+- **Result contract** used by every orchestrated step: `Ok | FallbackManual | FallbackDeterminista | ErrorBloqueante`.
+
+## Reglas de implementación
+
+Restricciones técnicas ya decididas (ADR-006.1 aceptado, ADR-003.1, ADR-007.1) que toda sesión de código debe respetar:
+
+- Stack: Node.js ≥ 22.13 + TypeScript `strict`; `node:sqlite` (sin compilación nativa); Commander + `@inquirer/prompts` + un spinner simple; Handlebars; Ajv; Vitest + msw. **Sin Ink** (compite con inquirer por stdin) y **sin Zod**: el JSON Schema es la fuente de verdad.
+- Jira Cloud API **v2** (descripción en texto plano), auth Basic email + token. Ante un 404 en `/issue` o `/project`, llamar a `/myself`: 401 = token inválido, 200 = no existe. Validar las claves de proyecto con `GET /rest/api/2/project/{key}` al darlas de alta (la JQL ignora claves inexistentes sin error).
+- **Un repositorio por ejecución**; un documento (y su `adjuntos/`) por ticket y repositorio; la Fase 1 de Ollama se genera una vez por ticket y se reutiliza (`ollama_status = 'reused'`). Clave sin repositorios: solo documento, sin rama.
+- Ramas: `<prefijo>/<ID>-<SUFIJO>` (`features/` o `bugs/` según el tipo de issue). Épica/Epic: bloqueada con aviso (sin rama ni documento). Bug/Error/Defecto → plantilla `bug`; el resto → plantilla `historia`.
+- Git Manager: la secuencia de ADR-007.1; nunca commit, add ni push. **El flujo es el manual de la desarrolladora y está congelado:** `git status`, ir a la base (`git switch <base>` si no está en ella), `git pull --no-rebase --ff-only origin <base>` y `git switch -c <rama> <base>`. No se añaden ni reordenan comandos, no se reintroduce `fetch` ni se usan refspecs, tags o refs completas. Un test de `tests/unit/services/git/git-manager.test.ts` («Contrato del flujo») fija la secuencia exacta; si falla, no se «arregla» el test: cualquier cambio de flujo requiere autorización expresa de la desarrolladora y se anota en «Decisiones y desvíos» de `docs/changes/TK-02c.md`.
+- Ollama: modelo mínimo `qwen2.5:3b` (el 1.5b está descartado), `ollama_timeout_seconds` = 120, streaming y `keep_alive` corto. El primer campo del schema es `presenteEnTicket`, seguido del posprocesado determinista (`siFalta`, `verificarLiterales`).
+- Prompts, schemas y plantillas son archivos versionados en `./templates/` (no configuración del usuario); registrar `prompt_version` en `ticket_logs`.
+- `ticket_logs`: una fila por `(ticket_id, repository_id)` con *upsert*; `UNIQUE` no deduplica `repository_id = NULL`, ese caso se trata aparte.
+- Solo el Orquestador escribe `ticket_logs`; solo `SQLiteStorageManager` importa `node:sqlite`; la TUI solo habla con el Orquestador.
+
+## Conventions
+
+- **Application code, when it exists, goes at the repo root** (`src/`, `tests/`, `package.json`), alongside `docs/` — there is no separate `finalproject-<INITIALS>/` folder. Lint and typecheck must exclude `docs/` and `.claude/`; `.gitignore` must **not** (both folders are versioned).
+- **Branches:** `feature/entrega-<N>-<INITIALS>`, one per course deliverable. PRs target `main`.
+- Docs are Spanish; match that when editing them. Commit messages in this repo's history are mostly Spanish/informal.
+- **Code documentation:** every public export in `src/` (classes, public methods, exported functions and types) carries **TSDoc in Spanish** (`/** … */`) with `@param`, `@returns` and `@throws` where they apply, stating the non-obvious behavior (what it returns on "not found", when it throws, side effects) rather than restating the name. Private helpers only need a comment when the *why* is not obvious. Tests don't need TSDoc.
+- Mermaid diagrams in `docs/002-*.md` and `docs/003-*.md` are the source of truth for component/sequence/ER diagrams — update them alongside prose changes, don't let them drift.
+
+## Build / test commands
+
+The scaffold exists (TK-00: `package.json`, `tsconfig.json`, `vitest.config.ts`, `eslint.config.js`) and the Storage Layer (TK-01), the Service Layer pieces up to TK-02g and the CLI entry point for `devflow config` (TK-03a, `src/tui/`) and the build/install setup (GH-17: `tsconfig.build.json`, `scripts/copy-assets.mjs`, `bin`) are implemented. Run everything from the repo root, with Node ≥ 22.13:
+
+- Install: `npm install`
+- Typecheck: `npm run typecheck` (`tsc --noEmit`, covers `src/`, `tests/` and `vitest.config.ts`)
+- Lint: `npm run lint` (`eslint .`, **no `--fix`**; excludes `docs/` and `.claude/`; enforces the layer-coupling import rules)
+- Test (whole suite): `npm test` (`vitest run`)
+- Single test file: `npm test -- tests/unit/smoke.test.ts`
+- Single test by name: `npm test -- -t "<name pattern>"`
+- Run the CLI: `npm start -- <args>` (`tsx src/tui/cli.ts`; e.g. `npm start -- --help`, `npm start -- config`, `npm start -- config proyectos`). It needs the Windows environment variables `APPDATA` and `USERPROFILE`; on Linux/WSL `resolveDatabasePath` (`win32.join`) creates a stray file named with backslashes in the current directory, so the interactive run is tested on Windows.
+- Build: `npm run build` (`tsc -p tsconfig.build.json` emits `src/` to `dist/`, then `scripts/copy-assets.mjs` copies the SQL migrations into `dist/database/migrations/`; `dist/` is git-ignored). `tsconfig.json` keeps `noEmit` and covers `tests/`, so `typecheck` is unchanged.
+- One-command install/update on Windows: `scripts/install.ps1` (Windows PowerShell 5.1 or PowerShell 7). It checks Node ≥ 22.13, Git and Ollama, clones (branch `-Rama`, default `final-project-ANR`) into `%USERPROFILE%\DevFlowCLI\app`, builds and links; on an existing clone it runs `git pull --ff-only` and rebuilds, and stops without touching anything if the clone has local changes or has diverged. Its tests (`tests/unit/scripts/`) drive it with PowerShell (`powershell.exe` also works from WSL) and are skipped only if no PowerShell is available.
+- Install the built CLI as the `devflow` command: `npm run build`, then `npm link` (or `npm install -g .`). The `bin` entry points to `dist/tui/cli.js`; `files` ships only `dist/` and `templates/`. The Windows shims that npm generates were checked on Windows 11 (PowerShell and `cmd`, Node 24) on 2026-11-14: `devflow --help` and `--version` work from any folder. The full interactive run (`devflow config`, `config proyectos`, `start`) was verified by hand on Windows 11 on 2026-11-15 (issue #20), with test repositories and the WSL Ollama; Windows 10 is in the product's target (Windows 10/11) but was not tested in this delivery.
+
+Things to keep in mind when touching the build or any file read at run time:
+
+- `templates/` and `package.json` are **not** copied into `dist/`: the modules read them with paths relative to their own location (`../../../templates/...`, `../../package.json`), and `dist/` keeps the same depth as `src/`, so those paths still reach the package root. Do not change the `rootDir`/`outDir` depth without checking them. Only non-`.ts` files that live inside `src/` (today, the migrations) need copying.
+- `src/tui/cli.ts` starts with a `#!/usr/bin/env node` shebang and resolves `process.argv[1]` with `realpathSync` before comparing it with `import.meta.url`: without it, the program exits silently when launched through a symlinked `bin` (`npm link` on Linux/macOS).
+- `npm test` runs `tests/integration/build-install.test.ts`, which builds into a temporary directory and does not write `dist/`.
+
+There is no `dev` script: use `npm start` (`tsx`) while developing.

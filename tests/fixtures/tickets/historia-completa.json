@@ -1,0 +1,9 @@
+{
+  "id": "10103",
+  "key": "SCRUM-21",
+  "fields": {
+    "summary": "Como desarrollador quiero filtrar mis tickets por estado",
+    "description": "Como desarrollador quiero filtrar mis tickets por estado para ver solo los que están en curso.\n\nCriterios de aceptación:\n- El filtro se aplica sin recargar la lista.\n- Se recuerda el último filtro usado.",
+    "issuetype": { "name": "Historia" }
+  }
+}

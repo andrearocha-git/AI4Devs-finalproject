@@ -1,0 +1,9 @@
+{
+  "id": "10101",
+  "key": "SCRUM-12",
+  "fields": {
+    "summary": "El login falla con usuarios que tienen tilde en el apellido",
+    "description": "Pasos para reproducir:\n1. Abrir la pantalla de login.\n2. Ingresar el usuario 'Peña' y una clave válida.\n\nResultado actual: error 500.\nResultado esperado: acceso concedido.\n\nEntorno: Windows 11, Node 22.",
+    "issuetype": { "name": "Bug" }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  // Solo reporte: no usar --fix. Las reglas desactivadas son decisiones de estilo de los docs
+  // (seudo-encabezados en negrita, blockquotes de instrucciones, tablas anchas, lineas largas).
+  "config": {
+    "default": true,
+    "MD013": false,
+    "MD028": false,
+    "MD033": false,
+    "MD036": false,
+    "MD041": false,
+    "MD060": false
+  },
+  "ignores": ["node_modules/**", ".claude/**", "templates/**"]
+}

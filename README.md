@@ -144,7 +144,7 @@ Los tests se escriben con **TDD** (Red → Green → Refactor) con Vitest, a par
 - **Integración** (`tests/integration/`): `ticket-flow.e2e.test.ts` (11 casos) recorre `devflow start` completo con Git, carpetas y SQLite reales; solo Jira y Ollama se simulan. `build-install.test.ts` compila a una carpeta temporal y ejecuta `devflow --help` como proceso hijo.
 - **Manual en Windows 11** (issue #20): recorrido con Jira real (solo lectura), repositorios de prueba y Ollama real, con 9 criterios. Sus hallazgos están en los issues #39 y #44; el segundo ya está corregido.
 
-Cada escenario se comprueba primero en RED. En 12 de los 24 contratos se comprueba además, tras el GREEN, con **mutaciones temporales**: se rompe el código a propósito y el test debe fallar. Resultado: 39 archivos y 856 tests en verde. La Service Layer (`src/services/**`) tiene un umbral de cobertura del 80 % (decidido en TK-02a, con `npm run test:coverage`) y hoy mide 98,97 % de sentencias, 94,92 % de ramas, 100 % de funciones y 99,69 % de líneas.
+Cada escenario se comprueba primero en RED. En 13 de los 25 contratos se comprueba además, tras el GREEN, con **mutaciones temporales**: se rompe el código a propósito y el test debe fallar. Resultado: 39 archivos y 858 tests en verde. La Service Layer (`src/services/**`) tiene un umbral de cobertura del 80 % (decidido en TK-02a, con `npm run test:coverage`) y hoy mide 98,97 % de sentencias, 94,92 % de ramas, 100 % de funciones y 99,69 % de líneas.
 
 *Evaluado y descartado:* Cucumber.js (duplicaría los escenarios de los contratos); Playwright, Cypress y Testing Library no aplican, porque el producto es solo CLI/TUI.
 
@@ -241,7 +241,7 @@ Cada US, TK o issue de GitHub (`GH-nn`, con `nn` el número del issue) se desarr
 
 **Pull Request 2**
 
-**Entrega 2 — MVP de DevFlow CLI: `devflow config` y `devflow start` con Ollama local** (`feature/entrega-2-ANR` → `main`). Implementa el MVP especificado en la Entrega 1: base SQLite, cliente de Jira, Git Manager (flujo manual congelado), carpetas de evidencias fuera del repositorio, Fase 1 del documento con Ollama y fallback determinista, y la CLI instalable con `devflow`. 856 tests en verde, cobertura de la Service Layer del 98,97 %, prueba de aceptación en Windows 11 y [video de demostración](https://youtu.be/i_tWna7VC9c) del flujo principal. Detalle en [`docs/007-pull-requests.md`](docs/007-pull-requests.md).
+**Entrega 2 — MVP de DevFlow CLI: `devflow config` y `devflow start` con Ollama local** (`feature/entrega-2-ANR` → `main`). Implementa el MVP especificado en la Entrega 1: base SQLite, cliente de Jira, Git Manager (flujo manual congelado), carpetas de evidencias fuera del repositorio, Fase 1 del documento con Ollama y fallback determinista, y la CLI instalable con `devflow`. 858 tests en verde, cobertura de la Service Layer del 98,97 %, prueba de aceptación en Windows 11 y [video de demostración](https://youtu.be/i_tWna7VC9c) del flujo principal. Detalle en [`docs/007-pull-requests.md`](docs/007-pull-requests.md).
 
 **Pull Request 3**
 

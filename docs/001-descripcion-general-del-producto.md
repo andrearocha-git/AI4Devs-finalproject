@@ -52,7 +52,7 @@ Entorno de destino: **Windows 10/11**. El paquete es privado y no se publica en 
 
 1. Comprueba Node.js ≥ 22.13 y Git; si falta alguno, lo dice y se detiene sin tocar nada. Si Ollama está apagado o no tiene `qwen2.5:3b`, solo avisa (con `ollama pull qwen2.5:3b`).
 2. Si no hay instalación, clona la rama `-Rama` (por defecto `final-project-ANR`, hasta que `main` tenga el código) en `-Carpeta` (por defecto `%USERPROFILE%\DevFlowCLI\app`), y ejecuta `npm install`, `npm run build` y `npm link`; después comprueba `devflow --help`.
-3. Si ya hay instalación, compara con `origin`: si no hay novedades, no cambia nada; si las hay, hace `git pull --ff-only`, `npm install` y `npm run build` y muestra la versión nueva. Si el clon tiene cambios locales sin guardar o su rama diverge de `origin`, se detiene sin tocar nada.
+3. Si ya hay instalación, compara con `origin`: si no hay novedades y la instalación está completa, no cambia nada; si las hay, hace `git pull --ff-only`, `npm install`, `npm run build` y `npm link` y muestra la versión nueva. Si el clon está al día pero no tiene la marca de instalación completa (`dist/.instalacion-completa`, que el instalador escribe al terminar sin error: una instalación a mano, una hecha con una versión anterior del script o una que falló a medias), lo recompila y lo enlaza. Si el clon tiene cambios locales sin guardar o su rama diverge de `origin`, se detiene sin tocar nada.
 
 ```text
 Invoke-WebRequest https://raw.githubusercontent.com/andrearocha-git/AI4Devs-finalproject/final-project-ANR/scripts/install.ps1 -OutFile install.ps1
@@ -88,7 +88,7 @@ devflow --help
 
 **Actualizar**
 
-Vuelve a ejecutar `scripts/install.ps1`: si hay novedades en `origin`, hace `git pull --ff-only`, `npm install` y `npm run build`, y el comando enlazado usa el nuevo `dist/`. A mano: `git pull`, `npm install` y `npm run build`.
+Vuelve a ejecutar `scripts/install.ps1`: si hay novedades en `origin`, hace `git pull --ff-only`, `npm install`, `npm run build` y `npm link`, y el comando enlazado usa el nuevo `dist/`. Si una instalación o actualización falló a medias, volver a ejecutarlo la completa. A mano: `git pull`, `npm install` y `npm run build`.
 
 **Si algo falla**
 

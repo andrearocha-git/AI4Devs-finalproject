@@ -84,7 +84,7 @@ Los pasos se detallan en [`docs/009-flujo-funcional.md`](docs/009-flujo-funciona
 
 **Requisitos previos:** Node.js ≥ 22.13, Git (con acceso a `origin`), Ollama activo con el modelo `qwen2.5:3b` (`ollama pull qwen2.5:3b`), y el email de tu cuenta de Jira con un API Token clásico (id.atlassian.com).
 
-**Instalación y actualización con un comando (recomendada):** `scripts/install.ps1` (Windows PowerShell 5.1 o PowerShell 7) comprueba Node.js, Git y Ollama, clona el repositorio en `%USERPROFILE%\DevFlowCLI\app`, compila y crea el comando `devflow`. Si ya está instalado, trae las novedades con `git pull --ff-only` y recompila; si el clon tiene cambios locales o su rama diverge de `origin`, se detiene sin tocar nada. Parámetros: `-Rama` (por defecto `final-project-ANR`, hasta que `main` tenga el código), `-Carpeta` y `-Repositorio`.
+**Instalación y actualización con un comando (recomendada):** `scripts/install.ps1` (Windows PowerShell 5.1 o PowerShell 7) comprueba Node.js, Git y Ollama, clona el repositorio en `%USERPROFILE%\DevFlowCLI\app`, compila y crea el comando `devflow`. Si ya está instalado, trae las novedades con `git pull --ff-only`, recompila y vuelve a enlazar con `npm link`; si el clon tiene cambios locales o su rama diverge de `origin`, se detiene sin tocar nada. Parámetros: `-Rama` (por defecto `final-project-ANR`, hasta que `main` tenga el código), `-Carpeta` y `-Repositorio`.
 
 ```text
 Invoke-WebRequest https://raw.githubusercontent.com/andrearocha-git/AI4Devs-finalproject/final-project-ANR/scripts/install.ps1 -OutFile install.ps1

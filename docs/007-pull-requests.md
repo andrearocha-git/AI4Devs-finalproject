@@ -131,7 +131,7 @@
 - **⚙️ Backend / Servicios:** N/A en `src/`. El instalador es un script de PowerShell (5.1 y 7), `scripts/install.ps1`:
   - Comprueba Node ≥ 22.13 y Git (bloquean) y Ollama con `qwen2.5:3b` (solo avisa).
   - Sin instalación previa: clona, `npm install`, `npm run build`, `npm link` y `devflow --help`.
-  - Con instalación previa: compara con `origin`; si está al día no cambia nada, y si hay novedades hace `git pull --ff-only` y recompila.
+  - Con instalación previa: compara con `origin`; si está al día no cambia nada, y si hay novedades hace `git pull --ff-only`, recompila y vuelve a enlazar con `npm link`.
   - Se detiene sin tocar nada si el clon tiene cambios locales o su rama diverge de `origin`.
   - Un clon al día pero sin la marca `dist/.instalacion-completa` (una compilación o un `npm link` que fallaron a medias, o una instalación manual) se completa; `Restore-LockfileTrasNpm` evita que el `package-lock.json` que reescribe `npm` bloquee la siguiente ejecución.
 - **🖥️ Frontend / TUI:** N/A (sin cambios).

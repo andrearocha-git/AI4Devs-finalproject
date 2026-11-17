@@ -80,6 +80,19 @@ devflow --help
 2. `devflow config proyectos`: da de alta las claves de proyecto de Jira y, opcionalmente, los repositorios de cada una (nombre, ruta local y rama base, `main` por defecto).
 3. `devflow start [ID]`: prepara un ticket. Sin ID, muestra tus tickets asignados.
 
+**Cómo verificarlo**
+
+No hace falta ninguna credencial para comprobar el trabajo, y el repositorio no contiene secretos: hay dos caminos.
+
+1. **Sin credenciales: la suite automática.** Con Node.js ≥ 22.13 y Git, desde la raíz del repositorio: `npm install` y `npm test` (39 archivos y 858 tests, unos 45 s). Jira y Ollama están **simulados** (`msw`), así que no necesita red, ni cuenta de Jira, ni Ollama; el recorrido de `devflow start` se ejecuta con Git, carpetas y SQLite reales (`tests/integration/ticket-flow.e2e.test.ts`). Se complementa con `npm run typecheck`, `npm run lint` y `npm run test:coverage` (umbral del 80 % en la Service Layer). Los tests del instalador necesitan PowerShell y se omiten si no hay; en Windows se omite además el del enlace simbólico.
+2. **Con tu propio Jira: el recorrido manual (Windows 10/11).** No se comparte ninguna cuenta ni token de prueba. Necesitas una cuenta de Jira Cloud con un API Token, un repositorio Git local con `origin` y, si quieres ver la Fase 1 redactada, Ollama con `qwen2.5:3b` (sin Ollama el flujo sigue y lo dice). Instala con `scripts/install.ps1` (arriba) y luego:
+   - `devflow config`: URL `https://<sitio>.atlassian.net`, email, API Token, carpeta de tickets y sufijo de rama.
+   - `devflow config proyectos`: una clave de proyecto (se valida contra Jira) y la ruta de tu repositorio.
+   - `devflow start <ID>` (o sin ID, para elegir de tus tickets asignados): debería crear la rama `features/<ID>-<SUFIJO>` (`bugs/…` si es un Bug), la carpeta `<carpeta de tickets>\<ID>\<repositorio>\adjuntos\` y el documento Markdown, y mostrar un resumen.
+   - Casos que conviene probar: Ollama apagado (el documento lleva `⚠️ Generado sin Ollama`), token inválido (ofrece cargar el ticket a mano), repositorio con cambios pendientes o ticket de tipo Épica (se detiene sin crear nada) y cancelar con Ctrl+C (código 130). La aplicación solo **lee** de Jira y nunca hace `commit`, `add` ni `push`.
+
+Los 9 criterios de este recorrido se ejecutaron a mano en Windows 11 el 2026-11-15 con Jira real (contrato `docs/changes/GH-20.md`).
+
 **Datos locales**
 
 - La base de datos es `%APPDATA%\DevFlowCLI\devflow.db` (SQLite). **Se crea sola en el primer arranque y las migraciones se aplican solas**: no hay semillas de datos, ni servidor, ni frontend que levantar.

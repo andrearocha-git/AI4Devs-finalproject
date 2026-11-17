@@ -27,7 +27,7 @@ interface Escenario {
   clon: string;
 }
 
-/** Crea un `origin` con un commit, lo clona y deja el clon en la situación pedida (con un `dist/` de mentira, salvo en `sinCompilar`). */
+/** Crea un `origin` con un commit, lo clona y deja el clon en la situación pedida (con un `dist/` de mentira; en `sinCompilar` tiene `dist/tui/cli.js`, como deja `tsc`, pero no la marca de instalación completa). */
 function armar(situacion: Situacion): Escenario {
   contador += 1;
   const base = join(dir, `caso-${contador}`);
@@ -47,8 +47,8 @@ function armar(situacion: Situacion): Escenario {
     localAdelantado: commitEnClon,
     sinCompilar: "",
   };
-  // `dist/` no está en Git, así que el stub no cuenta como cambio local; el instalador lo usa para saber si el clon se compiló.
-  const conDist = situacion === "sinCompilar" ? "" : `New-Item -ItemType Directory -Force -Path '${clon}\\dist\\tui' | Out-Null; Set-Content -Path '${clon}\\dist\\tui\\cli.js' -Value 'x'`;
+  // `dist/` no está en Git, así que el stub no cuenta como cambio local; la marca `.instalacion-completa` solo la escribe el instalador cuando compilar y enlazar terminaron bien.
+  const conDist = `New-Item -ItemType Directory -Force -Path '${clon}\\dist\\tui' | Out-Null; Set-Content -Path '${clon}\\dist\\tui\\cli.js' -Value 'x'` + (situacion === "sinCompilar" ? "" : `; Set-Content -Path '${clon}\\dist\\.instalacion-completa' -Value 'x'`);
   const out = runPs(
     [
       `$ErrorActionPreference = 'Continue'`,
@@ -165,11 +165,15 @@ describe.skipIf(runner === null)("GH-55 · E2 — tras npm install el clon no qu
 });
 
 describe.skipIf(runner === null)("GH-55 · E2 — un clon al día pero sin compilar se completa en vez de darse por bueno", { timeout: 60_000 }, () => {
-  it("limpio, al día y sin dist/ (una compilación o un npm link que fallaron) decide compilar y enlazar", () => {
-    expect(estadoDe(armar("sinCompilar").clon)).toBe("SinCompilar");
+  it("limpio, al día y con dist/tui/cli.js pero sin la marca de instalación completa (build o npm link que fallaron a medias) decide compilar y enlazar; con la marca vuelve a AlDia", () => {
+    const e = armar("sinCompilar");
+    expect(estadoDe(e.clon)).toBe("SinCompilar");
+    const out = runPs(`. '${script}'; Set-MarcaInstalacion -Carpeta '${e.clon}'`);
+    expect(out.status, out.stderr).toBe(0);
+    expect(estadoDe(e.clon)).toBe("AlDia");
   });
 
-  it("Clear-Dist borra dist/ y el clon pasa a SinCompilar, para que una actualización fallida se reintente", () => {
+  it("Clear-Dist borra dist/ con su marca y el clon pasa a SinCompilar, para que una actualización fallida se reintente", () => {
     const e = armar("alDia");
     expect(estadoDe(e.clon)).toBe("AlDia");
     const out = runPs(`. '${script}'; Clear-Dist -Carpeta '${e.clon}'`);

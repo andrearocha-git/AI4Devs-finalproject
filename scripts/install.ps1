@@ -101,9 +101,10 @@ function Get-EstadoInstalacion {
     .PARAMETER Carpeta
     Carpeta donde debería estar el clon.
     .OUTPUTS
-    NoInstalado (no hay clon), CambiosLocales (archivos seguidos modificados), AlDia (nada que traer y ya compilado; los
-    commits locales sin publicar y los archivos sin seguimiento no cuentan), SinCompilar (nada que traer, pero falta
-    dist/tui/cli.js porque una compilación o el npm link fallaron antes), ConNovedades (origin tiene commits nuevos y se
+    NoInstalado (no hay clon), CambiosLocales (archivos seguidos modificados), AlDia (nada que traer y con la marca de
+    instalación completa; los commits locales sin publicar y los archivos sin seguimiento no cuentan), SinCompilar (nada
+    que traer, pero falta dist/.instalacion-completa: una compilación, el copiado de recursos o el npm link fallaron antes,
+    aunque tsc ya haya dejado dist/tui/cli.js), ConNovedades (origin tiene commits nuevos y se
     puede avanzar) o Divergido (la rama local y origin tienen commits distintos).
     .NOTES
     Lanza una excepción si no se puede consultar origin.
@@ -124,7 +125,7 @@ function Get-EstadoInstalacion {
     $adelante = [int]$conteo[0]
     $atras = [int]$conteo[1]
     if ($atras -eq 0) {
-        if (-not (Test-Path -LiteralPath (Join-Path $Carpeta 'dist/tui/cli.js'))) { return 'SinCompilar' }
+        if (-not (Test-Path -LiteralPath (Join-Path $Carpeta 'dist/.instalacion-completa'))) { return 'SinCompilar' }
         return 'AlDia'
     }
     if ($adelante -eq 0) { return 'ConNovedades' }
@@ -169,28 +170,42 @@ function Restore-LockfileTrasNpm {
 function Clear-Dist {
     <#
     .SYNOPSIS
-    Borra dist/ antes de compilar una actualización, para que, si la compilación falla, la siguiente ejecución vea el clon
-    como SinCompilar y la reintente en vez de dar por buena una compilación vieja.
+    Borra dist/ (con su marca de instalación completa) antes de compilar una actualización, para que, si la compilación
+    falla, la siguiente ejecución vea el clon como SinCompilar y la reintente en vez de dar por buena una compilación vieja.
     #>
     param([Parameter(Mandatory)][string]$Carpeta)
     $dist = Join-Path $Carpeta 'dist'
     if (Test-Path -LiteralPath $dist) { Remove-Item -LiteralPath $dist -Recurse -Force }
 }
 
+function Set-MarcaInstalacion {
+    <#
+    .SYNOPSIS
+    Escribe dist/.instalacion-completa. Solo se llama cuando compilar (incluido el copiado de recursos) y enlazar terminaron
+    bien: tsc deja dist/tui/cli.js aunque el paso siguiente falle, así que ese archivo no sirve para saberlo.
+    #>
+    param([Parameter(Mandatory)][string]$Carpeta)
+    $dist = Join-Path $Carpeta 'dist'
+    New-Item -ItemType Directory -Force -Path $dist | Out-Null
+    Set-Content -LiteralPath (Join-Path $dist '.instalacion-completa') -Value 'ok'
+}
+
 function Build-DevFlow {
     <#
     .SYNOPSIS
-    Instala las dependencias y compila; con -Enlazar crea además el comando global devflow (npm link).
+    Instala las dependencias, compila y enlaza el comando global devflow (npm link); al terminar sin error deja la marca de
+    instalación completa. Si algún paso falla, la marca no se escribe y la ejecución siguiente lo reintenta.
     #>
-    param([Parameter(Mandatory)][string]$Carpeta, [switch]$Enlazar)
+    param([Parameter(Mandatory)][string]$Carpeta)
     Push-Location $Carpeta
     try {
         Invoke-Paso 'npm install' { npm install }
         Restore-LockfileTrasNpm -Carpeta $Carpeta
         Invoke-Paso 'npm run build' { npm run build }
-        if ($Enlazar) { Invoke-Paso 'npm link' { npm link } }
+        Invoke-Paso 'npm link' { npm link }
     }
     finally { Pop-Location }
+    Set-MarcaInstalacion -Carpeta $Carpeta
 }
 
 function Start-Instalacion {
@@ -210,7 +225,7 @@ function Start-Instalacion {
         switch (Get-EstadoInstalacion -Carpeta $Carpeta) {
             'NoInstalado' {
                 Invoke-Paso "git clone ($Rama)" { git clone --branch $Rama $Repositorio $Carpeta }
-                Build-DevFlow -Carpeta $Carpeta -Enlazar
+                Build-DevFlow -Carpeta $Carpeta
                 if (-not (Get-Command devflow -ErrorAction SilentlyContinue)) {
                     Write-Host "AVISO: el comando devflow aún no se reconoce. Abre una terminal nueva; si sigue igual, revisa que $(npm prefix -g) esté en el PATH." -ForegroundColor Yellow
                 }
@@ -222,7 +237,7 @@ function Start-Instalacion {
             }
             'SinCompilar' {
                 Write-Host 'El clon está al día pero sin compilar (una instalación anterior no terminó): se completa ahora.'
-                Build-DevFlow -Carpeta $Carpeta -Enlazar
+                Build-DevFlow -Carpeta $Carpeta
                 if (-not (Get-Command devflow -ErrorAction SilentlyContinue)) {
                     Write-Host "AVISO: el comando devflow aún no se reconoce. Abre una terminal nueva; si sigue igual, revisa que $(npm prefix -g) esté en el PATH." -ForegroundColor Yellow
                 }

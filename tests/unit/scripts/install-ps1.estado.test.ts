@@ -6,7 +6,7 @@ import { installScriptIn, makeTempDir, runner, runPs, toPs } from "./ps-helper.j
 // GH-55 · E2 — El estado del clon decide si instalar, no hacer nada, actualizar o detenerse. Cada caso arma un `origin` local
 // y un clon con Git real; el instalador completo solo se ejecuta en los casos que no necesitan `npm` (al día y detenerse).
 
-type Situacion = "lockModificado" | "alDia" | "conNovedades" | "cambiosLocales" | "soloSinSeguimiento" | "divergido" | "localAdelantado";
+type Situacion = "lockModificado" | "alDia" | "conNovedades" | "cambiosLocales" | "soloSinSeguimiento" | "divergido" | "localAdelantado" | "sinCompilar";
 
 let dir = "";
 let script = "";
@@ -27,7 +27,7 @@ interface Escenario {
   clon: string;
 }
 
-/** Crea un `origin` con un commit, lo clona y deja el clon en la situación pedida. */
+/** Crea un `origin` con un commit, lo clona y deja el clon en la situación pedida (con un `dist/` de mentira, salvo en `sinCompilar`). */
 function armar(situacion: Situacion): Escenario {
   contador += 1;
   const base = join(dir, `caso-${contador}`);
@@ -45,7 +45,10 @@ function armar(situacion: Situacion): Escenario {
     soloSinSeguimiento: `Set-Content -Path '${clon}\\sin-seguimiento.txt' -Value 'x'`,
     divergido: `${commitEnTrabajo}; ${commitEnClon}`,
     localAdelantado: commitEnClon,
+    sinCompilar: "",
   };
+  // `dist/` no está en Git, así que el stub no cuenta como cambio local; el instalador lo usa para saber si el clon se compiló.
+  const conDist = situacion === "sinCompilar" ? "" : `New-Item -ItemType Directory -Force -Path '${clon}\\dist\\tui' | Out-Null; Set-Content -Path '${clon}\\dist\\tui\\cli.js' -Value 'x'`;
   const out = runPs(
     [
       `$ErrorActionPreference = 'Continue'`,
@@ -60,6 +63,7 @@ function armar(situacion: Situacion): Escenario {
       `git -C '${trabajo}' push -q origin main`,
       `git clone -q '${origin}' '${clon}'`,
       extra[situacion],
+      conDist,
       "exit 0",
     ].join("; "),
   );
@@ -157,5 +161,19 @@ describe.skipIf(runner === null)("GH-55 · E2 — tras npm install el clon no qu
     const g = "git -c user.name=prueba -c user.email=prueba@example.com";
     runPs(`${g} -C '${e.clon}' rm -q package-lock.json; ${g} -C '${e.clon}' commit -q -m sinlock`);
     restaurar(e.clon);
+  });
+});
+
+describe.skipIf(runner === null)("GH-55 · E2 — un clon al día pero sin compilar se completa en vez de darse por bueno", { timeout: 60_000 }, () => {
+  it("limpio, al día y sin dist/ (una compilación o un npm link que fallaron) decide compilar y enlazar", () => {
+    expect(estadoDe(armar("sinCompilar").clon)).toBe("SinCompilar");
+  });
+
+  it("Clear-Dist borra dist/ y el clon pasa a SinCompilar, para que una actualización fallida se reintente", () => {
+    const e = armar("alDia");
+    expect(estadoDe(e.clon)).toBe("AlDia");
+    const out = runPs(`. '${script}'; Clear-Dist -Carpeta '${e.clon}'`);
+    expect(out.status, out.stderr).toBe(0);
+    expect(estadoDe(e.clon)).toBe("SinCompilar");
   });
 });

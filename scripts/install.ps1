@@ -101,9 +101,10 @@ function Get-EstadoInstalacion {
     .PARAMETER Carpeta
     Carpeta donde debería estar el clon.
     .OUTPUTS
-    NoInstalado (no hay clon), CambiosLocales (archivos seguidos modificados), AlDia (nada que traer; los commits locales
-    sin publicar y los archivos sin seguimiento no cuentan), ConNovedades (origin tiene commits nuevos y se puede avanzar)
-    o Divergido (la rama local y origin tienen commits distintos).
+    NoInstalado (no hay clon), CambiosLocales (archivos seguidos modificados), AlDia (nada que traer y ya compilado; los
+    commits locales sin publicar y los archivos sin seguimiento no cuentan), SinCompilar (nada que traer, pero falta
+    dist/tui/cli.js porque una compilación o el npm link fallaron antes), ConNovedades (origin tiene commits nuevos y se
+    puede avanzar) o Divergido (la rama local y origin tienen commits distintos).
     .NOTES
     Lanza una excepción si no se puede consultar origin.
     #>
@@ -122,7 +123,10 @@ function Get-EstadoInstalacion {
 
     $adelante = [int]$conteo[0]
     $atras = [int]$conteo[1]
-    if ($atras -eq 0) { return 'AlDia' }
+    if ($atras -eq 0) {
+        if (-not (Test-Path -LiteralPath (Join-Path $Carpeta 'dist/tui/cli.js'))) { return 'SinCompilar' }
+        return 'AlDia'
+    }
     if ($adelante -eq 0) { return 'ConNovedades' }
     return 'Divergido'
 }
@@ -160,6 +164,17 @@ function Restore-LockfileTrasNpm {
     param([Parameter(Mandatory)][string]$Carpeta)
     & git -C $Carpeta ls-files --error-unmatch package-lock.json 2>&1 | Out-Null
     if ($LASTEXITCODE -eq 0) { & git -C $Carpeta checkout -- package-lock.json }
+}
+
+function Clear-Dist {
+    <#
+    .SYNOPSIS
+    Borra dist/ antes de compilar una actualización, para que, si la compilación falla, la siguiente ejecución vea el clon
+    como SinCompilar y la reintente en vez de dar por buena una compilación vieja.
+    #>
+    param([Parameter(Mandatory)][string]$Carpeta)
+    $dist = Join-Path $Carpeta 'dist'
+    if (Test-Path -LiteralPath $dist) { Remove-Item -LiteralPath $dist -Recurse -Force }
 }
 
 function Build-DevFlow {
@@ -205,8 +220,18 @@ function Start-Instalacion {
             'AlDia' {
                 Write-Host "DevFlow CLI ya está al día (versión $(Get-VersionInstalada $Carpeta)) en $Carpeta. No se cambió nada." -ForegroundColor Green
             }
+            'SinCompilar' {
+                Write-Host 'El clon está al día pero sin compilar (una instalación anterior no terminó): se completa ahora.'
+                Build-DevFlow -Carpeta $Carpeta -Enlazar
+                if (-not (Get-Command devflow -ErrorAction SilentlyContinue)) {
+                    Write-Host "AVISO: el comando devflow aún no se reconoce. Abre una terminal nueva; si sigue igual, revisa que $(npm prefix -g) esté en el PATH." -ForegroundColor Yellow
+                }
+                else { Invoke-Paso 'devflow --help' { devflow --help | Out-Null } }
+                Write-Host "DevFlow CLI $(Get-VersionInstalada $Carpeta) instalado en $Carpeta. Siguiente paso: devflow config" -ForegroundColor Green
+            }
             'ConNovedades' {
                 Invoke-Paso 'git pull --ff-only' { git -C $Carpeta pull --ff-only --quiet }
+                Clear-Dist -Carpeta $Carpeta
                 Build-DevFlow -Carpeta $Carpeta
                 Write-Host "DevFlow CLI actualizado a la versión $(Get-VersionInstalada $Carpeta)." -ForegroundColor Green
             }
